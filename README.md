@@ -1,4 +1,4 @@
-# MatchLight V1.4 prototype
+# MatchLight V1.5 prototype
 
 A mobile-first football fixture and personal match-condition tracker.
 
@@ -8,7 +8,7 @@ A mobile-first football fixture and personal match-condition tracker.
 - Large match clocks and clear live/FT states
 - Search and selected-only filter
 - Add any fixture to a persistent multi-day match list
-- Choose Home win, Away win, Draw, Over 1.5/2.5/3.5 or BTTS
+- Choose no option, Home win, Draw, Away win, Over/Under 1.5, 2.5 or 3.5, and BTTS Yes/No
 - Automatic statuses:
   - Grey: not started
   - Green: winning / won
@@ -52,3 +52,14 @@ Teams are now displayed side by side, with the live score or “v” centred bet
 
 ## V1.4 settings change
 Choose favourite leagues in Settings. They are stored on the device and displayed first on each fixture date with a star. The app version is now shown prominently in the header.
+
+
+## V1.5 tracking choices
+
+The Track this match window now uses grouped, tap-friendly buttons:
+
+- No option / just track the match
+- Home win, Draw and Away win
+- Over 1.5, 2.5 and 3.5
+- Under 1.5, 2.5 and 3.5
+- Both teams to score: Yes or No

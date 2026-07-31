@@ -24,13 +24,18 @@ fixtures.forEach((f) => { f.date = isoDate(addDays(now, f.day)); });
 const LEAGUES = [...new Set(fixtures.map((fixture) => fixture.league))].sort((a, b) => a.localeCompare(b));
 
 const CONDITIONS = [
-  { id: "home", label: "Home win" },
-  { id: "away", label: "Away win" },
-  { id: "draw", label: "Draw" },
-  { id: "over15", label: "Over 1.5 goals" },
-  { id: "over25", label: "Over 2.5 goals" },
-  { id: "over35", label: "Over 3.5 goals" },
-  { id: "btts", label: "Both teams to score" },
+  { id: "none", label: "No option", group: "none" },
+  { id: "home", label: "Home win", group: "result" },
+  { id: "draw", label: "Draw", group: "result" },
+  { id: "away", label: "Away win", group: "result" },
+  { id: "over15", label: "Over 1.5", group: "over" },
+  { id: "over25", label: "Over 2.5", group: "over" },
+  { id: "over35", label: "Over 3.5", group: "over" },
+  { id: "under15", label: "Under 1.5", group: "under" },
+  { id: "under25", label: "Under 2.5", group: "under" },
+  { id: "under35", label: "Under 3.5", group: "under" },
+  { id: "bttsYes", label: "Yes", group: "btts" },
+  { id: "bttsNo", label: "No", group: "btts" },
 ];
 
 const state = {
@@ -163,7 +168,7 @@ function renderFixtures() {
 }
 
 function conditionLabel(id) {
-  return CONDITIONS.find((c) => c.id === id)?.label || "Track match";
+  return CONDITIONS.find((c) => c.id === id)?.label || "No option";
 }
 
 function calculateStatus(fixture, conditionId) {
@@ -201,12 +206,25 @@ function calculateStatus(fixture, conditionId) {
       winning = total >= 4;
       oneGoalAway = total === 3;
       break;
-    case "btts":
+    case "under15":
+      winning = total < 2;
+      break;
+    case "under25":
+      winning = total < 3;
+      break;
+    case "under35":
+      winning = total < 4;
+      break;
+    case "bttsYes":
       winning = h > 0 && a > 0;
       oneGoalAway = (h > 0 && a === 0) || (a > 0 && h === 0);
       break;
+    case "bttsNo":
+      winning = h === 0 || a === 0;
+      break;
+    case "none":
     default:
-      return { colour: "grey", label: "Choose condition" };
+      return { colour: "grey", label: "Just tracking" };
   }
 
   if (winning) return { colour: "green", label: finished ? "Won" : "Winning" };
@@ -302,9 +320,33 @@ function openConditionDialog(fixtureId) {
   if (!fixture) return;
   state.pendingFixtureId = fixtureId;
   els.dialogMatchTitle.textContent = `${fixture.home} v ${fixture.away}`;
-  els.conditionOptions.innerHTML = CONDITIONS.map((condition) => `
-    <button type="button" class="condition-option" data-condition="${condition.id}">${condition.label}</button>
-  `).join("");
+  const currentCondition = state.selected[fixtureId]?.condition || "none";
+  const optionButtons = (group) => CONDITIONS
+    .filter((condition) => condition.group === group)
+    .map((condition) => `<button type="button" class="condition-option ${condition.id === currentCondition ? "selected" : ""}" data-condition="${condition.id}">${condition.label}</button>`)
+    .join("");
+
+  els.conditionOptions.innerHTML = `
+    <section class="condition-section condition-section-none">
+      <div class="condition-row single">${optionButtons("none")}</div>
+      <p>Keep this match in your list without a traffic-light condition.</p>
+    </section>
+    <section class="condition-section">
+      <h4>Match result</h4>
+      <div class="condition-row three">${optionButtons("result")}</div>
+    </section>
+    <section class="condition-section">
+      <h4>Over goals</h4>
+      <div class="condition-row three">${optionButtons("over")}</div>
+    </section>
+    <section class="condition-section">
+      <h4>Under goals</h4>
+      <div class="condition-row three">${optionButtons("under")}</div>
+    </section>
+    <section class="condition-section">
+      <h4>Both teams to score</h4>
+      <div class="condition-row two">${optionButtons("btts")}</div>
+    </section>`;
   els.conditionDialog.showModal();
 }
 

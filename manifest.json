@@ -1,0 +1,17 @@
+{
+  "name": "MatchLight",
+  "short_name": "MatchLight",
+  "description": "A focused football fixture and match-condition tracker.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#07090d",
+  "theme_color": "#080b10",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

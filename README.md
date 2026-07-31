@@ -1,2 +1,45 @@
-# matchlight
-Live football match tracker with traffic-light status
+# MatchLight V1 prototype
+
+A mobile-first football fixture and personal match-condition tracker.
+
+## Included
+
+- Fixtures across yesterday, today and the following six days
+- Large match clocks and clear live/FT states
+- Search and selected-only filter
+- Add any fixture to a persistent multi-day match list
+- Choose Home win, Away win, Draw, Over 1.5/2.5/3.5 or BTTS
+- Automatic statuses:
+  - Grey: not started
+  - Green: winning / won
+  - Yellow: one goal makes the condition win
+  - Red: all other live states / lost
+- All, Live, Upcoming and Finished filters
+- Date or urgency sorting
+- Dark and light themes
+- Local storage and installable PWA support
+
+## Run locally
+
+Because the service worker requires HTTP, use a simple local server rather than double-clicking the HTML file.
+
+### Python
+
+```bash
+python -m http.server 8000
+```
+
+Open `http://localhost:8000`.
+
+## Publish on GitHub Pages
+
+1. Create a new GitHub repository.
+2. Upload all files in this folder to the repository root.
+3. Open **Settings → Pages**.
+4. Set the source to **Deploy from a branch** and choose `main` / root.
+5. Open the generated Pages address on your phone.
+6. In Chrome, choose **Add to Home screen** or **Install app**.
+
+## Important
+
+This version uses built-in sample fixtures. The next technical step is connecting a secure backend to a licensed football-data API. API keys must not be embedded directly in `app.js`.

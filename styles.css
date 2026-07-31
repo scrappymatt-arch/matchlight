@@ -335,7 +335,7 @@ menu { display: flex; justify-content: flex-end; gap: 9px; margin: 18px 0 0; pad
 }
 
 
-/* V1.3 — exact single-line match layout: 67′ Man Utd 2–1 Everton */
+/* V1.4 — exact continuous match row: 67′ Man Utd 2–1 Everton */
 .fixture-card {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
@@ -399,4 +399,46 @@ menu { display: flex; justify-content: flex-end; gap: 9px; margin: 18px 0 0; pad
     min-width: 42px;
     font-size: 1.08rem;
   }
+}
+
+
+/* V1.4 definitive match-row layout */
+.fixture-card {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  align-items: center !important;
+}
+.single-line-match {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 8px !important;
+  min-width: 0 !important;
+  white-space: nowrap !important;
+}
+.inline-match-time {
+  flex: 0 0 48px !important;
+  width: 48px !important;
+  text-align: left !important;
+}
+.single-line-match .home-team,
+.single-line-match .away-team {
+  flex: 0 1 auto !important;
+  width: auto !important;
+  min-width: 0 !important;
+  display: inline !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.single-line-match .versus-score,
+.single-line-match .tracker-score {
+  flex: 0 0 auto !important;
+  min-width: 0 !important;
+  display: inline-flex !important;
+  white-space: nowrap !important;
+}
+@media (max-width: 520px) {
+  .single-line-match { gap: 5px !important; }
+  .inline-match-time { flex-basis: 39px !important; width: 39px !important; }
 }

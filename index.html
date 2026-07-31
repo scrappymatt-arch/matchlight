@@ -15,7 +15,7 @@
     <header class="topbar">
       <div>
         <p class="eyebrow">FOOTBALL, WITHOUT THE CLUTTER</p>
-        <h1>MatchLight</h1>
+        <h1>MatchLight <span class="app-version">V1.2</span></h1>
       </div>
       <button id="themeToggle" class="icon-button" aria-label="Toggle theme" title="Toggle theme">☼</button>
     </header>
@@ -84,6 +84,17 @@
             <p>Switch between dark and light mode.</p>
           </div>
           <button id="settingsThemeToggle" class="secondary-button">Toggle</button>
+        </div>
+
+        <div class="settings-panel">
+          <div class="settings-panel-heading">
+            <div>
+              <h3>Favourite leagues</h3>
+              <p>Favourite competitions appear first on the Fixtures screen.</p>
+            </div>
+            <button id="clearFavouriteLeagues" class="text-button" type="button">Clear</button>
+          </div>
+          <div id="favouriteLeagueOptions" class="league-choice-grid"></div>
         </div>
 
         <div class="settings-card">

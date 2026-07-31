@@ -1,4 +1,4 @@
-# MatchLight V1 prototype
+# MatchLight V1.2 prototype
 
 A mobile-first football fixture and personal match-condition tracker.
 
@@ -16,6 +16,7 @@ A mobile-first football fixture and personal match-condition tracker.
   - Red: all other live states / lost
 - All, Live, Upcoming and Finished filters
 - Date or urgency sorting
+- Favourite leagues saved in Settings and prioritised on the Fixtures screen
 - Dark and light themes
 - Local storage and installable PWA support
 
@@ -43,3 +44,11 @@ Open `http://localhost:8000`.
 ## Important
 
 This version uses built-in sample fixtures. The next technical step is connecting a secure backend to a licensed football-data API. API keys must not be embedded directly in `app.js`.
+
+
+## V1.1 layout change
+Teams are now displayed side by side, with the live score or “v” centred between them.
+
+
+## V1.2 settings change
+Choose favourite leagues in Settings. They are stored on the device and displayed first on each fixture date with a star. The app version is now shown prominently in the header.

@@ -21,6 +21,8 @@ const fixtures = [
 
 fixtures.forEach((f) => { f.date = isoDate(addDays(now, f.day)); });
 
+const LEAGUES = [...new Set(fixtures.map((fixture) => fixture.league))].sort((a, b) => a.localeCompare(b));
+
 const CONDITIONS = [
   { id: "home", label: "Home win" },
   { id: "away", label: "Away win" },
@@ -39,6 +41,7 @@ const state = {
   trackerSort: "date",
   selected: JSON.parse(localStorage.getItem("matchlight-selected") || "{}"),
   theme: localStorage.getItem("matchlight-theme") || "dark",
+  favouriteLeagues: JSON.parse(localStorage.getItem("matchlight-favourite-leagues") || "[]"),
   pendingFixtureId: null,
 };
 
@@ -60,10 +63,28 @@ const els = {
   conditionOptions: document.querySelector("#conditionOptions"),
   clearTracker: document.querySelector("#clearTracker"),
   confirmDialog: document.querySelector("#confirmDialog"),
+  favouriteLeagueOptions: document.querySelector("#favouriteLeagueOptions"),
+  clearFavouriteLeagues: document.querySelector("#clearFavouriteLeagues"),
 };
 
 function saveSelected() {
   localStorage.setItem("matchlight-selected", JSON.stringify(state.selected));
+}
+
+function saveFavouriteLeagues() {
+  localStorage.setItem("matchlight-favourite-leagues", JSON.stringify(state.favouriteLeagues));
+}
+
+function renderFavouriteLeagueSettings() {
+  els.favouriteLeagueOptions.innerHTML = LEAGUES.map((league) => {
+    const checked = state.favouriteLeagues.includes(league);
+    return `<label class="league-choice ${checked ? "selected" : ""}">
+      <input type="checkbox" value="${league}" ${checked ? "checked" : ""} />
+      <span class="league-choice-star" aria-hidden="true">★</span>
+      <span>${league}</span>
+    </label>`;
+  }).join("");
+  els.clearFavouriteLeagues.disabled = state.favouriteLeagues.length === 0;
 }
 
 function formatDay(dateStr, long = false) {
@@ -99,11 +120,15 @@ function fixtureTimeMarkup(fixture) {
 function fixtureCard(fixture) {
   const isSelected = Boolean(state.selected[fixture.id]);
   const scoresVisible = fixture.status !== "scheduled";
+  const centre = scoresVisible
+    ? `<span class="versus-score"><b>${fixture.homeScore}</b><i>–</i><b>${fixture.awayScore}</b></span>`
+    : `<span class="versus-score scheduled"><i>v</i></span>`;
   return `<article class="fixture-card">
     ${fixtureTimeMarkup(fixture)}
-    <div class="teams">
-      <div class="team-row"><span>${fixture.home}</span><span class="score">${scoresVisible ? fixture.homeScore : ""}</span></div>
-      <div class="team-row"><span>${fixture.away}</span><span class="score">${scoresVisible ? fixture.awayScore : ""}</span></div>
+    <div class="matchup" aria-label="${fixture.home} versus ${fixture.away}">
+      <strong class="home-team">${fixture.home}</strong>
+      ${centre}
+      <strong class="away-team">${fixture.away}</strong>
     </div>
     <button class="add-button ${isSelected ? "selected" : ""}" data-add="${fixture.id}" aria-label="${isSelected ? "Edit selected match" : "Add match"}">${isSelected ? "✓" : "+"}</button>
   </article>`;
@@ -121,12 +146,20 @@ function renderFixtures() {
   }
 
   const groups = Object.groupBy(list, (fixture) => `${fixture.country} · ${fixture.league}`);
-  els.fixtureList.innerHTML = Object.entries(groups).map(([league, matches]) => `
-    <section class="league-group">
-      <div class="league-title"><span>${league}</span><span>${matches.length} match${matches.length === 1 ? "" : "es"}</span></div>
+  const orderedGroups = Object.entries(groups).sort(([, matchesA], [, matchesB]) => {
+    const favouriteA = state.favouriteLeagues.includes(matchesA[0].league);
+    const favouriteB = state.favouriteLeagues.includes(matchesB[0].league);
+    if (favouriteA !== favouriteB) return favouriteA ? -1 : 1;
+    return matchesA[0].league.localeCompare(matchesB[0].league);
+  });
+  els.fixtureList.innerHTML = orderedGroups.map(([league, matches]) => {
+    const isFavourite = state.favouriteLeagues.includes(matches[0].league);
+    return `
+    <section class="league-group ${isFavourite ? "favourite-league" : ""}">
+      <div class="league-title"><span>${isFavourite ? `<b class="league-star" aria-label="Favourite league">★</b>` : ""}${league}</span><span>${matches.length} match${matches.length === 1 ? "" : "es"}</span></div>
       ${matches.map(fixtureCard).join("")}
-    </section>
-  `).join("");
+    </section>`;
+  }).join("");
 }
 
 function conditionLabel(id) {
@@ -237,12 +270,15 @@ function renderTracker() {
     <div class="day-heading">${formatDay(date, true)}</div>
     ${matches.map(({ fixture, selection }) => {
       const status = calculateStatus(fixture, selection.condition);
-      const score = fixture.status === "scheduled" ? "–" : `${fixture.homeScore}-${fixture.awayScore}`;
+      const score = fixture.status === "scheduled"
+        ? `<span class="tracker-score scheduled">v</span>`
+        : `<span class="tracker-score"><b>${fixture.homeScore}</b><i>–</i><b>${fixture.awayScore}</b></span>`;
       return `<article class="tracker-card status-${status.colour}">
-        <div class="tracker-main">
-          <div class="tracker-clock">${trackerClock(fixture)}</div>
-          <div class="tracker-teams"><strong>${fixture.home}</strong><strong>${fixture.away}</strong></div>
-          <div class="tracker-score">${score}</div>
+        <div class="tracker-clock">${trackerClock(fixture)}</div>
+        <div class="tracker-matchup" aria-label="${fixture.home} versus ${fixture.away}">
+          <strong class="home-team">${fixture.home}</strong>
+          ${score}
+          <strong class="away-team">${fixture.away}</strong>
         </div>
         <div class="tracker-meta">
           <button class="condition-label remove-button" data-edit="${fixture.id}" title="Change condition">${conditionLabel(selection.condition)} ✎</button>
@@ -258,6 +294,7 @@ function renderAll() {
   renderDates();
   renderFixtures();
   renderTracker();
+  renderFavouriteLeagueSettings();
 }
 
 function openConditionDialog(fixtureId) {
@@ -341,6 +378,22 @@ els.confirmDialog.addEventListener("close", () => {
 });
 document.querySelector("#themeToggle").addEventListener("click", toggleTheme);
 document.querySelector("#settingsThemeToggle").addEventListener("click", toggleTheme);
+els.favouriteLeagueOptions.addEventListener("change", (event) => {
+  const checkbox = event.target.closest('input[type="checkbox"]');
+  if (!checkbox) return;
+  state.favouriteLeagues = checkbox.checked
+    ? [...new Set([...state.favouriteLeagues, checkbox.value])]
+    : state.favouriteLeagues.filter((league) => league !== checkbox.value);
+  saveFavouriteLeagues();
+  renderFavouriteLeagueSettings();
+  renderFixtures();
+});
+els.clearFavouriteLeagues.addEventListener("click", () => {
+  state.favouriteLeagues = [];
+  saveFavouriteLeagues();
+  renderFavouriteLeagueSettings();
+  renderFixtures();
+});
 
 renderAll();
 

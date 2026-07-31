@@ -1,74 +1,24 @@
-# MatchLight V1.6 prototype
+# MatchBuddy V2.0
 
-A mobile-first football fixture and personal match-condition tracker.
+First live-data release of MatchBuddy.
 
-## Included
+## What is new
+- Real fixtures, results, live scores and match clocks through the protected Cloudflare Worker.
+- Loads only the selected date, covering 3 days back and 10 days ahead.
+- Two-minute live refresh only while the app is open and live data matters.
+- MatchBuddy branding throughout.
+- Favourite leagues learned from real loaded fixtures.
+- Persistent My Matches tracker and traffic-light conditions.
+- Opens My Matches when a saved match is already marked live.
+- Automatic clear 24 hours after all tracked matches finish.
 
-- Fixtures across yesterday, today and the following six days
-- Large match clocks and clear live/FT states
-- Search and selected-only filter
-- Add any fixture to a persistent multi-day match list
-- Choose no option, Home win, Draw, Away win, Over/Under 1.5, 2.5 or 3.5, and BTTS Yes/No
-- Automatic statuses:
-  - Grey: not started
-  - Green: winning / won
-  - Yellow: one goal makes the condition win
-  - Red: all other live states / lost
-- All, Live, Upcoming and Finished filters
-- Date or urgency sorting
-- Favourite leagues saved in Settings and prioritised on the Fixtures screen
-- Dark and light themes
-- Local storage and installable PWA support
+## Upload to GitHub Pages
+Upload all files from this folder to the root of the `matchlight` repository, replacing the existing files. GitHub Pages can continue using the existing repository and URL.
 
-## Run locally
+After deployment, fully close the old installed app or browser tab and reopen it. If V2.0 does not appear, use Ctrl+F5 once.
 
-Because the service worker requires HTTP, use a simple local server rather than double-clicking the HTML file.
+## Live-data bridge
+This build uses:
+`https://matchbuddy-api.scrappymatt.workers.dev`
 
-### Python
-
-```bash
-python -m http.server 8000
-```
-
-Open `http://localhost:8000`.
-
-## Publish on GitHub Pages
-
-1. Create a new GitHub repository.
-2. Upload all files in this folder to the repository root.
-3. Open **Settings → Pages**.
-4. Set the source to **Deploy from a branch** and choose `main` / root.
-5. Open the generated Pages address on your phone.
-6. In Chrome, choose **Add to Home screen** or **Install app**.
-
-## Important
-
-This version uses built-in sample fixtures. The next technical step is connecting a secure backend to a licensed football-data API. API keys must not be embedded directly in `app.js`.
-
-
-## V1.1 layout change
-Teams are now displayed side by side, with the live score or “v” centred between them.
-
-
-## V1.4 settings change
-Choose favourite leagues in Settings. They are stored on the device and displayed first on each fixture date with a star. The app version is now shown prominently in the header.
-
-
-## V1.6 tracking choices
-
-The Track this match window now uses grouped, tap-friendly buttons:
-
-- No option / just track the match
-- Home win, Draw and Away win
-- Over 1.5, 2.5 and 3.5
-- Under 1.5, 2.5 and 3.5
-- Both teams to score: Yes or No
-
-
-## V1.6 changes
-
-- Fixture browsing now covers 3 days back and 10 days ahead.
-- Scores use a fixed centre column so home and away goals line up.
-- The match-condition picker is stacked as Result, Over / Under, BTTS, then No option.
-- The app opens My Matches when any tracked match is live.
-- My Matches clears automatically 24 hours after all tracked fixtures are complete.
+The API-Football key remains stored only as an encrypted Cloudflare Worker secret.

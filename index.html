@@ -4,18 +4,18 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#080b10" />
-  <meta name="description" content="A focused football fixture and match-condition tracker." />
-  <title>MatchLight</title>
+  <meta name="description" content="Live football fixtures and personal match-condition tracking." />
+  <title>MatchBuddy</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=1.6" />
+  <link rel="stylesheet" href="styles.css?v=2.0" />
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div>
         <p class="eyebrow">FOOTBALL, WITHOUT THE CLUTTER</p>
-        <h1>MatchLight <span class="app-version">V1.6</span></h1>
+        <h1>MatchBuddy <span class="app-version">V2.0</span></h1>
       </div>
       <button id="themeToggle" class="icon-button" aria-label="Toggle theme" title="Toggle theme">☼</button>
     </header>
@@ -40,6 +40,7 @@
           <button id="showSelectedOnly" class="filter-button" aria-pressed="false">Selected</button>
         </div>
 
+        <div id="dataStatus" class="data-status" aria-live="polite"></div>
         <div id="fixtureList" class="fixture-list"></div>
       </section>
 
@@ -47,7 +48,7 @@
         <div class="section-heading tracker-heading">
           <div>
             <p class="section-kicker">YOUR MATCHES</p>
-            <h2 id="trackerTitle">My Match List</h2>
+            <h2 id="trackerTitle">My Matches</h2>
           </div>
           <button id="clearTracker" class="danger-button">Clear</button>
         </div>
@@ -79,38 +80,32 @@
         </div>
 
         <div class="settings-card">
-          <div>
-            <h3>Theme</h3>
-            <p>Switch between dark and light mode.</p>
-          </div>
+          <div><h3>Theme</h3><p>Switch between dark and light mode.</p></div>
           <button id="settingsThemeToggle" class="secondary-button">Toggle</button>
         </div>
 
         <div class="settings-panel">
           <div class="settings-panel-heading">
-            <div>
-              <h3>Favourite leagues</h3>
-              <p>Favourite competitions appear first on the Fixtures screen.</p>
-            </div>
+            <div><h3>Favourite leagues</h3><p>Favourite competitions appear first on the Fixtures screen.</p></div>
             <button id="clearFavouriteLeagues" class="text-button" type="button">Clear</button>
           </div>
           <div id="favouriteLeagueOptions" class="league-choice-grid"></div>
+          <p id="leagueHelp" class="settings-help">Leagues appear here after their fixtures have been loaded.</p>
         </div>
 
         <div class="settings-card">
-          <div>
-            <h3>Completed matches</h3>
-            <p>Automatically clear the list 24 hours after every tracked match is complete.</p>
-          </div>
+          <div><h3>Completed matches</h3><p>The list clears 24 hours after every tracked match is complete.</p></div>
           <span class="status-pill">24 hours</span>
         </div>
 
         <div class="settings-card">
-          <div>
-            <h3>Data source</h3>
-            <p>This prototype uses built-in sample fixtures. Live API support is the next build step.</p>
-          </div>
-          <span class="status-pill muted">Demo</span>
+          <div><h3>Data source</h3><p>Real fixtures and scores supplied through your protected MatchBuddy Worker.</p></div>
+          <span class="status-pill">Live</span>
+        </div>
+
+        <div class="settings-card">
+          <div><h3>Live refresh</h3><p>Checks approximately every two minutes only while the app is open and live matches matter.</p></div>
+          <span class="status-pill muted">2 min</span>
         </div>
       </section>
     </main>
@@ -125,16 +120,11 @@
   <dialog id="conditionDialog">
     <form method="dialog" class="dialog-card">
       <div class="dialog-header">
-        <div>
-          <p class="section-kicker">TRACK THIS MATCH</p>
-          <h3 id="dialogMatchTitle">Choose condition</h3>
-        </div>
+        <div><p class="section-kicker">TRACK THIS MATCH</p><h3 id="dialogMatchTitle">Choose condition</h3></div>
         <button value="cancel" class="dialog-close" aria-label="Close">×</button>
       </div>
-      <div id="conditionOptions" class="condition-grid"></div>
-      <menu>
-        <button value="cancel" class="secondary-button">Cancel</button>
-      </menu>
+      <div id="conditionOptions" class="condition-groups"></div>
+      <menu><button value="cancel" class="secondary-button">Cancel</button></menu>
     </form>
   </dialog>
 
@@ -149,6 +139,6 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=1.6" defer></script>
+  <script src="app.js?v=2.0" defer></script>
 </body>
 </html>

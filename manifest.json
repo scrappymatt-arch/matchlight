@@ -1,17 +1,10 @@
 {
-  "name": "MatchLight",
-  "short_name": "MatchLight",
-  "description": "A focused football fixture and match-condition tracker.",
+  "name": "MatchBuddy",
+  "short_name": "MatchBuddy",
+  "description": "Live football fixtures and personal match-condition tracking.",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#07090d",
+  "background_color": "#080b10",
   "theme_color": "#080b10",
-  "icons": [
-    {
-      "src": "icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
-    }
-  ]
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
 }

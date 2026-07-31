@@ -112,9 +112,9 @@ function renderDates() {
 }
 
 function fixtureTimeMarkup(fixture) {
-  if (fixture.status === "live") return `<div class="match-time live">${fixture.minute}′<small>LIVE</small></div>`;
-  if (fixture.status === "finished") return `<div class="match-time">FT<small>FINISHED</small></div>`;
-  return `<div class="match-time">${fixture.time}<small>KICK-OFF</small></div>`;
+  if (fixture.status === "live") return `<span class="inline-match-time live">${fixture.minute}′</span>`;
+  if (fixture.status === "finished") return `<span class="inline-match-time">FT</span>`;
+  return `<span class="inline-match-time">${fixture.time}</span>`;
 }
 
 function fixtureCard(fixture) {
@@ -124,8 +124,8 @@ function fixtureCard(fixture) {
     ? `<span class="versus-score"><b>${fixture.homeScore}</b><i>–</i><b>${fixture.awayScore}</b></span>`
     : `<span class="versus-score scheduled"><i>v</i></span>`;
   return `<article class="fixture-card">
-    ${fixtureTimeMarkup(fixture)}
-    <div class="matchup" aria-label="${fixture.home} versus ${fixture.away}">
+    <div class="single-line-match" aria-label="${fixture.home} versus ${fixture.away}">
+      ${fixtureTimeMarkup(fixture)}
       <strong class="home-team">${fixture.home}</strong>
       ${centre}
       <strong class="away-team">${fixture.away}</strong>
@@ -216,9 +216,9 @@ function calculateStatus(fixture, conditionId) {
 }
 
 function trackerClock(fixture) {
-  if (fixture.status === "live") return `${fixture.minute}′<small>LIVE</small>`;
-  if (fixture.status === "finished") return `FT<small>FINISHED</small>`;
-  return `${fixture.time}<small>${formatDay(fixture.date).toUpperCase()}</small>`;
+  if (fixture.status === "live") return `${fixture.minute}′`;
+  if (fixture.status === "finished") return `FT`;
+  return `${fixture.time}`;
 }
 
 function getTrackerMatches() {
@@ -274,8 +274,8 @@ function renderTracker() {
         ? `<span class="tracker-score scheduled">v</span>`
         : `<span class="tracker-score"><b>${fixture.homeScore}</b><i>–</i><b>${fixture.awayScore}</b></span>`;
       return `<article class="tracker-card status-${status.colour}">
-        <div class="tracker-clock">${trackerClock(fixture)}</div>
-        <div class="tracker-matchup" aria-label="${fixture.home} versus ${fixture.away}">
+        <div class="single-line-match tracker-line" aria-label="${fixture.home} versus ${fixture.away}">
+          <span class="inline-match-time ${fixture.status === "live" ? "live" : ""}">${trackerClock(fixture)}</span>
           <strong class="home-team">${fixture.home}</strong>
           ${score}
           <strong class="away-team">${fixture.away}</strong>

@@ -333,3 +333,70 @@ menu { display: flex; justify-content: flex-end; gap: 9px; margin: 18px 0 0; pad
 @media (max-width: 520px) {
   .league-choice-grid { grid-template-columns: 1fr; }
 }
+
+
+/* V1.3 — exact single-line match layout: 67′ Man Utd 2–1 Everton */
+.fixture-card {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+.single-line-match {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.inline-match-time {
+  font-size: 1.05rem;
+  font-weight: 900;
+  text-align: left;
+  white-space: nowrap;
+}
+.inline-match-time.live {
+  color: var(--red);
+  font-size: 1.18rem;
+}
+.single-line-match .home-team,
+.single-line-match .away-team {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  font-size: 1rem;
+}
+.single-line-match .versus-score,
+.single-line-match .tracker-score {
+  min-width: 48px;
+  font-size: 1.22rem;
+}
+.tracker-line {
+  margin-bottom: 12px;
+}
+@media (max-width: 520px) {
+  .fixture-card {
+    grid-template-columns: minmax(0, 1fr) 42px;
+    gap: 7px;
+    padding: 12px 9px;
+  }
+  .single-line-match {
+    grid-template-columns: 40px minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 5px;
+  }
+  .inline-match-time {
+    font-size: .92rem;
+  }
+  .inline-match-time.live {
+    font-size: 1.05rem;
+  }
+  .single-line-match .home-team,
+  .single-line-match .away-team {
+    font-size: .88rem;
+  }
+  .single-line-match .versus-score,
+  .single-line-match .tracker-score {
+    min-width: 42px;
+    font-size: 1.08rem;
+  }
+}

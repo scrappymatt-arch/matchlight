@@ -1,4 +1,4 @@
-# MatchLight V1.2 prototype
+# MatchLight V1.3 prototype
 
 A mobile-first football fixture and personal match-condition tracker.
 
@@ -50,5 +50,5 @@ This version uses built-in sample fixtures. The next technical step is connectin
 Teams are now displayed side by side, with the live score or “v” centred between them.
 
 
-## V1.2 settings change
+## V1.3 settings change
 Choose favourite leagues in Settings. They are stored on the device and displayed first on each fixture date with a star. The app version is now shown prominently in the header.

@@ -126,6 +126,7 @@ const state = {
   trackerSort: "date",
   selected: readJson(`${STORAGE_PREFIX}selected`, {}),
   theme: localStorage.getItem(`${STORAGE_PREFIX}theme`) || "dark",
+  density: localStorage.getItem(`${STORAGE_PREFIX}density`) || "compact",
   favouriteLeagues: readJson(`${STORAGE_PREFIX}favourite-leagues`, []),
   knownLeagues: readJson(`${STORAGE_PREFIX}known-leagues`, []),
   editingFixtureId: null,
@@ -618,6 +619,13 @@ function applyTheme() {
   localStorage.setItem(`${STORAGE_PREFIX}theme`, state.theme);
 }
 
+function applyDensity() {
+  document.documentElement.dataset.density = state.density;
+  document.querySelectorAll("#densityControl button").forEach((button) => {
+    button.classList.toggle("active", button.dataset.density === state.density);
+  });
+}
+
 function renderAll() {
   renderDateStrip();
   renderDataStatus();
@@ -652,6 +660,13 @@ function bindEvents() {
   const toggleTheme = () => { state.theme = state.theme === "dark" ? "light" : "dark"; applyTheme(); };
   document.getElementById("themeToggle").addEventListener("click", toggleTheme);
   document.getElementById("settingsThemeToggle").addEventListener("click", toggleTheme);
+  document.getElementById("densityControl").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-density]");
+    if (!button) return;
+    state.density = button.dataset.density;
+    localStorage.setItem(`${STORAGE_PREFIX}density`, state.density);
+    applyDensity();
+  });
   document.getElementById("clearFavouriteLeagues").addEventListener("click", () => {
     state.favouriteLeagues = [];
     localStorage.setItem(`${STORAGE_PREFIX}favourite-leagues`, "[]");
@@ -671,6 +686,7 @@ function bindEvents() {
 async function start() {
   applyTheme();
   bindEvents();
+  applyDensity();
   autoClearIfDue();
   renderAll();
   await loadDate(state.selectedDate);
@@ -679,7 +695,7 @@ async function start() {
   if (hasTrackedLive) setView("trackerView");
   setInterval(refreshLive, LIVE_REFRESH_MS);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=2.0").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=2.3").catch(() => {});
 }
 
 start();

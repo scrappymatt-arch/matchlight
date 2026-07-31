@@ -8,14 +8,14 @@
   <title>MatchBuddy</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=2.2" />
+  <link rel="stylesheet" href="styles.css?v=2.3" />
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div>
         <p class="eyebrow">FOOTBALL, WITHOUT THE CLUTTER</p>
-        <h1>MatchBuddy <span class="app-version">V2.2</span></h1>
+        <h1>MatchBuddy <span class="app-version">V2.3</span></h1>
       </div>
       <button id="themeToggle" class="icon-button" aria-label="Toggle theme" title="Toggle theme">☼</button>
     </header>
@@ -84,6 +84,14 @@
           <button id="settingsThemeToggle" class="secondary-button">Toggle</button>
         </div>
 
+        <div class="settings-card density-setting">
+          <div><h3>Fixture spacing</h3><p>Compact fits more matches on screen without reducing the main text size.</p></div>
+          <div id="densityControl" class="mini-segmented" role="group" aria-label="Fixture spacing">
+            <button type="button" data-density="compact">Compact</button>
+            <button type="button" data-density="comfortable">Comfortable</button>
+          </div>
+        </div>
+
         <div class="settings-panel">
           <div class="settings-panel-heading">
             <div><h3>Favourite leagues</h3><p>Favourite competitions appear first on the Fixtures screen.</p></div>
@@ -139,6 +147,6 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=2.2" defer></script>
+  <script src="app.js?v=2.3" defer></script>
 </body>
 </html>

@@ -1,14 +1,15 @@
-# MatchBuddy V2.2
+# MatchBuddy V2.3
 
 Live football fixtures and selected-match tracking powered through the MatchBuddy Cloudflare Worker.
 
-## V2.2 changes
+## V2.3 changes
 
-- Favourite leagues still appear first.
-- Major competitions are now automatically prioritised using a UK-focused football and betting-popularity order.
-- The Premier League appears first among normal leagues, followed by the Champions League, Championship, Europa League and the other major European competitions.
-- Major leagues are also prioritised inside Favourite Leagues settings.
-- Regional grouping from V2.1 remains in place, with Europe first.
+- New compact fixture layout inspired by efficient live-score apps
+- Slimmer region, country and league headers
+- Match rows use substantially less vertical space without shrinking the key score text
+- Compact and Comfortable fixture-spacing choices in Settings
+- Compact mode is the default
+- Updated cache and release version
 
 ## Publishing
 

@@ -161,3 +161,35 @@ menu { display: flex; justify-content: flex-end; margin: 18px 0 0; padding: 0; }
   .favourite-region summary { padding: 11px 12px; }
   .favourite-region-content { padding-left: 9px; padding-right: 9px; }
 }
+
+
+/* Denser fixture presentation — V2.3 */
+.mini-segmented { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 4px; padding: 4px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface-2); }
+.mini-segmented button { min-height: 34px; padding: 0 9px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font-size: .74rem; font-weight: 850; cursor: pointer; }
+.mini-segmented button.active { background: var(--accent); color: var(--accent-ink); }
+
+:root[data-density="compact"] .region-group { margin: 18px 0 24px; }
+:root[data-density="compact"] .region-heading { margin-bottom: 8px; padding: 7px 10px; border-radius: 10px; }
+:root[data-density="compact"] .region-heading h3 { font-size: .92rem; }
+:root[data-density="compact"] .country-group { margin-bottom: 13px; }
+:root[data-density="compact"] .country-heading { margin: 0 4px 5px; font-size: .69rem; }
+:root[data-density="compact"] .country-group .league-group { margin-bottom: 9px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface); }
+:root[data-density="compact"] .league-heading { min-height: 34px; padding: 7px 10px; background: var(--surface-2); color: #b8cee5; }
+:root[data-density="compact"] .fixture-card { grid-template-columns: 54px minmax(0,1fr) 39px; gap: 6px; min-height: 52px; margin: 0; padding: 7px 9px; border: 0; border-top: 1px solid var(--border); border-radius: 0; }
+:root[data-density="compact"] .league-heading + .fixture-card { border-top: 0; }
+:root[data-density="compact"] .match-time { font-size: .92rem; }
+:root[data-density="compact"] .match-time small { margin-top: 1px; font-size: .53rem; }
+:root[data-density="compact"] .match-line { grid-template-columns: minmax(0,1fr) 54px minmax(0,1fr); gap: 6px; }
+:root[data-density="compact"] .match-line strong { font-size: .86rem; }
+:root[data-density="compact"] .central-score { min-width: 54px; font-size: 1.02rem; }
+:root[data-density="compact"] .add-button { width: 35px; height: 35px; border-radius: 11px; font-size: 1rem; }
+
+@media (max-width: 560px) {
+  .density-setting { align-items: flex-start; flex-direction: column; }
+  .mini-segmented { width: 100%; }
+  :root[data-density="compact"] .fixture-card { grid-template-columns: 47px minmax(0,1fr) 36px; padding: 7px 7px; }
+  :root[data-density="compact"] .match-line { grid-template-columns: minmax(0,1fr) 48px minmax(0,1fr); gap: 4px; }
+  :root[data-density="compact"] .match-line strong { white-space: nowrap; font-size: .79rem; }
+  :root[data-density="compact"] .central-score { min-width: 48px; font-size: .98rem; }
+  :root[data-density="compact"] .add-button { width: 33px; height: 33px; }
+}

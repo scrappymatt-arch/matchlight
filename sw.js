@@ -1,5 +1,5 @@
-const CACHE = "matchlight-v1.5";
-const ASSETS = ["./", "index.html", "styles.css?v=1.5", "app.js?v=1.5", "manifest.json", "icon.svg"];
+const CACHE = "matchlight-v1.6";
+const ASSETS = ["./", "index.html", "styles.css?v=1.6", "app.js?v=1.6", "manifest.json", "icon.svg"];
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();

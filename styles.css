@@ -499,3 +499,77 @@ menu { display: flex; justify-content: flex-end; gap: 9px; margin: 18px 0 0; pad
 @media (max-width: 390px) {
   .condition-row.three { grid-template-columns: 1fr; }
 }
+
+/* V1.6 — centred score columns and stacked condition sections */
+.single-line-match {
+  display: grid !important;
+  grid-template-columns: 64px minmax(0, 1fr) 58px minmax(0, 1fr) !important;
+  align-items: center;
+  gap: 8px !important;
+  width: 100%;
+}
+.single-line-match .inline-match-time {
+  width: 64px;
+  text-align: center;
+  justify-self: center;
+  font-variant-numeric: tabular-nums;
+}
+.single-line-match .home-team {
+  min-width: 0;
+  text-align: right !important;
+}
+.single-line-match .away-team {
+  min-width: 0;
+  text-align: left !important;
+}
+.single-line-match .versus-score,
+.single-line-match .tracker-score {
+  width: 58px;
+  min-width: 58px !important;
+  justify-self: center;
+  font-variant-numeric: tabular-nums;
+}
+.condition-grid {
+  display: flex !important;
+  flex-direction: column;
+  gap: 12px;
+}
+.condition-section {
+  width: 100%;
+}
+.condition-subrow {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  margin-top: 9px;
+}
+.condition-subrow > span {
+  color: var(--muted);
+  font-size: .82rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.condition-option.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+@media (max-width: 520px) {
+  .single-line-match {
+    grid-template-columns: 48px minmax(0, 1fr) 50px minmax(0, 1fr) !important;
+    gap: 5px !important;
+  }
+  .single-line-match .inline-match-time { width: 48px; }
+  .single-line-match .versus-score,
+  .single-line-match .tracker-score { width: 50px; min-width: 50px !important; }
+  .single-line-match .home-team,
+  .single-line-match .away-team {
+    white-space: nowrap !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .condition-row.three { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  .condition-subrow { grid-template-columns: 46px minmax(0, 1fr); gap: 7px; }
+}

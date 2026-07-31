@@ -17,6 +17,12 @@ const fixtures = [
   { id: 9, day: 5, time: "20:00", league: "Champions League", country: "Europe", home: "Benfica", away: "PSV", status: "scheduled", homeScore: 0, awayScore: 0 },
   { id: 10, day: 6, time: "17:45", league: "Europa League", country: "Europe", home: "Roma", away: "Fenerbahçe", status: "scheduled", homeScore: 0, awayScore: 0 },
   { id: 11, day: -1, time: "20:00", league: "Premier League", country: "England", home: "Chelsea", away: "Fulham", status: "finished", minute: 90, homeScore: 2, awayScore: 2 },
+  { id: 12, day: -2, time: "19:45", league: "Championship", country: "England", home: "Preston North End", away: "Coventry City", status: "finished", minute: 90, homeScore: 1, awayScore: 0 },
+  { id: 13, day: -3, time: "20:00", league: "La Liga", country: "Spain", home: "Sevilla", away: "Getafe", status: "finished", minute: 90, homeScore: 1, awayScore: 1 },
+  { id: 14, day: 7, time: "15:00", league: "Premier League", country: "England", home: "Tottenham", away: "West Ham", status: "scheduled", homeScore: 0, awayScore: 0 },
+  { id: 15, day: 8, time: "17:30", league: "Bundesliga", country: "Germany", home: "Bayern Munich", away: "Leverkusen", status: "scheduled", homeScore: 0, awayScore: 0 },
+  { id: 16, day: 9, time: "19:45", league: "Serie A", country: "Italy", home: "Inter", away: "Napoli", status: "scheduled", homeScore: 0, awayScore: 0 },
+  { id: 17, day: 10, time: "20:00", league: "Champions League", country: "Europe", home: "Barcelona", away: "Paris SG", status: "scheduled", homeScore: 0, awayScore: 0 },
 ];
 
 fixtures.forEach((f) => { f.date = isoDate(addDays(now, f.day)); });
@@ -48,6 +54,7 @@ const state = {
   theme: localStorage.getItem("matchlight-theme") || "dark",
   favouriteLeagues: JSON.parse(localStorage.getItem("matchlight-favourite-leagues") || "[]"),
   pendingFixtureId: null,
+  completedAt: Number(localStorage.getItem("matchlight-completed-at") || 0),
 };
 
 document.documentElement.dataset.theme = state.theme;
@@ -74,6 +81,33 @@ const els = {
 
 function saveSelected() {
   localStorage.setItem("matchlight-selected", JSON.stringify(state.selected));
+}
+
+function updateCompletionTimer() {
+  const selectedFixtures = Object.keys(state.selected)
+    .map((id) => fixtures.find((fixture) => fixture.id === Number(id)))
+    .filter(Boolean);
+
+  if (!selectedFixtures.length || selectedFixtures.some((fixture) => fixture.status !== "finished")) {
+    state.completedAt = 0;
+    localStorage.removeItem("matchlight-completed-at");
+    return;
+  }
+
+  if (!state.completedAt) {
+    state.completedAt = Date.now();
+    localStorage.setItem("matchlight-completed-at", String(state.completedAt));
+  }
+}
+
+function clearCompletedTrackerAfterOneDay() {
+  updateCompletionTimer();
+  if (state.completedAt && Date.now() - state.completedAt >= DAY) {
+    state.selected = {};
+    state.completedAt = 0;
+    saveSelected();
+    localStorage.removeItem("matchlight-completed-at");
+  }
 }
 
 function saveFavouriteLeagues() {
@@ -104,7 +138,7 @@ function formatDay(dateStr, long = false) {
 }
 
 function renderDates() {
-  const dates = Array.from({ length: 8 }, (_, i) => addDays(now, i - 1));
+  const dates = Array.from({ length: 14 }, (_, i) => addDays(now, i - 3));
   els.dateStrip.innerHTML = dates.map((date) => {
     const dateStr = isoDate(date);
     const label = formatDay(dateStr);
@@ -327,25 +361,23 @@ function openConditionDialog(fixtureId) {
     .join("");
 
   els.conditionOptions.innerHTML = `
-    <section class="condition-section condition-section-none">
-      <div class="condition-row single">${optionButtons("none")}</div>
-      <p>Keep this match in your list without a traffic-light condition.</p>
-    </section>
     <section class="condition-section">
-      <h4>Match result</h4>
+      <h4>Result</h4>
       <div class="condition-row three">${optionButtons("result")}</div>
     </section>
     <section class="condition-section">
-      <h4>Over goals</h4>
-      <div class="condition-row three">${optionButtons("over")}</div>
+      <h4>Over / Under</h4>
+      <div class="condition-subrow"><span>Over</span><div class="condition-row three">${optionButtons("over")}</div></div>
+      <div class="condition-subrow"><span>Under</span><div class="condition-row three">${optionButtons("under")}</div></div>
     </section>
     <section class="condition-section">
-      <h4>Under goals</h4>
-      <div class="condition-row three">${optionButtons("under")}</div>
-    </section>
-    <section class="condition-section">
-      <h4>Both teams to score</h4>
+      <h4>BTTS</h4>
       <div class="condition-row two">${optionButtons("btts")}</div>
+    </section>
+    <section class="condition-section condition-section-none">
+      <h4>No option</h4>
+      <div class="condition-row single">${optionButtons("none")}</div>
+      <p>Keep this match in your list without a traffic-light condition.</p>
     </section>`;
   els.conditionDialog.showModal();
 }
@@ -374,6 +406,7 @@ document.addEventListener("click", (event) => {
   if (removeButton) {
     delete state.selected[removeButton.dataset.remove];
     saveSelected();
+    updateCompletionTimer();
     renderAll();
   }
 
@@ -381,6 +414,7 @@ document.addEventListener("click", (event) => {
   if (conditionButton && state.pendingFixtureId) {
     state.selected[state.pendingFixtureId] = { condition: conditionButton.dataset.condition };
     saveSelected();
+    updateCompletionTimer();
     els.conditionDialog.close();
     renderAll();
   }
@@ -414,7 +448,9 @@ els.clearTracker.addEventListener("click", () => {
 els.confirmDialog.addEventListener("close", () => {
   if (els.confirmDialog.returnValue === "confirm") {
     state.selected = {};
+    state.completedAt = 0;
     saveSelected();
+    localStorage.removeItem("matchlight-completed-at");
     renderAll();
   }
 });
@@ -437,7 +473,17 @@ els.clearFavouriteLeagues.addEventListener("click", () => {
   renderFixtures();
 });
 
+clearCompletedTrackerAfterOneDay();
 renderAll();
+
+const hasLiveTrackedMatch = Object.keys(state.selected).some((id) => {
+  const fixture = fixtures.find((item) => item.id === Number(id));
+  return fixture?.status === "live";
+});
+if (hasLiveTrackedMatch) {
+  document.querySelectorAll(".view").forEach((view) => view.classList.toggle("active", view.id === "trackerView"));
+  document.querySelectorAll(".bottom-nav button").forEach((button) => button.classList.toggle("active", button.dataset.view === "trackerView"));
+}
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));

@@ -8,14 +8,14 @@
   <title>MatchLight</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=1.5" />
+  <link rel="stylesheet" href="styles.css?v=1.6" />
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div>
         <p class="eyebrow">FOOTBALL, WITHOUT THE CLUTTER</p>
-        <h1>MatchLight <span class="app-version">V1.5</span></h1>
+        <h1>MatchLight <span class="app-version">V1.6</span></h1>
       </div>
       <button id="themeToggle" class="icon-button" aria-label="Toggle theme" title="Toggle theme">☼</button>
     </header>
@@ -24,7 +24,7 @@
       <section id="scoresView" class="view active" aria-labelledby="scoresTitle">
         <div class="section-heading">
           <div>
-            <p class="section-kicker">NEXT 7 DAYS</p>
+            <p class="section-kicker">3 DAYS BACK · 10 DAYS AHEAD</p>
             <h2 id="scoresTitle">Fixtures</h2>
           </div>
           <button id="jumpToday" class="secondary-button">Today</button>
@@ -100,9 +100,9 @@
         <div class="settings-card">
           <div>
             <h3>Completed matches</h3>
-            <p>Keep them until you manually clear the list.</p>
+            <p>Automatically clear the list 24 hours after every tracked match is complete.</p>
           </div>
-          <span class="status-pill">Manual</span>
+          <span class="status-pill">24 hours</span>
         </div>
 
         <div class="settings-card">
@@ -149,6 +149,6 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=1.5" defer></script>
+  <script src="app.js?v=1.6" defer></script>
 </body>
 </html>

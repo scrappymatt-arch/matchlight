@@ -32,6 +32,46 @@ const CONDITIONS = [
 ];
 
 
+
+// UK-focused popularity order for the competitions most commonly followed and tracked.
+// Favourites always override this automatic order. Lower values appear first.
+const LEAGUE_PRIORITY_RULES = [
+  [/^Premier League$/i, 1],
+  [/UEFA Champions League|Champions League/i, 2],
+  [/^Championship$/i, 3],
+  [/UEFA Europa League|Europa League/i, 4],
+  [/^La Liga$/i, 5],
+  [/^Serie A$/i, 6],
+  [/^Bundesliga$/i, 7],
+  [/^Ligue 1$/i, 8],
+  [/Scottish Premiership|Premiership/i, 9],
+  [/^League One$/i, 10],
+  [/UEFA Europa Conference League|Conference League/i, 11],
+  [/Eredivisie/i, 12],
+  [/Primeira Liga/i, 13],
+  [/^League Two$/i, 14],
+  [/Copa Libertadores/i, 20],
+  [/Copa Sudamericana/i, 21],
+  [/Brasileir[aã]o|Serie A/i, 22],
+  [/Liga Profesional Argentina|Primera Divisi[oó]n/i, 23],
+  [/Major League Soccer|MLS/i, 24],
+  [/Liga MX/i, 25],
+  [/AFC Champions League/i, 30],
+  [/CAF Champions League/i, 31],
+];
+
+function leaguePriority(league) {
+  const name = String(league || "").trim();
+  for (const [pattern, rank] of LEAGUE_PRIORITY_RULES) {
+    if (pattern.test(name)) return rank;
+  }
+  // Keep senior top divisions ahead of lower, reserve, youth and friendly competitions.
+  if (/reserve|u17|u18|u19|u20|u21|u23|youth|women|feminine|friendly/i.test(name)) return 900;
+  if (/cup|trophy|shield/i.test(name)) return 500;
+  if (/2nd|second|division 2|liga 2|league two|serie b|championship/i.test(name)) return 300;
+  return 100;
+}
+
 const REGION_ORDER = [
   "Europe",
   "South America",
@@ -296,6 +336,8 @@ function renderFixtures() {
     if (regionDifference) return regionDifference;
     const favouriteDifference = Number(isFavourite(b)) - Number(isFavourite(a));
     if (favouriteDifference) return favouriteDifference;
+    const priorityDifference = leaguePriority(a.league) - leaguePriority(b.league);
+    if (priorityDifference) return priorityDifference;
     const countryDifference = a.country.localeCompare(b.country);
     if (countryDifference) return countryDifference;
     const leagueDifference = a.league.localeCompare(b.league);
@@ -513,11 +555,15 @@ function renderFavouriteLeagues() {
   container.innerHTML = REGION_ORDER.filter((region) => regions.has(region)).map((region, index) => {
     const countries = regions.get(region);
     const favouriteCount = [...countries.values()].flat().filter((league) => state.favouriteLeagues.includes(league.key)).length;
-    const countryHtml = [...countries.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([country, leagues]) => `
+    const countryHtml = [...countries.entries()].sort(([countryA, leaguesA], [countryB, leaguesB]) => {
+      const bestA = Math.min(...leaguesA.map((league) => leaguePriority(league.league)));
+      const bestB = Math.min(...leaguesB.map((league) => leaguePriority(league.league)));
+      return bestA - bestB || countryA.localeCompare(countryB);
+    }).map(([country, leagues]) => `
       <div class="favourite-country">
         <h4>${escapeHtml(country)}</h4>
         <div class="league-choice-grid">
-          ${leagues.sort((a, b) => a.league.localeCompare(b.league)).map((league) => {
+          ${leagues.sort((a, b) => leaguePriority(a.league) - leaguePriority(b.league) || a.league.localeCompare(b.league)).map((league) => {
             const checked = state.favouriteLeagues.includes(league.key);
             return `<label class="league-choice"><input type="checkbox" value="${escapeHtml(league.key)}" ${checked ? "checked" : ""}><span>${escapeHtml(league.league)}</span></label>`;
           }).join("")}

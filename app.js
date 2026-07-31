@@ -31,6 +31,51 @@ const CONDITIONS = [
   { id: "none", label: "Just track match", group: "No option" },
 ];
 
+
+const REGION_ORDER = [
+  "Europe",
+  "South America",
+  "North & Central America",
+  "Africa",
+  "Asia",
+  "Oceania",
+  "International",
+];
+
+const REGION_COUNTRIES = {
+  "Europe": new Set([
+    "Albania","Andorra","Armenia","Austria","Azerbaijan","Belarus","Belgium","Bosnia and Herzegovina","Bulgaria","Croatia","Cyprus","Czech Republic","Czechia","Denmark","England","Estonia","Faroe Islands","Finland","France","Georgia","Germany","Gibraltar","Greece","Hungary","Iceland","Ireland","Israel","Italy","Kazakhstan","Kosovo","Latvia","Liechtenstein","Lithuania","Luxembourg","Malta","Moldova","Montenegro","Netherlands","North Macedonia","Northern Ireland","Norway","Poland","Portugal","Romania","Russia","San Marino","Scotland","Serbia","Slovakia","Slovenia","Spain","Sweden","Switzerland","Turkey","Türkiye","Ukraine","Wales"
+  ]),
+  "South America": new Set([
+    "Argentina","Bolivia","Brazil","Chile","Colombia","Ecuador","Paraguay","Peru","Uruguay","Venezuela"
+  ]),
+  "North & Central America": new Set([
+    "Anguilla","Antigua and Barbuda","Aruba","Bahamas","Barbados","Belize","Bermuda","British Virgin Islands","Canada","Cayman Islands","Costa Rica","Cuba","Curaçao","Curacao","Dominica","Dominican Republic","El Salvador","Grenada","Guadeloupe","Guatemala","Guyana","Haiti","Honduras","Jamaica","Martinique","Mexico","Montserrat","Nicaragua","Panama","Puerto Rico","Saint Kitts and Nevis","Saint Lucia","Saint Martin","Saint Vincent and the Grenadines","Suriname","Trinidad and Tobago","Turks and Caicos Islands","USA","United States","US Virgin Islands"
+  ]),
+  "Africa": new Set([
+    "Algeria","Angola","Benin","Botswana","Burkina Faso","Burundi","Cameroon","Cape Verde","Central African Republic","Chad","Comoros","Congo","Congo DR","Congo Democratic Republic","Djibouti","Egypt","Equatorial Guinea","Eritrea","Eswatini","Ethiopia","Gabon","Gambia","Ghana","Guinea","Guinea-Bissau","Ivory Coast","Kenya","Lesotho","Liberia","Libya","Madagascar","Malawi","Mali","Mauritania","Mauritius","Morocco","Mozambique","Namibia","Niger","Nigeria","Rwanda","Sao Tome and Principe","Senegal","Seychelles","Sierra Leone","Somalia","South Africa","South Sudan","Sudan","Tanzania","Togo","Tunisia","Uganda","Zambia","Zimbabwe"
+  ]),
+  "Asia": new Set([
+    "Afghanistan","Bahrain","Bangladesh","Bhutan","Brunei","Cambodia","China","Chinese Taipei","Hong Kong","India","Indonesia","Iran","Iraq","Japan","Jordan","Kuwait","Kyrgyzstan","Laos","Lebanon","Macau","Malaysia","Maldives","Mongolia","Myanmar","Nepal","North Korea","Oman","Pakistan","Palestine","Philippines","Qatar","Saudi Arabia","Singapore","South Korea","Sri Lanka","Syria","Taiwan","Tajikistan","Thailand","Timor-Leste","Turkmenistan","United Arab Emirates","Uzbekistan","Vietnam","Yemen"
+  ]),
+  "Oceania": new Set([
+    "American Samoa","Australia","Cook Islands","Fiji","New Caledonia","New Zealand","Papua New Guinea","Samoa","Solomon Islands","Tahiti","Tonga","Vanuatu"
+  ]),
+};
+
+function regionForCountry(country) {
+  const value = String(country || "").trim();
+  if (!value || ["World", "International", "N/A"].includes(value)) return "International";
+  for (const region of REGION_ORDER) {
+    if (REGION_COUNTRIES[region]?.has(value)) return region;
+  }
+  return "International";
+}
+
+function regionRank(country) {
+  return REGION_ORDER.indexOf(regionForCountry(country));
+}
+
 const state = {
   selectedDate: isoDate(today),
   fixturesByDate: {},
@@ -247,9 +292,13 @@ function renderFixtures() {
   });
 
   filtered.sort((a, b) => {
+    const regionDifference = regionRank(a.country) - regionRank(b.country);
+    if (regionDifference) return regionDifference;
     const favouriteDifference = Number(isFavourite(b)) - Number(isFavourite(a));
     if (favouriteDifference) return favouriteDifference;
-    const leagueDifference = `${a.country} ${a.league}`.localeCompare(`${b.country} ${b.league}`);
+    const countryDifference = a.country.localeCompare(b.country);
+    if (countryDifference) return countryDifference;
+    const leagueDifference = a.league.localeCompare(b.league);
     return leagueDifference || a.timestamp - b.timestamp;
   });
 
@@ -262,21 +311,35 @@ function renderFixtures() {
     return;
   }
 
-  const groups = new Map();
+  const regions = new Map();
   filtered.forEach((fixture) => {
+    const region = regionForCountry(fixture.country);
+    if (!regions.has(region)) regions.set(region, new Map());
+    const countries = regions.get(region);
+    const country = fixture.country || "International";
+    if (!countries.has(country)) countries.set(country, new Map());
+    const leagues = countries.get(country);
     const key = fixtureLeagueKey(fixture);
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(fixture);
+    if (!leagues.has(key)) leagues.set(key, []);
+    leagues.get(key).push(fixture);
   });
 
-  list.innerHTML = [...groups.entries()].map(([key, matches]) => {
-    const first = matches[0];
-    const star = state.favouriteLeagues.includes(key) ? "★ " : "";
-    return `
-      <section class="league-group">
-        <div class="league-heading"><span>${star}${escapeHtml(first.country)} · ${escapeHtml(first.league)}</span><b>${matches.length} ${matches.length === 1 ? "match" : "matches"}</b></div>
-        ${matches.map(fixtureCardHtml).join("")}
-      </section>`;
+  list.innerHTML = REGION_ORDER.filter((region) => regions.has(region)).map((region) => {
+    const countries = regions.get(region);
+    const matchCount = [...countries.values()].reduce((regionTotal, leagues) => regionTotal + [...leagues.values()].reduce((countryTotal, matches) => countryTotal + matches.length, 0), 0);
+    const countryHtml = [...countries.entries()].map(([country, leagues]) => {
+      const leagueHtml = [...leagues.entries()].map(([key, matches]) => {
+        const first = matches[0];
+        const star = state.favouriteLeagues.includes(key) ? "★ " : "";
+        return `
+          <section class="league-group">
+            <div class="league-heading"><span>${star}${escapeHtml(first.league)}</span><b>${matches.length} ${matches.length === 1 ? "match" : "matches"}</b></div>
+            ${matches.map(fixtureCardHtml).join("")}
+          </section>`;
+      }).join("");
+      return `<section class="country-group"><h4 class="country-heading">${escapeHtml(country)}</h4>${leagueHtml}</section>`;
+    }).join("");
+    return `<section class="region-group"><div class="region-heading"><h3>${escapeHtml(region)}</h3><span>${matchCount} ${matchCount === 1 ? "match" : "matches"}</span></div>${countryHtml}</section>`;
   }).join("");
 
   list.querySelectorAll("[data-fixture-id]").forEach((button) => {
@@ -436,10 +499,36 @@ function renderSummary() {
 function renderFavouriteLeagues() {
   const container = document.getElementById("favouriteLeagueOptions");
   document.getElementById("leagueHelp").hidden = state.knownLeagues.length > 0;
-  container.innerHTML = state.knownLeagues.map((league) => {
-    const checked = state.favouriteLeagues.includes(league.key);
-    return `<label class="league-choice"><input type="checkbox" value="${escapeHtml(league.key)}" ${checked ? "checked" : ""}><span>${escapeHtml(league.country ? `${league.country} · ${league.league}` : league.league)}</span></label>`;
+
+  const regions = new Map();
+  state.knownLeagues.forEach((league) => {
+    const region = regionForCountry(league.country);
+    if (!regions.has(region)) regions.set(region, new Map());
+    const countries = regions.get(region);
+    const country = league.country || "International";
+    if (!countries.has(country)) countries.set(country, []);
+    countries.get(country).push(league);
+  });
+
+  container.innerHTML = REGION_ORDER.filter((region) => regions.has(region)).map((region, index) => {
+    const countries = regions.get(region);
+    const favouriteCount = [...countries.values()].flat().filter((league) => state.favouriteLeagues.includes(league.key)).length;
+    const countryHtml = [...countries.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([country, leagues]) => `
+      <div class="favourite-country">
+        <h4>${escapeHtml(country)}</h4>
+        <div class="league-choice-grid">
+          ${leagues.sort((a, b) => a.league.localeCompare(b.league)).map((league) => {
+            const checked = state.favouriteLeagues.includes(league.key);
+            return `<label class="league-choice"><input type="checkbox" value="${escapeHtml(league.key)}" ${checked ? "checked" : ""}><span>${escapeHtml(league.league)}</span></label>`;
+          }).join("")}
+        </div>
+      </div>`).join("");
+    return `<details class="favourite-region" ${region === "Europe" || (!regions.has("Europe") && index === 0) ? "open" : ""}>
+      <summary><span>${escapeHtml(region)}</span><b>${favouriteCount ? `${favouriteCount} selected` : ""}</b></summary>
+      <div class="favourite-region-content">${countryHtml}</div>
+    </details>`;
   }).join("");
+
   container.querySelectorAll("input").forEach((input) => input.addEventListener("change", () => {
     state.favouriteLeagues = input.checked ? [...new Set([...state.favouriteLeagues, input.value])] : state.favouriteLeagues.filter((key) => key !== input.value);
     localStorage.setItem(`${STORAGE_PREFIX}favourite-leagues`, JSON.stringify(state.favouriteLeagues));

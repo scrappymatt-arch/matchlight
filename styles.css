@@ -130,3 +130,34 @@ menu { display: flex; justify-content: flex-end; margin: 18px 0 0; padding: 0; }
   .league-choice-grid { grid-template-columns: 1fr; }
   .condition-row, .condition-row.goal-options { grid-template-columns: repeat(3,1fr); }
 }
+
+/* Regional grouping — V2.1 */
+.region-group { margin: 26px 0 34px; }
+.region-group:first-child { margin-top: 6px; }
+.region-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 2px 15px; padding: 11px 13px; border: 1px solid var(--border); border-radius: 15px; background: var(--surface-2); }
+.region-heading h3 { margin: 0; font-size: 1.05rem; letter-spacing: -.02em; }
+.region-heading span { color: var(--muted); font-size: .69rem; font-weight: 900; }
+.country-group { margin-bottom: 24px; }
+.country-heading { margin: 0 5px 10px; color: var(--text); font-size: .82rem; font-weight: 950; letter-spacing: .08em; text-transform: uppercase; }
+.country-group .league-group { margin-bottom: 17px; }
+.country-group .league-heading { padding-left: 7px; }
+
+#favouriteLeagueOptions { display: block; margin-top: 14px; }
+.favourite-region { margin-bottom: 10px; overflow: hidden; border: 1px solid var(--border); border-radius: 15px; background: var(--bg-elevated); }
+.favourite-region summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 50px; padding: 12px 14px; cursor: pointer; list-style: none; font-weight: 950; }
+.favourite-region summary::-webkit-details-marker { display: none; }
+.favourite-region summary::after { content: "＋"; margin-left: auto; color: var(--accent); font-size: 1rem; }
+.favourite-region[open] summary::after { content: "−"; }
+.favourite-region summary b { color: var(--muted); font-size: .69rem; font-weight: 850; }
+.favourite-region-content { padding: 0 12px 13px; border-top: 1px solid var(--border); }
+.favourite-country { padding-top: 14px; }
+.favourite-country h4 { margin: 0 0 8px 2px; color: #a8c1db; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; }
+.favourite-country .league-choice-grid { margin-top: 0; }
+
+@media (max-width: 560px) {
+  .region-heading { padding: 10px 11px; }
+  .region-heading h3 { font-size: .98rem; }
+  .country-heading { font-size: .76rem; }
+  .favourite-region summary { padding: 11px 12px; }
+  .favourite-region-content { padding-left: 9px; padding-right: 9px; }
+}

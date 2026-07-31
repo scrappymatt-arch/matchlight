@@ -1,24 +1,23 @@
-# MatchBuddy V2.0
+# MatchBuddy V2.1
 
-First live-data release of MatchBuddy.
+Live football fixtures and personal match-condition tracking.
 
-## What is new
-- Real fixtures, results, live scores and match clocks through the protected Cloudflare Worker.
-- Loads only the selected date, covering 3 days back and 10 days ahead.
-- Two-minute live refresh only while the app is open and live data matters.
-- MatchBuddy branding throughout.
-- Favourite leagues learned from real loaded fixtures.
-- Persistent My Matches tracker and traffic-light conditions.
-- Opens My Matches when a saved match is already marked live.
-- Automatic clear 24 hours after all tracked matches finish.
+## V2.1 changes
 
-## Upload to GitHub Pages
-Upload all files from this folder to the root of the `matchlight` repository, replacing the existing files. GitHub Pages can continue using the existing repository and URL.
+- Fixtures are grouped by region, with Europe shown first.
+- Regions appear in this order: Europe, South America, North & Central America, Africa, Asia, Oceania, International.
+- Fixtures are grouped by country and then competition inside each region.
+- Favourite competitions retain priority inside their region.
+- Favourite Leagues in Settings is split into expandable regional sections and then grouped by country.
 
-After deployment, fully close the old installed app or browser tab and reopen it. If V2.0 does not appear, use Ctrl+F5 once.
+## Installation
 
-## Live-data bridge
-This build uses:
+Upload and replace all files in the existing GitHub Pages repository. Wait for GitHub Pages to deploy, then close and reopen MatchBuddy or use a hard refresh.
+
+## Live-data endpoint
+
+The app uses the protected Cloudflare Worker:
+
 `https://matchbuddy-api.scrappymatt.workers.dev`
 
-The API-Football key remains stored only as an encrypted Cloudflare Worker secret.
+The API-Football key remains stored as a Cloudflare secret and must never be placed in this repository.

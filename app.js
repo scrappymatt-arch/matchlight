@@ -502,29 +502,98 @@ function trafficState(fixture, condition) {
   if (fixture.status === "cancelled") return { colour: "grey", copy: fixture.statusLong };
   if (condition === "none") return { colour: "grey", copy: fixture.status === "finished" ? "Finished" : "Tracking only" };
 
-  const h = fixture.homeScore;
-  const a = fixture.awayScore;
+  const h = Number(fixture.homeScore) || 0;
+  const a = Number(fixture.awayScore) || 0;
   const total = h + a;
   let winning = false;
-  let oneGoal = false;
+  let goalsNeeded = null;
 
-  if (condition === "home") { winning = h > a; oneGoal = h <= a && a - h <= 1; }
-  if (condition === "draw") { winning = h === a; oneGoal = Math.abs(h - a) === 1; }
-  if (condition === "away") { winning = a > h; oneGoal = a <= h && h - a <= 1; }
-  if (condition === "over15") { winning = total >= 2; oneGoal = total === 1; }
-  if (condition === "over25") { winning = total >= 3; oneGoal = total === 2; }
-  if (condition === "over35") { winning = total >= 4; oneGoal = total === 3; }
+  if (condition === "home") {
+    winning = h > a;
+    if (!winning) goalsNeeded = a - h + 1;
+  }
+  if (condition === "draw") {
+    winning = h === a;
+    if (!winning) goalsNeeded = Math.abs(h - a);
+  }
+  if (condition === "away") {
+    winning = a > h;
+    if (!winning) goalsNeeded = h - a + 1;
+  }
+  if (condition === "over15") {
+    winning = total >= 2;
+    if (!winning) goalsNeeded = 2 - total;
+  }
+  if (condition === "over25") {
+    winning = total >= 3;
+    if (!winning) goalsNeeded = 3 - total;
+  }
+  if (condition === "over35") {
+    winning = total >= 4;
+    if (!winning) goalsNeeded = 4 - total;
+  }
   if (condition === "under15") winning = total <= 1;
   if (condition === "under25") winning = total <= 2;
   if (condition === "under35") winning = total <= 3;
-  if (condition === "bttsYes") { winning = h > 0 && a > 0; oneGoal = (h > 0 && a === 0) || (a > 0 && h === 0); }
+  if (condition === "bttsYes") {
+    winning = h > 0 && a > 0;
+    if (!winning) goalsNeeded = (h > 0 || a > 0) ? 1 : 2;
+  }
   if (condition === "bttsNo") winning = h === 0 || a === 0;
 
   if (fixture.status === "finished") return winning ? { colour: "green", copy: "Won" } : { colour: "red", copy: "Lost" };
   if (winning) return { colour: "green", copy: "Winning" };
-  if (oneGoal) return { colour: "yellow", copy: "Needs 1 goal" };
+  if (goalsNeeded === 1) return { colour: "yellow", copy: "Needs 1 goal" };
+  if (Number.isInteger(goalsNeeded) && goalsNeeded > 1) return { colour: "red", copy: `Needs ${goalsNeeded} goals` };
   return { colour: "red", copy: "Not winning" };
 }
+
+function runTrafficStateTests() {
+  const fixture = (homeScore, awayScore, status = "live") => ({ homeScore, awayScore, status, statusLong: status });
+  const cases = [
+    [fixture(1, 2), "home", "red", "Needs 2 goals"],
+    [fixture(2, 2), "home", "yellow", "Needs 1 goal"],
+    [fixture(3, 2), "home", "green", "Winning"],
+    [fixture(2, 1), "away", "red", "Needs 2 goals"],
+    [fixture(2, 2), "away", "yellow", "Needs 1 goal"],
+    [fixture(2, 3), "away", "green", "Winning"],
+    [fixture(2, 0), "draw", "red", "Needs 2 goals"],
+    [fixture(2, 1), "draw", "yellow", "Needs 1 goal"],
+    [fixture(2, 2), "draw", "green", "Winning"],
+    [fixture(0, 0), "over15", "red", "Needs 2 goals"],
+    [fixture(1, 0), "over15", "yellow", "Needs 1 goal"],
+    [fixture(1, 1), "over15", "green", "Winning"],
+    [fixture(0, 0), "over25", "red", "Needs 3 goals"],
+    [fixture(1, 1), "over25", "yellow", "Needs 1 goal"],
+    [fixture(2, 1), "over25", "green", "Winning"],
+    [fixture(0, 0), "over35", "red", "Needs 4 goals"],
+    [fixture(2, 1), "over35", "yellow", "Needs 1 goal"],
+    [fixture(2, 2), "over35", "green", "Winning"],
+    [fixture(1, 0), "under15", "green", "Winning"],
+    [fixture(1, 1), "under15", "red", "Not winning"],
+    [fixture(2, 0), "under25", "green", "Winning"],
+    [fixture(2, 1), "under25", "red", "Not winning"],
+    [fixture(3, 0), "under35", "green", "Winning"],
+    [fixture(2, 2), "under35", "red", "Not winning"],
+    [fixture(0, 0), "bttsYes", "red", "Needs 2 goals"],
+    [fixture(1, 0), "bttsYes", "yellow", "Needs 1 goal"],
+    [fixture(1, 1), "bttsYes", "green", "Winning"],
+    [fixture(0, 0), "bttsNo", "green", "Winning"],
+    [fixture(2, 0), "bttsNo", "green", "Winning"],
+    [fixture(1, 1), "bttsNo", "red", "Not winning"],
+    [fixture(1, 2, "finished"), "home", "red", "Lost"],
+    [fixture(2, 1, "finished"), "home", "green", "Won"],
+  ];
+
+  const failures = cases.filter(([testFixture, condition, colour, copy]) => {
+    const result = trafficState(testFixture, condition);
+    return result.colour !== colour || result.copy !== copy;
+  });
+
+  if (failures.length) console.error("MatchBuddy traffic-light tests failed", failures);
+}
+
+runTrafficStateTests();
 
 function renderTracker() {
   autoClearIfDue();
@@ -795,7 +864,7 @@ async function start() {
   if (liveItem) { state.currentListId = liveItem.list.id; setView("trackerView"); }
   setInterval(refreshLive, LIVE_REFRESH_MS);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=2.4").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=2.5").catch(() => {});
 }
 
 start();

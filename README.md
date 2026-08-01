@@ -1,15 +1,14 @@
-# MatchBuddy V2.4
+# MatchBuddy V2.5
 
 Live football fixtures and selected-match tracking powered through the MatchBuddy Cloudflare Worker.
 
-## V2.4 changes
+## V2.5 changes
 
-- Multiple named match lists, defaulting to List 1, List 2 and so on.
-- Add the same fixture to different lists with different tracking conditions.
-- Create, rename, switch and delete lists from My Matches.
-- Cleaner warm off-white light mode with stronger header contrast.
-- Thin gold border around tracked matches that are still in play.
-- Keeps the compact fixture layout and Compact / Comfortable spacing choices from V2.3.
+- Corrected Home win and Away win traffic-light logic when the selected team is one goal behind.
+- Result bets now calculate the exact number of goals needed to become winning.
+- Over 1.5, 2.5 and 3.5 now report the exact number of goals still required.
+- BTTS Yes correctly distinguishes 0-0 (two goals required) from a one-sided score (one goal required).
+- Added automated checks covering result, totals, BTTS and finished-match outcomes.
 - Updated cache and release version.
 
 ## Publishing

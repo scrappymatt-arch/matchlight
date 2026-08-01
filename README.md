@@ -1,16 +1,36 @@
-# MatchBuddy V2.5
+# MatchBuddy V2.6
 
-Live football fixtures and selected-match tracking powered through the MatchBuddy Cloudflare Worker.
+This release adds:
 
-## V2.5 changes
+- **Lost** status for live bets that can no longer recover:
+  - Under 1.5 after 2 goals
+  - Under 2.5 after 3 goals
+  - Under 3.5 after 4 goals
+  - BTTS No once both teams score
+- A full-screen **Match Details** page opened by tapping a fixture or tracked match.
+- Goals, scorers, cards, substitutions, statistics and line-ups when supplied by API-Football.
+- A country-level checkbox in **Settings → Favourite leagues** to select or clear all loaded leagues under that country.
 
-- Corrected Home win and Away win traffic-light logic when the selected team is one goal behind.
-- Result bets now calculate the exact number of goals needed to become winning.
-- Over 1.5, 2.5 and 3.5 now report the exact number of goals still required.
-- BTTS Yes correctly distinguishes 0-0 (two goals required) from a one-sided score (one goal required).
-- Added automated checks covering result, totals, BTTS and finished-match outcomes.
-- Updated cache and release version.
+## GitHub Pages update
 
-## Publishing
+Upload and replace these files in the existing GitHub repository:
 
-Upload all files to the root of the existing GitHub Pages repository. Wait for deployment, then close and reopen the installed app or use a hard refresh.
+- `index.html`
+- `styles.css`
+- `app.js`
+- `manifest.json`
+- `icon.svg`
+- `sw.js`
+
+After GitHub Pages deploys, fully close and reopen MatchBuddy so the V2.6 service-worker cache replaces V2.5.
+
+## Required Cloudflare Worker update
+
+Match details require a new `/fixture?id=` endpoint.
+
+1. Open Cloudflare → Workers & Pages → `matchbuddy-api` → **Edit code**.
+2. Replace the whole Worker code with the contents of `worker.js` from this package.
+3. Click **Deploy**.
+4. Your existing `API_FOOTBALL_KEY` secret remains in place and does not need to be entered again.
+
+Opening a match for the first time can use up to four API-Football requests for fixture information, events, statistics and line-ups. Cloudflare caches those responses, but the free API plan can still hit its limit during heavy testing.

@@ -241,3 +241,53 @@ body { background: radial-gradient(circle at 50% -20%, var(--bg-glow) 0, var(--b
   .list-toolbar { grid-template-columns: 1fr 1fr 1fr; }
   .list-toolbar select { grid-column: 1 / -1; }
 }
+
+/* MatchBuddy V2.6 — decisive lost states, match details and country favourites */
+:root { --lost: #ff3f59; --lost-bg: rgba(104,9,25,.34); }
+.status-lost { color: var(--lost); background: var(--lost-bg); }
+.summary-card.lost strong { color: var(--lost); }
+.summary-grid { grid-template-columns: repeat(5,1fr); }
+.country-choice { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 9px; margin: 0 0 9px; padding: 8px 10px; border-radius: 10px; background: var(--surface-2); color: var(--text); font-weight: 900; cursor: pointer; }
+.country-choice small { color: var(--muted); font-size: .68rem; }
+.country-choice input { width: 18px; height: 18px; accent-color: var(--accent); }
+.fixture-card[role="button"], .tracker-card[role="button"] { cursor: pointer; }
+.fixture-card[role="button"]:focus-visible, .tracker-card[role="button"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.bottom-nav.details-hidden { display: none; }
+.details-topbar { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+.details-topbar h2 { margin: 1px 0 0; }
+.details-scoreboard { position: relative; padding: 20px 16px; border: 1px solid var(--border); border-radius: 22px; background: var(--surface); text-align: center; }
+.details-scoreboard > p { margin: 0 0 12px; color: var(--muted); font-size: .72rem; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+.details-clock { color: var(--accent); font-size: 1.3rem; font-weight: 950; }
+.details-clock small { display: block; margin-top: 2px; color: var(--muted); font-size: .58rem; letter-spacing: .1em; text-transform: uppercase; }
+.details-scoreline { display: grid; grid-template-columns: minmax(0,1fr) 76px minmax(0,1fr); align-items: center; gap: 8px; margin: 16px 0 10px; }
+.details-scoreline strong:first-child { text-align: right; }
+.details-scoreline strong:last-child { text-align: left; }
+.details-scoreline b { font-size: 1.65rem; }
+.details-scoreboard > span { color: var(--muted); font-size: .75rem; }
+.details-meta { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 12px 3px 0; color: var(--muted); font-size: .75rem; }
+.details-section { margin-top: 20px; }
+.details-section h3 { margin: 0 0 10px; font-size: 1rem; }
+.details-loading { margin-top: 16px; padding: 28px; border: 1px dashed var(--border); border-radius: 18px; color: var(--muted); text-align: center; }
+.event-timeline { margin: 0; padding: 0; overflow: hidden; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); list-style: none; }
+.event-timeline li { display: grid; grid-template-columns: 46px 38px minmax(0,1fr); align-items: center; gap: 8px; padding: 11px 12px; border-top: 1px solid var(--border); }
+.event-timeline li:first-child { border-top: 0; }
+.event-timeline time { color: var(--accent); font-weight: 950; text-align: right; }
+.event-icon { width: 30px; min-height: 30px; display: grid; place-items: center; border-radius: 9px; background: var(--surface-2); font-size: .8rem; font-weight: 900; }
+.event-timeline strong { display: block; font-size: .84rem; }
+.event-timeline p { margin: 2px 0 0; color: var(--muted); font-size: .72rem; }
+.stats-table { overflow: hidden; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
+.stat-row { display: grid; grid-template-columns: 1fr 1.8fr 1fr; align-items: center; gap: 8px; padding: 9px 12px; border-top: 1px solid var(--border); text-align: center; font-size: .78rem; }
+.stat-row:first-child { border-top: 0; }
+.stat-row span { color: var(--muted); }
+.lineups-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.lineup-team { padding: 13px; border: 1px solid var(--border); border-radius: 15px; background: var(--surface); }
+.lineup-team h4 { margin: 0 0 7px; font-size: .84rem; }
+.lineup-team p { margin: 0; color: var(--muted); font-size: .72rem; line-height: 1.55; }
+.empty-state.compact { padding: 20px; }
+@media (max-width: 560px) {
+  .summary-grid { grid-template-columns: repeat(2,1fr); }
+  .details-scoreline { grid-template-columns: minmax(0,1fr) 62px minmax(0,1fr); }
+  .details-scoreline strong { font-size: .86rem; }
+  .details-scoreline b { font-size: 1.35rem; }
+  .lineups-grid { grid-template-columns: 1fr; }
+}

@@ -8,14 +8,14 @@
   <title>MatchBuddy</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=2.5" />
+  <link rel="stylesheet" href="styles.css?v=2.6" />
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div>
         <p class="eyebrow">FOOTBALL, WITHOUT THE CLUTTER</p>
-        <h1>MatchBuddy <span class="app-version">V2.5</span></h1>
+        <h1>MatchBuddy <span class="app-version">V2.6</span></h1>
       </div>
       <button id="themeToggle" class="icon-button" aria-label="Toggle theme" title="Toggle theme">☼</button>
     </header>
@@ -76,6 +76,15 @@
         </div>
 
         <div id="trackerList" class="tracker-list"></div>
+      </section>
+
+
+      <section id="detailsView" class="view" aria-labelledby="detailsTitle">
+        <div class="details-topbar">
+          <button id="detailsBack" class="secondary-button" type="button">← Back</button>
+          <div><p class="section-kicker">MATCH DETAILS</p><h2 id="detailsTitle">Fixture</h2></div>
+        </div>
+        <div id="detailsContent"></div>
       </section>
 
       <section id="settingsView" class="view" aria-labelledby="settingsTitle">
@@ -158,6 +167,6 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=2.5" defer></script>
+  <script src="app.js?v=2.6" defer></script>
 </body>
 </html>

@@ -141,6 +141,8 @@ const state = {
   activeView: "scoresView",
   loadingDate: null,
   lastError: "",
+  detailsCache: {},
+  detailsPreviousView: "scoresView",
 };
 
 if (!state.lists[state.currentListId]) state.currentListId = Object.keys(state.lists)[0];
@@ -428,14 +430,15 @@ function renderFixtures() {
   }).join("");
 
   list.querySelectorAll("[data-fixture-id]").forEach((button) => {
-    button.addEventListener("click", () => openConditionDialog(button.dataset.fixtureId));
+    button.addEventListener("click", (event) => { event.stopPropagation(); openConditionDialog(button.dataset.fixtureId); });
   });
+  bindFixtureDetailOpeners(list);
 }
 
 function fixtureCardHtml(fixture) {
   const selected = fixtureIsSelectedAnywhere(fixture.id);
   return `
-    <article class="fixture-card">
+    <article class="fixture-card" data-open-fixture="${fixture.id}" tabindex="0" role="button" aria-label="Open ${escapeHtml(fixture.home)} versus ${escapeHtml(fixture.away)} details">
       <div class="match-time ${fixture.status === "live" ? "live" : ""}">${escapeHtml(clockText(fixture))}<small>${escapeHtml(statusLabel(fixture))}</small></div>
       <div class="match-line">
         <strong class="home-team">${escapeHtml(fixture.home)}</strong>
@@ -532,14 +535,26 @@ function trafficState(fixture, condition) {
     winning = total >= 4;
     if (!winning) goalsNeeded = 4 - total;
   }
-  if (condition === "under15") winning = total <= 1;
-  if (condition === "under25") winning = total <= 2;
-  if (condition === "under35") winning = total <= 3;
+  if (condition === "under15") {
+    winning = total <= 1;
+    if (!winning) return { colour: "lost", copy: "Lost" };
+  }
+  if (condition === "under25") {
+    winning = total <= 2;
+    if (!winning) return { colour: "lost", copy: "Lost" };
+  }
+  if (condition === "under35") {
+    winning = total <= 3;
+    if (!winning) return { colour: "lost", copy: "Lost" };
+  }
   if (condition === "bttsYes") {
     winning = h > 0 && a > 0;
     if (!winning) goalsNeeded = (h > 0 || a > 0) ? 1 : 2;
   }
-  if (condition === "bttsNo") winning = h === 0 || a === 0;
+  if (condition === "bttsNo") {
+    winning = h === 0 || a === 0;
+    if (!winning) return { colour: "lost", copy: "Lost" };
+  }
 
   if (fixture.status === "finished") return winning ? { colour: "green", copy: "Won" } : { colour: "red", copy: "Lost" };
   if (winning) return { colour: "green", copy: "Winning" };
@@ -570,17 +585,17 @@ function runTrafficStateTests() {
     [fixture(2, 1), "over35", "yellow", "Needs 1 goal"],
     [fixture(2, 2), "over35", "green", "Winning"],
     [fixture(1, 0), "under15", "green", "Winning"],
-    [fixture(1, 1), "under15", "red", "Not winning"],
+    [fixture(1, 1), "under15", "lost", "Lost"],
     [fixture(2, 0), "under25", "green", "Winning"],
-    [fixture(2, 1), "under25", "red", "Not winning"],
+    [fixture(2, 1), "under25", "lost", "Lost"],
     [fixture(3, 0), "under35", "green", "Winning"],
-    [fixture(2, 2), "under35", "red", "Not winning"],
+    [fixture(2, 2), "under35", "lost", "Lost"],
     [fixture(0, 0), "bttsYes", "red", "Needs 2 goals"],
     [fixture(1, 0), "bttsYes", "yellow", "Needs 1 goal"],
     [fixture(1, 1), "bttsYes", "green", "Winning"],
     [fixture(0, 0), "bttsNo", "green", "Winning"],
     [fixture(2, 0), "bttsNo", "green", "Winning"],
-    [fixture(1, 1), "bttsNo", "red", "Not winning"],
+    [fixture(1, 1), "bttsNo", "lost", "Lost"],
     [fixture(1, 2, "finished"), "home", "red", "Lost"],
     [fixture(2, 1, "finished"), "home", "green", "Won"],
   ];
@@ -610,7 +625,7 @@ function renderTracker() {
 
   entries.sort((a, b) => {
     if (state.trackerSort === "urgency") {
-      const rank = { yellow: 0, red: 1, green: 2, grey: 3 };
+      const rank = { yellow: 0, red: 1, lost: 2, green: 3, grey: 4 };
       const difference = rank[trafficState(a.fixture, a.condition).colour] - rank[trafficState(b.fixture, b.condition).colour];
       if (difference) return difference;
     }
@@ -628,7 +643,7 @@ function renderTracker() {
       const heading = fixture.date !== previousDate ? `<div class="day-heading">${new Date(`${fixture.date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</div>` : "";
       previousDate = fixture.date;
       return `${heading}
-        <article class="tracker-card status-${status.colour} ${fixture.status === "live" ? "in-play" : ""}">
+        <article class="tracker-card status-${status.colour} ${fixture.status === "live" ? "in-play" : ""}" data-open-fixture="${entry.id}" tabindex="0" role="button" aria-label="Open ${escapeHtml(fixture.home)} versus ${escapeHtml(fixture.away)} details">
           <div class="tracker-topline">
             <div class="tracker-clock">${escapeHtml(clockText(fixture))}<small>${escapeHtml(statusLabel(fixture))}</small></div>
             <div class="match-line tracker-match-line">
@@ -651,16 +666,18 @@ function renderTracker() {
     saveSelected();
     renderAll();
   }));
-  list.querySelectorAll("[data-edit-id]").forEach((button) => button.addEventListener("click", () => openConditionDialog(button.dataset.editId)));
+  list.querySelectorAll("[data-edit-id]").forEach((button) => button.addEventListener("click", (event) => { event.stopPropagation(); openConditionDialog(button.dataset.editId); }));
+  list.querySelectorAll("[data-remove-id]").forEach((button) => button.addEventListener("click", (event) => event.stopPropagation(), { once: true }));
+  bindFixtureDetailOpeners(list);
   renderSummary();
 }
 
 function renderSummary() {
   const values = Object.values(state.selected);
-  const counts = { green: 0, yellow: 0, red: 0, grey: 0 };
+  const counts = { green: 0, yellow: 0, red: 0, lost: 0, grey: 0 };
   values.forEach((entry) => counts[trafficState(entry.fixture, entry.condition).colour] += 1);
   document.getElementById("summaryCards").innerHTML = [
-    ["green", counts.green, "Winning"], ["yellow", counts.yellow, "1 goal"], ["red", counts.red, "Others"], ["grey", counts.grey, "Upcoming"],
+    ["green", counts.green, "Winning"], ["yellow", counts.yellow, "1 goal"], ["red", counts.red, "Others"], ["lost", counts.lost, "Lost"], ["grey", counts.grey, "Upcoming"],
   ].map(([colour, value, label]) => `<div class="summary-card ${colour}"><strong>${value}</strong><span>${label}</span></div>`).join("");
 }
 
@@ -685,24 +702,43 @@ function renderFavouriteLeagues() {
       const bestA = Math.min(...leaguesA.map((league) => leaguePriority(league.league)));
       const bestB = Math.min(...leaguesB.map((league) => leaguePriority(league.league)));
       return bestA - bestB || countryA.localeCompare(countryB);
-    }).map(([country, leagues]) => `
+    }).map(([country, leagues]) => {
+      const orderedLeagues = leagues.sort((a, b) => leaguePriority(a.league) - leaguePriority(b.league) || a.league.localeCompare(b.league));
+      const selectedCount = orderedLeagues.filter((league) => state.favouriteLeagues.includes(league.key)).length;
+      const countryKey = encodeURIComponent(country);
+      return `
       <div class="favourite-country">
-        <h4>${escapeHtml(country)}</h4>
+        <label class="country-choice">
+          <input type="checkbox" data-country="${countryKey}" ${selectedCount === orderedLeagues.length ? "checked" : ""} data-partial="${selectedCount > 0 && selectedCount < orderedLeagues.length}">
+          <span>${escapeHtml(country)}</span><small>${selectedCount}/${orderedLeagues.length}</small>
+        </label>
         <div class="league-choice-grid">
-          ${leagues.sort((a, b) => leaguePriority(a.league) - leaguePriority(b.league) || a.league.localeCompare(b.league)).map((league) => {
+          ${orderedLeagues.map((league) => {
             const checked = state.favouriteLeagues.includes(league.key);
-            return `<label class="league-choice"><input type="checkbox" value="${escapeHtml(league.key)}" ${checked ? "checked" : ""}><span>${escapeHtml(league.league)}</span></label>`;
+            return `<label class="league-choice"><input type="checkbox" data-league value="${escapeHtml(league.key)}" data-country-key="${countryKey}" ${checked ? "checked" : ""}><span>${escapeHtml(league.league)}</span></label>`;
           }).join("")}
         </div>
-      </div>`).join("");
+      </div>`;
+    }).join("");
     return `<details class="favourite-region" ${region === "Europe" || (!regions.has("Europe") && index === 0) ? "open" : ""}>
       <summary><span>${escapeHtml(region)}</span><b>${favouriteCount ? `${favouriteCount} selected` : ""}</b></summary>
       <div class="favourite-region-content">${countryHtml}</div>
     </details>`;
   }).join("");
 
-  container.querySelectorAll("input").forEach((input) => input.addEventListener("change", () => {
+  container.querySelectorAll("input[data-partial='true']").forEach((input) => { input.indeterminate = true; });
+  container.querySelectorAll("input[data-league]").forEach((input) => input.addEventListener("change", () => {
     state.favouriteLeagues = input.checked ? [...new Set([...state.favouriteLeagues, input.value])] : state.favouriteLeagues.filter((key) => key !== input.value);
+    localStorage.setItem(`${STORAGE_PREFIX}favourite-leagues`, JSON.stringify(state.favouriteLeagues));
+    renderFixtures();
+    renderFavouriteLeagues();
+  }));
+  container.querySelectorAll("input[data-country]").forEach((input) => input.addEventListener("change", () => {
+    const countryKey = input.dataset.country;
+    const keys = [...container.querySelectorAll(`input[data-league][data-country-key="${countryKey}"]`)].map((item) => item.value);
+    state.favouriteLeagues = input.checked
+      ? [...new Set([...state.favouriteLeagues, ...keys])]
+      : state.favouriteLeagues.filter((key) => !keys.includes(key));
     localStorage.setItem(`${STORAGE_PREFIX}favourite-leagues`, JSON.stringify(state.favouriteLeagues));
     renderFixtures();
     renderFavouriteLeagues();
@@ -743,10 +779,97 @@ function renderListControls() {
   document.getElementById("trackerTitle").textContent = state.lists[state.currentListId]?.name || "My Matches";
 }
 
+
+function bindFixtureDetailOpeners(container) {
+  container.querySelectorAll("[data-open-fixture]").forEach((row) => {
+    const open = (event) => {
+      if (event.target.closest("button,select,input,a")) return;
+      openMatchDetails(row.dataset.openFixture);
+    };
+    row.addEventListener("click", open);
+    row.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open(event); }
+    });
+  });
+}
+
+function eventIcon(type, detail) {
+  const value = `${type || ""} ${detail || ""}`.toLowerCase();
+  if (value.includes("goal")) return "⚽";
+  if (value.includes("red")) return "🟥";
+  if (value.includes("yellow")) return "🟨";
+  if (value.includes("subst")) return "↔";
+  if (value.includes("var")) return "VAR";
+  return "•";
+}
+
+async function openMatchDetails(id) {
+  const fixture = getFixtureById(id);
+  if (!fixture) return;
+  state.detailsPreviousView = state.activeView === "detailsView" ? state.detailsPreviousView : state.activeView;
+  setView("detailsView");
+  document.getElementById("detailsContent").innerHTML = detailsLoadingHtml(fixture);
+  const cached = state.detailsCache[id];
+  if (cached && Date.now() - cached.savedAt < 60000) {
+    renderMatchDetails(fixture, cached.data);
+    return;
+  }
+  try {
+    const response = await fetch(`${API_BASE}/fixture?id=${encodeURIComponent(fixture.apiId || fixture.id)}`);
+    const data = await response.json();
+    if (!response.ok || data.error) throw new Error(data.details || data.error || "Unable to load match details");
+    state.detailsCache[id] = { savedAt: Date.now(), data };
+    renderMatchDetails(fixture, data);
+  } catch (error) {
+    document.getElementById("detailsContent").innerHTML = `${detailsHeaderHtml(fixture)}<div class="empty-state"><strong>Details unavailable</strong>${escapeHtml(error.message)}. Update the Cloudflare Worker with the V2.6 worker code included in the ZIP.</div>`;
+  }
+}
+
+function detailsLoadingHtml(fixture) {
+  return `${detailsHeaderHtml(fixture)}<div class="details-loading">Loading scorers, cards and match information…</div>`;
+}
+
+function detailsHeaderHtml(fixture) {
+  return `<section class="details-scoreboard">
+    <p>${escapeHtml(fixture.country)} · ${escapeHtml(fixture.league)}</p>
+    <div class="details-clock">${escapeHtml(clockText(fixture))}<small>${escapeHtml(statusLabel(fixture))}</small></div>
+    <div class="details-scoreline"><strong>${escapeHtml(fixture.home)}</strong><b>${scoreText(fixture)}</b><strong>${escapeHtml(fixture.away)}</strong></div>
+    <span>${new Date(fixture.timestamp).toLocaleString("en-GB", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}</span>
+  </section>`;
+}
+
+function renderMatchDetails(fixture, data) {
+  const events = Array.isArray(data.events) ? data.events : [];
+  const statistics = Array.isArray(data.statistics) ? data.statistics : [];
+  const lineups = Array.isArray(data.lineups) ? data.lineups : [];
+  const match = data.fixture || {};
+  const eventHtml = events.length ? events.map((event) => {
+    const minute = `${event.time?.elapsed ?? ""}${event.time?.extra ? `+${event.time.extra}` : ""}′`;
+    const team = event.team?.name || "";
+    const player = event.player?.name || event.assist?.name || "";
+    return `<li><time>${escapeHtml(minute)}</time><span class="event-icon">${eventIcon(event.type, event.detail)}</span><div><strong>${escapeHtml(event.detail || event.type || "Event")}</strong><p>${escapeHtml(player)}${team ? ` · ${escapeHtml(team)}` : ""}</p></div></li>`;
+  }).join("") : '<div class="empty-state compact"><strong>No timeline available</strong>Events may not be supplied for this competition.</div>';
+  const statRows = statistics.length === 2 ? (statistics[0].statistics || []).map((stat, index) => {
+    const away = statistics[1].statistics?.[index]?.value ?? "–";
+    return `<div class="stat-row"><b>${escapeHtml(stat.value ?? "–")}</b><span>${escapeHtml(stat.type)}</span><b>${escapeHtml(away)}</b></div>`;
+  }).join("") : "";
+  const lineupHtml = lineups.length ? lineups.map((lineup) => `<section class="lineup-team"><h4>${escapeHtml(lineup.team?.name || "Team")}${lineup.formation ? ` · ${escapeHtml(lineup.formation)}` : ""}</h4><p>${(lineup.startXI || []).map((item) => escapeHtml(item.player?.name || "")).filter(Boolean).join(", ") || "Line-up unavailable"}</p></section>`).join("") : "";
+  document.getElementById("detailsContent").innerHTML = `${detailsHeaderHtml(fixture)}
+    <div class="details-meta">${match.fixture?.venue?.name ? `<span>⌖ ${escapeHtml(match.fixture.venue.name)}</span>` : ""}${match.fixture?.referee ? `<span>Referee: ${escapeHtml(match.fixture.referee)}</span>` : ""}</div>
+    <section class="details-section"><h3>Match timeline</h3><ol class="event-timeline">${eventHtml}</ol></section>
+    ${statRows ? `<section class="details-section"><h3>Statistics</h3><div class="stats-table">${statRows}</div></section>` : ""}
+    ${lineupHtml ? `<section class="details-section"><h3>Line-ups</h3><div class="lineups-grid">${lineupHtml}</div></section>` : ""}`;
+}
+
+function closeMatchDetails() {
+  setView(state.detailsPreviousView || "scoresView");
+}
+
 function setView(viewId) {
   state.activeView = viewId;
   document.querySelectorAll(".view").forEach((view) => view.classList.toggle("active", view.id === viewId));
   document.querySelectorAll(".bottom-nav button").forEach((button) => button.classList.toggle("active", button.dataset.view === viewId));
+  document.querySelector(".bottom-nav").classList.toggle("details-hidden", viewId === "detailsView");
   if (viewId === "trackerView") renderTracker();
 }
 
@@ -780,6 +903,7 @@ function renderAll() {
 
 function bindEvents() {
   document.querySelectorAll(".bottom-nav button").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
+  document.getElementById("detailsBack").addEventListener("click", closeMatchDetails);
   document.getElementById("jumpToday").addEventListener("click", () => {
     state.selectedDate = isoDate(today);
     loadDate(state.selectedDate);
@@ -864,7 +988,7 @@ async function start() {
   if (liveItem) { state.currentListId = liveItem.list.id; setView("trackerView"); }
   setInterval(refreshLive, LIVE_REFRESH_MS);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=2.5").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=2.6").catch(() => {});
 }
 
 start();

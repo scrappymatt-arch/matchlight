@@ -138,6 +138,7 @@ const state = {
   theme: localStorage.getItem(`${STORAGE_PREFIX}theme`) || "dark",
   density: localStorage.getItem(`${STORAGE_PREFIX}density`) || "compact",
   favouriteLeagues: readJson(`${STORAGE_PREFIX}favourite-leagues`, []),
+  showAllLeagues: false,
   knownLeagues: readJson(`${STORAGE_PREFIX}known-leagues`, []),
   editingFixtureId: null,
   editingListId: null,
@@ -443,11 +444,30 @@ function renderFixtures() {
   const list = document.getElementById("fixtureList");
   const fixtures = [...(state.fixturesByDate[state.selectedDate] || [])];
   const query = state.search.trim().toLowerCase();
+  const favouritesActive = state.favouriteLeagues.length > 0 && !state.showAllLeagues;
   const filtered = fixtures.filter((fixture) => {
+    if (favouritesActive && !isFavourite(fixture)) return false;
     if (state.selectedOnly && !fixtureIsSelectedAnywhere(fixture.id)) return false;
     if (!query) return true;
     return `${fixture.home} ${fixture.away} ${fixture.league} ${fixture.country}`.toLowerCase().includes(query);
   });
+
+  const notice = document.getElementById("favouriteFilterNotice");
+  if (notice) {
+    if (state.favouriteLeagues.length > 0) {
+      notice.hidden = false;
+      notice.innerHTML = state.showAllLeagues
+        ? `<span>Showing all leagues.</span><button id="applyFavouriteFilter" type="button">Show favourites only</button>`
+        : `<span>Showing ${state.favouriteLeagues.length} favourite ${state.favouriteLeagues.length === 1 ? "league" : "leagues"} only.</span><button id="showAllLeagues" type="button">Show all leagues</button>`;
+      document.getElementById(state.showAllLeagues ? "applyFavouriteFilter" : "showAllLeagues")?.addEventListener("click", () => {
+        state.showAllLeagues = !state.showAllLeagues;
+        renderFixtures();
+      });
+    } else {
+      notice.hidden = true;
+      notice.innerHTML = "";
+    }
+  }
 
   filtered.sort((a, b) => {
     const regionDifference = regionRank(a.country) - regionRank(b.country);
@@ -804,6 +824,7 @@ function renderFavouriteLeagues() {
   container.querySelectorAll("input[data-partial='true']").forEach((input) => { input.indeterminate = true; });
   container.querySelectorAll("input[data-league]").forEach((input) => input.addEventListener("change", () => {
     state.favouriteLeagues = input.checked ? [...new Set([...state.favouriteLeagues, input.value])] : state.favouriteLeagues.filter((key) => key !== input.value);
+    state.showAllLeagues = false;
     localStorage.setItem(`${STORAGE_PREFIX}favourite-leagues`, JSON.stringify(state.favouriteLeagues));
     renderFixtures();
     renderFavouriteLeagues();
@@ -814,6 +835,7 @@ function renderFavouriteLeagues() {
     state.favouriteLeagues = input.checked
       ? [...new Set([...state.favouriteLeagues, ...keys])]
       : state.favouriteLeagues.filter((key) => !keys.includes(key));
+    state.showAllLeagues = false;
     localStorage.setItem(`${STORAGE_PREFIX}favourite-leagues`, JSON.stringify(state.favouriteLeagues));
     renderFixtures();
     renderFavouriteLeagues();
@@ -896,7 +918,7 @@ async function openMatchDetails(id) {
     state.detailsCache[id] = { savedAt: Date.now(), data };
     renderMatchDetails(fixture, data);
   } catch (error) {
-    document.getElementById("detailsContent").innerHTML = `${detailsHeaderHtml(fixture)}<div class="empty-state"><strong>Details unavailable</strong>${escapeHtml(error.message)}. Update the Cloudflare Worker with the V2.7 worker code included in the ZIP.</div>`;
+    document.getElementById("detailsContent").innerHTML = `${detailsHeaderHtml(fixture)}<div class="empty-state"><strong>Details unavailable</strong>${escapeHtml(error.message)}. Update the Cloudflare Worker with the worker code included in the ZIP.</div>`;
   }
 }
 
@@ -1005,6 +1027,7 @@ function bindEvents() {
   });
   document.getElementById("clearFavouriteLeagues").addEventListener("click", () => {
     state.favouriteLeagues = [];
+    state.showAllLeagues = false;
     localStorage.setItem(`${STORAGE_PREFIX}favourite-leagues`, "[]");
     renderAll();
   });
@@ -1063,7 +1086,7 @@ async function start() {
   if (liveItem) { state.currentListId = liveItem.list.id; setView("trackerView"); }
   setInterval(refreshLive, LIVE_REFRESH_MS);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=2.7").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=2.8").catch(() => {});
 }
 
 start();

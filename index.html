@@ -8,14 +8,14 @@
   <title>MatchBuddy</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=2.3" />
+  <link rel="stylesheet" href="styles.css?v=2.4" />
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div>
         <p class="eyebrow">FOOTBALL, WITHOUT THE CLUTTER</p>
-        <h1>MatchBuddy <span class="app-version">V2.3</span></h1>
+        <h1>MatchBuddy <span class="app-version">V2.4</span></h1>
       </div>
       <button id="themeToggle" class="icon-button" aria-label="Toggle theme" title="Toggle theme">☼</button>
     </header>
@@ -51,6 +51,13 @@
             <h2 id="trackerTitle">My Matches</h2>
           </div>
           <button id="clearTracker" class="danger-button">Clear</button>
+        </div>
+
+        <div class="list-toolbar" aria-label="Match lists">
+          <select id="matchListSelect" aria-label="Choose match list"></select>
+          <button id="newList" class="secondary-button" type="button">New</button>
+          <button id="renameList" class="secondary-button" type="button">Rename</button>
+          <button id="deleteList" class="danger-button" type="button">Delete</button>
         </div>
 
         <div id="summaryCards" class="summary-grid"></div>
@@ -131,6 +138,10 @@
         <div><p class="section-kicker">TRACK THIS MATCH</p><h3 id="dialogMatchTitle">Choose condition</h3></div>
         <button value="cancel" class="dialog-close" aria-label="Close">×</button>
       </div>
+      <div class="dialog-list-picker">
+        <label for="targetListSelect">Add to list</label>
+        <div><select id="targetListSelect"></select><button id="newListFromDialog" type="button" class="secondary-button">New list</button></div>
+      </div>
       <div id="conditionOptions" class="condition-groups"></div>
       <menu><button value="cancel" class="secondary-button">Cancel</button></menu>
     </form>
@@ -138,7 +149,7 @@
 
   <dialog id="confirmDialog">
     <form method="dialog" class="dialog-card compact">
-      <h3>Clear your match list?</h3>
+      <h3>Clear this match list?</h3>
       <p>This removes every selected fixture. It cannot be undone.</p>
       <menu>
         <button value="cancel" class="secondary-button">Cancel</button>
@@ -147,6 +158,6 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=2.3" defer></script>
+  <script src="app.js?v=2.4" defer></script>
 </body>
 </html>

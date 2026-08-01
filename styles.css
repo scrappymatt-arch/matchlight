@@ -193,3 +193,51 @@ menu { display: flex; justify-content: flex-end; margin: 18px 0 0; padding: 0; }
   :root[data-density="compact"] .central-score { min-width: 48px; font-size: .98rem; }
   :root[data-density="compact"] .add-button { width: 33px; height: 33px; }
 }
+
+/* MatchBuddy V2.4 — multi-list controls, cleaner light mode and in-play highlight */
+:root { --bg-glow: #172133; --live-border: #f2c94c; }
+:root[data-theme="light"] {
+  --bg: #f7f5ef;
+  --bg-glow: #fffdf8;
+  --bg-elevated: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #eef1f4;
+  --text: #101722;
+  --muted: #667181;
+  --border: #d7dce3;
+  --accent: #cbea18;
+  --accent-ink: #121700;
+  --shadow: 0 14px 36px rgba(25,35,48,.10);
+}
+body { background: radial-gradient(circle at 50% -20%, var(--bg-glow) 0, var(--bg) 38%); }
+:root[data-theme="light"] .region-heading { background: #1d2938; border-color: #1d2938; color: #fff; }
+:root[data-theme="light"] .region-heading span { color: #d9e0e8; }
+:root[data-theme="light"] .country-heading { color: #394657; }
+:root[data-theme="light"] .league-heading { background: #eef1f4; color: #42536a; }
+:root[data-theme="light"] .eyebrow,
+:root[data-theme="light"] .section-kicker,
+:root[data-theme="light"] .favourite-country h4 { color: #4e6279; }
+:root[data-theme="light"] .fixture-card,
+:root[data-theme="light"] .league-group,
+:root[data-theme="light"] .settings-card,
+:root[data-theme="light"] .settings-panel { box-shadow: 0 1px 2px rgba(23,31,42,.04); }
+
+.list-toolbar { display: grid; grid-template-columns: minmax(0,1fr) auto auto auto; gap: 8px; margin: 0 0 14px; }
+.list-toolbar select,
+.dialog-list-picker select { min-width: 0; min-height: 43px; padding: 0 12px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface); color: var(--text); font-weight: 850; }
+.list-toolbar .secondary-button,
+.list-toolbar .danger-button { padding: 0 12px; }
+.dialog-list-picker { margin-top: 14px; }
+.dialog-list-picker label { display: block; margin-bottom: 7px; color: var(--muted); font-size: .73rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.dialog-list-picker > div { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; }
+.tracker-card.in-play { border-color: var(--live-border); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--live-border) 50%, transparent); }
+
+@media (max-width: 620px) {
+  .list-toolbar { grid-template-columns: minmax(0,1fr) repeat(3,auto); }
+  .list-toolbar .secondary-button,
+  .list-toolbar .danger-button { min-height: 39px; padding: 0 9px; font-size: .74rem; }
+}
+@media (max-width: 430px) {
+  .list-toolbar { grid-template-columns: 1fr 1fr 1fr; }
+  .list-toolbar select { grid-column: 1 / -1; }
+}

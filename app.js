@@ -116,6 +116,12 @@ function regionRank(country) {
   return REGION_ORDER.indexOf(regionForCountry(country));
 }
 
+const savedLists = readJson(`${STORAGE_PREFIX}lists`, null);
+const legacySelected = readJson(`${STORAGE_PREFIX}selected`, {});
+const initialLists = savedLists && Object.keys(savedLists).length
+  ? savedLists
+  : { list1: { id: "list1", name: "List 1", selected: legacySelected, finishedAt: null } };
+
 const state = {
   selectedDate: isoDate(today),
   fixturesByDate: {},
@@ -124,16 +130,24 @@ const state = {
   search: "",
   trackerFilter: "all",
   trackerSort: "date",
-  selected: readJson(`${STORAGE_PREFIX}selected`, {}),
+  lists: initialLists,
+  currentListId: localStorage.getItem(`${STORAGE_PREFIX}current-list`) || Object.keys(initialLists)[0],
   theme: localStorage.getItem(`${STORAGE_PREFIX}theme`) || "dark",
   density: localStorage.getItem(`${STORAGE_PREFIX}density`) || "compact",
   favouriteLeagues: readJson(`${STORAGE_PREFIX}favourite-leagues`, []),
   knownLeagues: readJson(`${STORAGE_PREFIX}known-leagues`, []),
   editingFixtureId: null,
+  editingListId: null,
   activeView: "scoresView",
   loadingDate: null,
   lastError: "",
 };
+
+if (!state.lists[state.currentListId]) state.currentListId = Object.keys(state.lists)[0];
+Object.defineProperty(state, "selected", {
+  get() { return state.lists[state.currentListId]?.selected || {}; },
+  set(value) { state.lists[state.currentListId].selected = value; },
+});
 
 function readJson(key, fallback) {
   try { return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)); }
@@ -141,8 +155,34 @@ function readJson(key, fallback) {
 }
 
 function saveSelected() {
-  localStorage.setItem(`${STORAGE_PREFIX}selected`, JSON.stringify(state.selected));
+  localStorage.setItem(`${STORAGE_PREFIX}lists`, JSON.stringify(state.lists));
+  localStorage.setItem(`${STORAGE_PREFIX}current-list`, state.currentListId);
+  localStorage.removeItem(`${STORAGE_PREFIX}selected`);
   updateAutoClearClock();
+}
+
+function allListEntries() {
+  return Object.values(state.lists).flatMap((list) => Object.entries(list.selected || {}).map(([id, entry]) => ({ id, entry, list })));
+}
+
+function fixtureIsSelectedAnywhere(id) {
+  return Object.values(state.lists).some((list) => Boolean(list.selected?.[id]));
+}
+
+function nextListName() {
+  const used = new Set(Object.values(state.lists).map((list) => list.name));
+  let number = 1;
+  while (used.has(`List ${number}`)) number += 1;
+  return `List ${number}`;
+}
+
+function createList(name = nextListName()) {
+  const id = `list-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
+  state.lists[id] = { id, name, selected: {}, finishedAt: null };
+  state.currentListId = id;
+  saveSelected();
+  renderAll();
+  return id;
 }
 
 function normaliseFixture(item) {
@@ -180,9 +220,9 @@ function normaliseFixture(item) {
 }
 
 function mergeFixture(fixture) {
-  if (state.selected[fixture.id]) {
-    state.selected[fixture.id].fixture = fixture;
-  }
+  Object.values(state.lists).forEach((list) => {
+    if (list.selected?.[fixture.id]) list.selected[fixture.id].fixture = fixture;
+  });
 }
 
 async function loadDate(date, { force = false } = {}) {
@@ -227,7 +267,7 @@ function friendlyError(error) {
 
 async function refreshLive() {
   if (document.hidden) return;
-  const selectedFixtures = Object.values(state.selected).map((entry) => entry.fixture);
+  const selectedFixtures = allListEntries().map(({ entry }) => entry.fixture);
   const selectedLive = selectedFixtures.some((fixture) => fixture.status === "live");
   const viewingToday = state.activeView === "scoresView" && state.selectedDate === isoDate(today);
   if (!selectedLive && !viewingToday) return;
@@ -242,8 +282,10 @@ async function refreshLive() {
     Object.keys(state.fixturesByDate).forEach((date) => {
       state.fixturesByDate[date] = state.fixturesByDate[date].map((fixture) => liveMap.get(fixture.id) || fixture);
     });
-    Object.keys(state.selected).forEach((id) => {
-      if (liveMap.has(id)) state.selected[id].fixture = liveMap.get(id);
+    Object.values(state.lists).forEach((list) => {
+      Object.keys(list.selected || {}).forEach((id) => {
+        if (liveMap.has(id)) list.selected[id].fixture = liveMap.get(id);
+      });
     });
     saveSelected();
     renderAll();
@@ -327,7 +369,7 @@ function renderFixtures() {
   const fixtures = [...(state.fixturesByDate[state.selectedDate] || [])];
   const query = state.search.trim().toLowerCase();
   const filtered = fixtures.filter((fixture) => {
-    if (state.selectedOnly && !state.selected[fixture.id]) return false;
+    if (state.selectedOnly && !fixtureIsSelectedAnywhere(fixture.id)) return false;
     if (!query) return true;
     return `${fixture.home} ${fixture.away} ${fixture.league} ${fixture.country}`.toLowerCase().includes(query);
   });
@@ -391,7 +433,7 @@ function renderFixtures() {
 }
 
 function fixtureCardHtml(fixture) {
-  const selected = Boolean(state.selected[fixture.id]);
+  const selected = fixtureIsSelectedAnywhere(fixture.id);
   return `
     <article class="fixture-card">
       <div class="match-time ${fixture.status === "live" ? "live" : ""}">${escapeHtml(clockText(fixture))}<small>${escapeHtml(statusLabel(fixture))}</small></div>
@@ -409,15 +451,17 @@ function getFixtureById(id) {
     const match = fixtures.find((fixture) => fixture.id === id);
     if (match) return match;
   }
-  return state.selected[id]?.fixture || null;
+  return allListEntries().find((item) => item.id === id)?.entry.fixture || null;
 }
 
 function openConditionDialog(id) {
   const fixture = getFixtureById(id);
   if (!fixture) return;
+  if (state.editingFixtureId !== id || !state.editingListId) state.editingListId = state.currentListId;
   state.editingFixtureId = id;
   document.getElementById("dialogMatchTitle").textContent = `${fixture.home} v ${fixture.away}`;
-  const current = state.selected[id]?.condition || "none";
+  renderDialogListSelect();
+  const current = state.lists[state.editingListId]?.selected?.[id]?.condition || "none";
   const groups = ["Result", "Over / Under", "BTTS", "No option"];
   document.getElementById("conditionOptions").innerHTML = groups.map((group) => `
     <section class="condition-group">
@@ -427,16 +471,27 @@ function openConditionDialog(id) {
       </div>
     </section>`).join("");
   document.querySelectorAll(".condition-option").forEach((button) => button.addEventListener("click", () => selectCondition(button.dataset.condition)));
-  document.getElementById("conditionDialog").showModal();
+  const dialog = document.getElementById("conditionDialog");
+  if (!dialog.open) dialog.showModal();
+}
+
+function renderDialogListSelect() {
+  const select = document.getElementById("targetListSelect");
+  if (!select) return;
+  select.innerHTML = Object.values(state.lists).map((list) => `<option value="${escapeHtml(list.id)}" ${list.id === state.editingListId ? "selected" : ""}>${escapeHtml(list.name)}</option>`).join("");
 }
 
 function selectCondition(condition) {
   const id = state.editingFixtureId;
   const fixture = getFixtureById(id);
-  if (!fixture) return;
-  state.selected[id] = { condition, fixture, addedAt: state.selected[id]?.addedAt || Date.now() };
+  const list = state.lists[state.editingListId];
+  if (!fixture || !list) return;
+  list.selected[id] = { condition, fixture, addedAt: list.selected[id]?.addedAt || Date.now() };
+  state.currentListId = list.id;
   saveSelected();
   document.getElementById("conditionDialog").close();
+  state.editingFixtureId = null;
+  state.editingListId = null;
   renderAll();
 }
 
@@ -473,6 +528,7 @@ function trafficState(fixture, condition) {
 
 function renderTracker() {
   autoClearIfDue();
+  renderListControls();
   let entries = Object.entries(state.selected).map(([id, entry]) => ({ id, ...entry, fixture: getFixtureById(id) || entry.fixture })).filter((entry) => entry.fixture);
   entries.forEach((entry) => { state.selected[entry.id].fixture = entry.fixture; });
 
@@ -503,7 +559,7 @@ function renderTracker() {
       const heading = fixture.date !== previousDate ? `<div class="day-heading">${new Date(`${fixture.date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</div>` : "";
       previousDate = fixture.date;
       return `${heading}
-        <article class="tracker-card status-${status.colour}">
+        <article class="tracker-card status-${status.colour} ${fixture.status === "live" ? "in-play" : ""}">
           <div class="tracker-topline">
             <div class="tracker-clock">${escapeHtml(clockText(fixture))}<small>${escapeHtml(statusLabel(fixture))}</small></div>
             <div class="match-line tracker-match-line">
@@ -586,24 +642,36 @@ function renderFavouriteLeagues() {
 }
 
 function updateAutoClearClock() {
-  const entries = Object.values(state.selected);
-  if (!entries.length) {
-    localStorage.removeItem(`${STORAGE_PREFIX}all-finished-at`);
-    return;
-  }
-  const allDone = entries.every((entry) => ["finished", "cancelled"].includes(entry.fixture.status));
-  if (allDone && !localStorage.getItem(`${STORAGE_PREFIX}all-finished-at`)) localStorage.setItem(`${STORAGE_PREFIX}all-finished-at`, String(Date.now()));
-  if (!allDone) localStorage.removeItem(`${STORAGE_PREFIX}all-finished-at`);
+  Object.values(state.lists).forEach((list) => {
+    const entries = Object.values(list.selected || {});
+    if (!entries.length) {
+      list.finishedAt = null;
+      return;
+    }
+    const allDone = entries.every((entry) => ["finished", "cancelled"].includes(entry.fixture.status));
+    if (allDone && !list.finishedAt) list.finishedAt = Date.now();
+    if (!allDone) list.finishedAt = null;
+  });
+  localStorage.setItem(`${STORAGE_PREFIX}lists`, JSON.stringify(state.lists));
 }
 
 function autoClearIfDue() {
   updateAutoClearClock();
-  const finishedAt = Number(localStorage.getItem(`${STORAGE_PREFIX}all-finished-at`) || 0);
-  if (finishedAt && Date.now() - finishedAt >= DAY) {
-    state.selected = {};
-    localStorage.removeItem(`${STORAGE_PREFIX}all-finished-at`);
-    saveSelected();
-  }
+  Object.values(state.lists).forEach((list) => {
+    if (list.finishedAt && Date.now() - list.finishedAt >= DAY) {
+      list.selected = {};
+      list.finishedAt = null;
+    }
+  });
+  saveSelected();
+}
+
+function renderListControls() {
+  const select = document.getElementById("matchListSelect");
+  if (!select) return;
+  select.innerHTML = Object.values(state.lists).map((list) => `<option value="${escapeHtml(list.id)}" ${list.id === state.currentListId ? "selected" : ""}>${escapeHtml(list.name)}</option>`).join("");
+  document.getElementById("deleteList").disabled = Object.keys(state.lists).length <= 1;
+  document.getElementById("trackerTitle").textContent = state.lists[state.currentListId]?.name || "My Matches";
 }
 
 function setView(viewId) {
@@ -632,11 +700,11 @@ function renderAll() {
   renderFixtures();
   renderTracker();
   renderFavouriteLeagues();
-  const count = Object.keys(state.selected).length;
+  const count = allListEntries().length;
   const badge = document.getElementById("trackerBadge");
   badge.hidden = count === 0;
   badge.textContent = count;
-  document.getElementById("clearTracker").disabled = count === 0;
+  document.getElementById("clearTracker").disabled = Object.keys(state.selected).length === 0;
   document.getElementById("showSelectedOnly").classList.toggle("active", state.selectedOnly);
   document.getElementById("showSelectedOnly").setAttribute("aria-pressed", String(state.selectedOnly));
 }
@@ -672,6 +740,38 @@ function bindEvents() {
     localStorage.setItem(`${STORAGE_PREFIX}favourite-leagues`, "[]");
     renderAll();
   });
+  document.getElementById("matchListSelect").addEventListener("change", (event) => {
+    state.currentListId = event.target.value;
+    saveSelected();
+    renderAll();
+  });
+  document.getElementById("newList").addEventListener("click", () => {
+    const proposed = prompt("Name this list", nextListName());
+    if (proposed !== null) createList(proposed.trim() || nextListName());
+  });
+  document.getElementById("renameList").addEventListener("click", () => {
+    const list = state.lists[state.currentListId];
+    const proposed = prompt("Rename this list", list.name);
+    if (proposed !== null && proposed.trim()) { list.name = proposed.trim(); saveSelected(); renderAll(); }
+  });
+  document.getElementById("deleteList").addEventListener("click", () => {
+    if (Object.keys(state.lists).length <= 1) return;
+    const list = state.lists[state.currentListId];
+    if (!confirm(`Delete ${list.name}?`)) return;
+    delete state.lists[state.currentListId];
+    state.currentListId = Object.keys(state.lists)[0];
+    saveSelected(); renderAll();
+  });
+  document.getElementById("targetListSelect").addEventListener("change", (event) => {
+    state.editingListId = event.target.value;
+    openConditionDialog(state.editingFixtureId);
+  });
+  document.getElementById("newListFromDialog").addEventListener("click", () => {
+    const proposed = prompt("Name this list", nextListName());
+    if (proposed === null) return;
+    state.editingListId = createList(proposed.trim() || nextListName());
+    renderDialogListSelect();
+  });
   document.getElementById("clearTracker").addEventListener("click", () => document.getElementById("confirmDialog").showModal());
   document.getElementById("confirmDialog").addEventListener("close", (event) => {
     if (event.target.returnValue === "confirm") {
@@ -691,11 +791,11 @@ async function start() {
   renderAll();
   await loadDate(state.selectedDate);
 
-  const hasTrackedLive = Object.values(state.selected).some((entry) => entry.fixture?.status === "live");
-  if (hasTrackedLive) setView("trackerView");
+  const liveItem = allListEntries().find(({ entry }) => entry.fixture?.status === "live");
+  if (liveItem) { state.currentListId = liveItem.list.id; setView("trackerView"); }
   setInterval(refreshLive, LIVE_REFRESH_MS);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=2.3").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=2.4").catch(() => {});
 }
 
 start();

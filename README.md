@@ -1,15 +1,16 @@
-# MatchBuddy V2.3
+# MatchBuddy V2.4
 
 Live football fixtures and selected-match tracking powered through the MatchBuddy Cloudflare Worker.
 
-## V2.3 changes
+## V2.4 changes
 
-- New compact fixture layout inspired by efficient live-score apps
-- Slimmer region, country and league headers
-- Match rows use substantially less vertical space without shrinking the key score text
-- Compact and Comfortable fixture-spacing choices in Settings
-- Compact mode is the default
-- Updated cache and release version
+- Multiple named match lists, defaulting to List 1, List 2 and so on.
+- Add the same fixture to different lists with different tracking conditions.
+- Create, rename, switch and delete lists from My Matches.
+- Cleaner warm off-white light mode with stronger header contrast.
+- Thin gold border around tracked matches that are still in play.
+- Keeps the compact fixture layout and Compact / Comfortable spacing choices from V2.3.
+- Updated cache and release version.
 
 ## Publishing
 

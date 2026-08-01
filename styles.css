@@ -56,7 +56,7 @@ h3 { margin-bottom: 4px; }
 .match-time { text-align: center; font-size: 1.05rem; font-weight: 950; }
 .match-time.live { color: var(--red); font-size: 1.34rem; }
 .match-time small, .tracker-clock small { display: block; margin-top: 4px; color: var(--muted); font-size: .59rem; font-weight: 900; letter-spacing: .08em; }
-.match-line { display: grid; grid-template-columns: minmax(0,1fr) 62px minmax(0,1fr); align-items: center; gap: 9px; min-width: 0; }
+.match-line { display: grid; grid-template-columns: minmax(0,1fr) 62px minmax(0,1fr) auto; align-items: center; gap: 9px; min-width: 0; }
 .match-line strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .93rem; }
 .home-team { text-align: right; }
 .away-team { text-align: left; }
@@ -120,7 +120,7 @@ menu { display: flex; justify-content: flex-end; margin: 18px 0 0; padding: 0; }
 @media (max-width: 560px) {
   .app-shell { padding-left: 10px; padding-right: 10px; }
   .fixture-card { grid-template-columns: 56px minmax(0,1fr) 43px; gap: 6px; padding: 11px 8px; }
-  .match-line { grid-template-columns: minmax(0,1fr) 52px minmax(0,1fr); gap: 5px; }
+  .match-line { grid-template-columns: minmax(0,1fr) 52px minmax(0,1fr) auto; gap: 5px; }
   .match-line strong { white-space: normal; font-size: .82rem; line-height: 1.15; }
   .central-score { min-width: 52px; font-size: 1.08rem; }
   .summary-grid { grid-template-columns: repeat(2,1fr); }
@@ -179,7 +179,7 @@ menu { display: flex; justify-content: flex-end; margin: 18px 0 0; padding: 0; }
 :root[data-density="compact"] .league-heading + .fixture-card { border-top: 0; }
 :root[data-density="compact"] .match-time { font-size: .92rem; }
 :root[data-density="compact"] .match-time small { margin-top: 1px; font-size: .53rem; }
-:root[data-density="compact"] .match-line { grid-template-columns: minmax(0,1fr) 54px minmax(0,1fr); gap: 6px; }
+:root[data-density="compact"] .match-line { grid-template-columns: minmax(0,1fr) 54px minmax(0,1fr) auto; gap: 6px; }
 :root[data-density="compact"] .match-line strong { font-size: .86rem; }
 :root[data-density="compact"] .central-score { min-width: 54px; font-size: 1.02rem; }
 :root[data-density="compact"] .add-button { width: 35px; height: 35px; border-radius: 11px; font-size: 1rem; }
@@ -188,7 +188,7 @@ menu { display: flex; justify-content: flex-end; margin: 18px 0 0; padding: 0; }
   .density-setting { align-items: flex-start; flex-direction: column; }
   .mini-segmented { width: 100%; }
   :root[data-density="compact"] .fixture-card { grid-template-columns: 47px minmax(0,1fr) 36px; padding: 7px 7px; }
-  :root[data-density="compact"] .match-line { grid-template-columns: minmax(0,1fr) 48px minmax(0,1fr); gap: 4px; }
+  :root[data-density="compact"] .match-line { grid-template-columns: minmax(0,1fr) 48px minmax(0,1fr) auto; gap: 4px; }
   :root[data-density="compact"] .match-line strong { white-space: nowrap; font-size: .79rem; }
   :root[data-density="compact"] .central-score { min-width: 48px; font-size: .98rem; }
   :root[data-density="compact"] .add-button { width: 33px; height: 33px; }
@@ -286,8 +286,19 @@ body { background: radial-gradient(circle at 50% -20%, var(--bg-glow) 0, var(--b
 .empty-state.compact { padding: 20px; }
 @media (max-width: 560px) {
   .summary-grid { grid-template-columns: repeat(2,1fr); }
-  .details-scoreline { grid-template-columns: minmax(0,1fr) 62px minmax(0,1fr); }
+  .details-scoreline { grid-template-columns: minmax(0,1fr) 62px minmax(0,1fr) auto; }
   .details-scoreline strong { font-size: .86rem; }
   .details-scoreline b { font-size: 1.35rem; }
   .lineups-grid { grid-template-columns: 1fr; }
 }
+
+
+/* MatchBuddy V2.7 — recent goal pulse and persistent red-card signals */
+.match-line { position: relative; }
+.match-signals { display: inline-flex; align-items: center; justify-content: flex-start; gap: 7px; margin-left: 7px; white-space: nowrap; }
+.goal-pulse { display: inline-grid; place-items: center; width: 23px; height: 23px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 18%, var(--surface)); font-size: .92rem; animation: goalPulse 1s ease-in-out infinite; transform-origin: center; }
+@keyframes goalPulse { 0%,100% { transform: scale(.88); box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 50%, transparent); } 50% { transform: scale(1.12); box-shadow: 0 0 0 6px transparent; } }
+.red-card-signal { display: inline-flex; align-items: center; gap: 4px; min-width: 23px; height: 23px; padding: 0 5px; border-radius: 7px; background: rgba(255,53,76,.13); color: #ff5366; font-size: .72rem; font-weight: 950; }
+.red-card-signal i { display: block; width: 9px; height: 13px; border-radius: 1px; background: #f1263e; box-shadow: inset 0 0 0 1px rgba(255,255,255,.18); }
+@media (prefers-reduced-motion: reduce) { .goal-pulse { animation: none; } }
+@media (max-width: 460px) { .match-signals { gap: 4px; margin-left: 4px; } .goal-pulse, .red-card-signal { height: 21px; } .goal-pulse { width: 21px; font-size: .82rem; } }

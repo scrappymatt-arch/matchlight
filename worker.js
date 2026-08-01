@@ -73,11 +73,12 @@ export default {
       return jsonResponse({
         service: "MatchBuddy API",
         status: "online",
-        version: "2.6",
+        version: "2.7",
         endpoints: {
           fixtures: "/fixtures?from=2026-08-01&to=2026-08-01",
           live: "/live",
           fixture: "/fixture?id=123456",
+          signals: "/signals?ids=123456,123457",
         },
       }, 200, request);
     }
@@ -109,6 +110,33 @@ export default {
         return jsonResponse(data, 200, request, { "Cache-Control": "public, max-age=20" });
       } catch (error) {
         return jsonResponse({ error: "Unable to retrieve live matches.", details: error.message || String(error) }, 502, request);
+      }
+    }
+
+    if (url.pathname === "/signals") {
+      const rawIds = (url.searchParams.get("ids") || "").split(",").map((id) => id.trim()).filter(Boolean);
+      const ids = [...new Set(rawIds)].filter((id) => /^\d+$/.test(id)).slice(0, 8);
+      if (!ids.length) return jsonResponse({ error: "Provide up to eight numeric fixture ids." }, 400, request);
+      try {
+        const results = await Promise.all(ids.map(async (id) => {
+          const data = await requestApiFootball(`/fixtures/events?fixture=${encodeURIComponent(id)}`, env, 60);
+          const events = Array.isArray(data.response) ? data.response : [];
+          const dismissals = events.filter((event) => {
+            const type = String(event.type || "").toLowerCase();
+            const detail = String(event.detail || "").toLowerCase();
+            return type === "card" && (detail.includes("red card") || detail.includes("second yellow"));
+          });
+          const unique = new Set(dismissals.map((event) => [
+            event.team?.id || event.team?.name || "",
+            event.player?.id || event.player?.name || "",
+            event.time?.elapsed || "",
+            event.time?.extra || "",
+          ].join("|")));
+          return { fixtureId: id, redCards: unique.size };
+        }));
+        return jsonResponse({ results: results.length, response: results }, 200, request, { "Cache-Control": "public, max-age=60" });
+      } catch (error) {
+        return jsonResponse({ error: "Unable to retrieve live match signals.", details: error.message || String(error) }, 502, request);
       }
     }
 

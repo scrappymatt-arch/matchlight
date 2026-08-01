@@ -1,4 +1,4 @@
-# MatchBuddy V2.6
+# MatchBuddy V2.7
 
 This release adds:
 
@@ -22,7 +22,7 @@ Upload and replace these files in the existing GitHub repository:
 - `icon.svg`
 - `sw.js`
 
-After GitHub Pages deploys, fully close and reopen MatchBuddy so the V2.6 service-worker cache replaces V2.5.
+After GitHub Pages deploys, fully close and reopen MatchBuddy so the V2.7 service-worker cache replaces V2.6.
 
 ## Required Cloudflare Worker update
 
@@ -34,3 +34,11 @@ Match details require a new `/fixture?id=` endpoint.
 4. Your existing `API_FOOTBALL_KEY` secret remains in place and does not need to be entered again.
 
 Opening a match for the first time can use up to four API-Football requests for fixture information, events, statistics and line-ups. Cloudflare caches those responses, but the free API plan can still hit its limit during heavy testing.
+
+
+## V2.7 additions
+
+- A pulsing football appears for 60 seconds after MatchBuddy detects a score increase during a live refresh.
+- A red-card icon and count remain visible for the rest of the match and at full-time.
+- Red-card event checks are limited to eight live fixtures per refresh, prioritising tracked and favourite matches, to protect the API allowance.
+- Upload the included `worker.js` to Cloudflare and deploy it, because V2.7 adds the `/signals` endpoint.

@@ -1,6 +1,9 @@
 const API_BASE = "https://matchbuddy-api.scrappymatt.workers.dev";
 const DAY = 86400000;
 const LIVE_REFRESH_MS = 120000;
+const SIGNAL_REFRESH_MS = 120000;
+const GOAL_PULSE_MS = 60000;
+const MAX_SIGNAL_FIXTURES = 8;
 const DAY_CACHE_MS = 5 * 60 * 1000;
 const STORAGE_PREFIX = "matchbuddy-";
 
@@ -143,6 +146,8 @@ const state = {
   lastError: "",
   detailsCache: {},
   detailsPreviousView: "scoresView",
+  matchSignals: readJson(`${STORAGE_PREFIX}match-signals`, {}),
+  lastSignalRefresh: 0,
 };
 
 if (!state.lists[state.currentListId]) state.currentListId = Object.keys(state.lists)[0];
@@ -221,6 +226,63 @@ function normaliseFixture(item) {
   };
 }
 
+function signalForFixture(id) {
+  return state.matchSignals[String(id)] || { goalUntil: 0, redCards: 0 };
+}
+
+function saveSignals() {
+  localStorage.setItem(`${STORAGE_PREFIX}match-signals`, JSON.stringify(state.matchSignals));
+}
+
+function recordScoreChange(previous, next) {
+  if (!previous || next.status !== "live") return;
+  const oldTotal = (Number(previous.homeScore) || 0) + (Number(previous.awayScore) || 0);
+  const newTotal = (Number(next.homeScore) || 0) + (Number(next.awayScore) || 0);
+  if (newTotal > oldTotal) {
+    const current = signalForFixture(next.id);
+    state.matchSignals[next.id] = { ...current, goalUntil: Date.now() + GOAL_PULSE_MS };
+    saveSignals();
+  }
+}
+
+function matchSignalHtml(fixture) {
+  const signal = signalForFixture(fixture.id);
+  const goal = signal.goalUntil > Date.now()
+    ? '<span class="goal-pulse" title="Goal detected in the last minute" aria-label="Goal detected in the last minute">⚽</span>'
+    : '';
+  const cards = Number(signal.redCards) > 0
+    ? `<span class="red-card-signal" title="${signal.redCards} red card${signal.redCards === 1 ? "" : "s"}" aria-label="${signal.redCards} red card${signal.redCards === 1 ? "" : "s"}"><i></i>${signal.redCards}</span>`
+    : '';
+  return goal || cards ? `<span class="match-signals">${goal}${cards}</span>` : '';
+}
+
+async function refreshMatchSignals(fixtures) {
+  const live = fixtures.filter((fixture) => fixture.status === "live");
+  if (!live.length || Date.now() - state.lastSignalRefresh < SIGNAL_REFRESH_MS - 5000) return;
+
+  const selectedIds = new Set(allListEntries().filter(({ entry }) => entry.fixture?.status === "live").map(({ id }) => String(id)));
+  const ordered = [...live].sort((a, b) => Number(selectedIds.has(b.id)) - Number(selectedIds.has(a.id)) || Number(isFavourite(b)) - Number(isFavourite(a)) || a.timestamp - b.timestamp);
+  const ids = [...new Set(ordered.map((fixture) => fixture.id))].slice(0, MAX_SIGNAL_FIXTURES);
+  if (!ids.length) return;
+
+  state.lastSignalRefresh = Date.now();
+  try {
+    const response = await fetch(`${API_BASE}/signals?ids=${encodeURIComponent(ids.join(","))}`, { cache: "no-store" });
+    const data = await response.json();
+    if (!response.ok || data.error) return;
+    (data.response || []).forEach((item) => {
+      const id = String(item.fixtureId);
+      const current = signalForFixture(id);
+      state.matchSignals[id] = { ...current, redCards: Number(item.redCards) || 0 };
+    });
+    saveSignals();
+    renderFixtures();
+    renderTracker();
+  } catch {
+    // Signal icons are supplementary; keep scores working if this request fails.
+  }
+}
+
 function mergeFixture(fixture) {
   Object.values(state.lists).forEach((list) => {
     if (list.selected?.[fixture.id]) list.selected[fixture.id].fixture = fixture;
@@ -249,6 +311,7 @@ async function loadDate(date, { force = false } = {}) {
     fixtures.forEach(mergeFixture);
     state.fixturesByDate[date] = fixtures;
     state.cacheTimes[date] = Date.now();
+    refreshMatchSignals(fixtures);
     updateKnownLeagues(fixtures);
     saveSelected();
   } catch (error) {
@@ -282,15 +345,25 @@ async function refreshLive() {
     const liveMap = new Map(liveFixtures.map((fixture) => [fixture.id, fixture]));
 
     Object.keys(state.fixturesByDate).forEach((date) => {
-      state.fixturesByDate[date] = state.fixturesByDate[date].map((fixture) => liveMap.get(fixture.id) || fixture);
+      state.fixturesByDate[date] = state.fixturesByDate[date].map((fixture) => {
+        const updated = liveMap.get(fixture.id);
+        if (updated) recordScoreChange(fixture, updated);
+        return updated || fixture;
+      });
     });
     Object.values(state.lists).forEach((list) => {
       Object.keys(list.selected || {}).forEach((id) => {
-        if (liveMap.has(id)) list.selected[id].fixture = liveMap.get(id);
+        if (liveMap.has(id)) {
+          const previous = list.selected[id].fixture;
+          const updated = liveMap.get(id);
+          recordScoreChange(previous, updated);
+          list.selected[id].fixture = updated;
+        }
       });
     });
     saveSelected();
     renderAll();
+    refreshMatchSignals(liveFixtures);
   } catch {
     // Keep the last known scores visible if a background refresh fails.
   }
@@ -444,6 +517,7 @@ function fixtureCardHtml(fixture) {
         <strong class="home-team">${escapeHtml(fixture.home)}</strong>
         <span class="central-score ${fixture.status === "scheduled" ? "scheduled" : ""}">${scoreText(fixture)}</span>
         <strong class="away-team">${escapeHtml(fixture.away)}</strong>
+        ${matchSignalHtml(fixture)}
       </div>
       <button class="add-button ${selected ? "selected" : ""}" data-fixture-id="${fixture.id}" aria-label="${selected ? "Edit tracked match" : "Track this match"}">${selected ? "✓" : "+"}</button>
     </article>`;
@@ -650,6 +724,7 @@ function renderTracker() {
               <strong class="home-team">${escapeHtml(fixture.home)}</strong>
               <span class="central-score ${fixture.status === "scheduled" ? "scheduled" : ""}">${scoreText(fixture)}</span>
               <strong class="away-team">${escapeHtml(fixture.away)}</strong>
+              ${matchSignalHtml(fixture)}
             </div>
             <button class="remove-button" data-remove-id="${entry.id}" aria-label="Remove match">×</button>
           </div>
@@ -821,7 +896,7 @@ async function openMatchDetails(id) {
     state.detailsCache[id] = { savedAt: Date.now(), data };
     renderMatchDetails(fixture, data);
   } catch (error) {
-    document.getElementById("detailsContent").innerHTML = `${detailsHeaderHtml(fixture)}<div class="empty-state"><strong>Details unavailable</strong>${escapeHtml(error.message)}. Update the Cloudflare Worker with the V2.6 worker code included in the ZIP.</div>`;
+    document.getElementById("detailsContent").innerHTML = `${detailsHeaderHtml(fixture)}<div class="empty-state"><strong>Details unavailable</strong>${escapeHtml(error.message)}. Update the Cloudflare Worker with the V2.7 worker code included in the ZIP.</div>`;
   }
 }
 
@@ -988,7 +1063,7 @@ async function start() {
   if (liveItem) { state.currentListId = liveItem.list.id; setView("trackerView"); }
   setInterval(refreshLive, LIVE_REFRESH_MS);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=2.6").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=2.7").catch(() => {});
 }
 
 start();

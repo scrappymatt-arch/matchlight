@@ -153,13 +153,24 @@ export default {
               const text = `${type} ${detail} ${comments}`;
               return text.includes("red card") || text.includes("second yellow") || text.includes("2nd yellow") || text.includes("yellow-red") || text.includes("yellow red");
             });
-            const unique = new Set(dismissals.map((event) => [
-              event.team?.id || event.team?.name || "",
-              event.player?.id || event.player?.name || "",
-              event.time?.elapsed || "",
-              event.time?.extra || "",
-            ].join("|")));
-            results.push({ fixtureId: id, redCards: unique.size });
+            const uniqueEvents = new Map();
+            dismissals.forEach((event) => {
+              const key = [
+                event.team?.id || event.team?.name || "",
+                event.player?.id || event.player?.name || "",
+                event.time?.elapsed || "",
+                event.time?.extra || "",
+              ].join("|");
+              if (!uniqueEvents.has(key)) uniqueEvents.set(key, event);
+            });
+            const teamCards = {};
+            uniqueEvents.forEach((event) => {
+              const idKey = event.team?.id != null ? String(event.team.id) : "";
+              const nameKey = String(event.team?.name || "").trim().toLowerCase();
+              if (idKey) teamCards[idKey] = (teamCards[idKey] || 0) + 1;
+              if (nameKey) teamCards[nameKey] = (teamCards[nameKey] || 0) + 1;
+            });
+            results.push({ fixtureId: id, redCards: uniqueEvents.size, teamCards });
           } catch {
             // One unavailable event feed must not discard the other tracked matches.
             results.push({ fixtureId: id, redCards: null });

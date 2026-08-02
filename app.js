@@ -2,6 +2,7 @@ const API_BASE = "https://matchbuddy-api.scrappymatt.workers.dev";
 const DAY = 86400000;
 const DEFAULT_LIVE_REFRESH_SECONDS = 30;
 const DEFAULT_SIGNAL_REFRESH_SECONDS = 30;
+const DEFAULT_COMPLETED_CLEANUP_HOURS = 24;
 const GOAL_PULSE_MS = 60000;
 const MAX_SIGNAL_FIXTURES = 8;
 const DAY_CACHE_MS = 5 * 60 * 1000;
@@ -157,6 +158,7 @@ const state = {
   goalSoundsEnabled: localStorage.getItem(`${STORAGE_PREFIX}goal-sounds`) === "true",
   liveRefreshSeconds: Number(localStorage.getItem(`${STORAGE_PREFIX}live-refresh-seconds`) ?? DEFAULT_LIVE_REFRESH_SECONDS),
   signalRefreshSeconds: Number(localStorage.getItem(`${STORAGE_PREFIX}signal-refresh-seconds`) ?? DEFAULT_SIGNAL_REFRESH_SECONDS),
+  completedCleanupHours: Number(localStorage.getItem(`${STORAGE_PREFIX}completed-cleanup-hours`) ?? DEFAULT_COMPLETED_CLEANUP_HOURS),
   nextRefreshAt: Date.now() + DEFAULT_LIVE_REFRESH_SECONDS * 1000,
   refreshInProgress: false,
   lastRefreshSucceededAt: null,
@@ -230,6 +232,8 @@ function normaliseFixture(item) {
     round: item.league?.round || "",
     home: item.teams?.home?.name || "Home team",
     away: item.teams?.away?.name || "Away team",
+    homeId: item.teams?.home?.id || null,
+    awayId: item.teams?.away?.id || null,
     homeScore: Number.isFinite(item.goals?.home) ? item.goals.home : 0,
     awayScore: Number.isFinite(item.goals?.away) ? item.goals.away : 0,
     status,
@@ -240,7 +244,7 @@ function normaliseFixture(item) {
 }
 
 function signalForFixture(id) {
-  return state.matchSignals[String(id)] || { goalUntil: 0, redCards: 0 };
+  return state.matchSignals[String(id)] || { goalUntil: 0, redCards: 0, homeRedCards: 0, awayRedCards: 0 };
 }
 
 function saveSignals() {
@@ -331,15 +335,23 @@ function recordScoreChange(previous, next) {
   }
 }
 
-function matchSignalHtml(fixture) {
+function redCardIcons(count, side) {
+  const total = Math.max(0, Number(count) || 0);
+  if (!total) return "";
+  const label = `${total} red card${total === 1 ? "" : "s"}`;
+  return `<span class="team-red-cards ${side}" title="${label}" aria-label="${label}">${'<i></i>'.repeat(total)}</span>`;
+}
+
+function matchSignalParts(fixture) {
   const signal = signalForFixture(fixture.id);
   const goal = signal.goalUntil > Date.now()
     ? '<span class="goal-pulse" title="Goal detected in the last minute" aria-label="Goal detected in the last minute">⚽</span>'
     : '';
-  const cards = Number(signal.redCards) > 0
-    ? `<span class="red-card-signal" title="${signal.redCards} red card${signal.redCards === 1 ? "" : "s"}" aria-label="${signal.redCards} red card${signal.redCards === 1 ? "" : "s"}"><i></i>${signal.redCards}</span>`
-    : '';
-  return goal || cards ? `<span class="match-signals">${goal}${cards}</span>` : '';
+  return {
+    homeCards: redCardIcons(signal.homeRedCards, "home"),
+    awayCards: redCardIcons(signal.awayRedCards, "away"),
+    goal: goal ? `<span class="match-signals">${goal}</span>` : "",
+  };
 }
 
 async function refreshMatchSignals(fixtures) {
@@ -362,7 +374,17 @@ async function refreshMatchSignals(fixtures) {
     (data.response || []).forEach((item) => {
       const id = String(item.fixtureId);
       const current = signalForFixture(id);
-      state.matchSignals[id] = { ...current, redCards: Math.max(Number(current.redCards) || 0, Number(item.redCards) || 0) };
+      const fixture = live.find((match) => String(match.id) === id);
+      const teamCards = item.teamCards || {};
+      const byKey = (teamId, teamName) => Number(teamCards[String(teamId)] ?? teamCards[String(teamName).toLowerCase()] ?? 0) || 0;
+      const homeRedCards = item.homeRedCards != null ? Number(item.homeRedCards) || 0 : byKey(fixture?.homeId, fixture?.home);
+      const awayRedCards = item.awayRedCards != null ? Number(item.awayRedCards) || 0 : byKey(fixture?.awayId, fixture?.away);
+      state.matchSignals[id] = {
+        ...current,
+        redCards: Math.max(Number(current.redCards) || 0, Number(item.redCards) || homeRedCards + awayRedCards),
+        homeRedCards: Math.max(Number(current.homeRedCards) || 0, homeRedCards),
+        awayRedCards: Math.max(Number(current.awayRedCards) || 0, awayRedCards),
+      };
     });
     saveSignals();
     renderFixtures();
@@ -685,14 +707,15 @@ function renderFixtures() {
 
 function fixtureCardHtml(fixture) {
   const selected = fixtureIsSelectedAnywhere(fixture.id);
+  const signals = matchSignalParts(fixture);
   return `
     <article class="fixture-card" data-open-fixture="${fixture.id}" tabindex="0" role="button" aria-label="Open ${escapeHtml(fixture.home)} versus ${escapeHtml(fixture.away)} details">
       <div class="match-time ${fixture.status === "live" ? "live" : ""}">${escapeHtml(clockText(fixture))}<small>${escapeHtml(statusLabel(fixture))}</small></div>
       <div class="match-line">
-        <strong class="home-team">${escapeHtml(fixture.home)}</strong>
+        <strong class="home-team">${signals.homeCards}${escapeHtml(fixture.home)}</strong>
         <span class="central-score ${fixture.status === "scheduled" ? "scheduled" : ""}">${scoreText(fixture)}</span>
-        <strong class="away-team">${escapeHtml(fixture.away)}</strong>
-        ${matchSignalHtml(fixture)}
+        <strong class="away-team">${escapeHtml(fixture.away)}${signals.awayCards}</strong>
+        ${signals.goal}
       </div>
       <button class="add-button ${selected ? "selected" : ""}" data-fixture-id="${fixture.id}" aria-label="${selected ? "Edit tracked match" : "Track this match"}">${selected ? "✓" : "+"}</button>
     </article>`;
@@ -893,6 +916,7 @@ function renderTracker() {
     list.innerHTML = entries.map((entry) => {
       const fixture = entry.fixture;
       const status = trafficState(fixture, entry.condition);
+      const signals = matchSignalParts(fixture);
       const heading = fixture.date !== previousDate ? `<div class="day-heading">${new Date(`${fixture.date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</div>` : "";
       previousDate = fixture.date;
       return `${heading}
@@ -900,10 +924,10 @@ function renderTracker() {
           <div class="tracker-topline">
             <div class="tracker-clock">${escapeHtml(clockText(fixture))}<small>${escapeHtml(statusLabel(fixture))}</small></div>
             <div class="match-line tracker-match-line">
-              <strong class="home-team">${escapeHtml(fixture.home)}</strong>
+              <strong class="home-team">${signals.homeCards}${escapeHtml(fixture.home)}</strong>
               <span class="central-score ${fixture.status === "scheduled" ? "scheduled" : ""}">${scoreText(fixture)}</span>
-              <strong class="away-team">${escapeHtml(fixture.away)}</strong>
-              ${matchSignalHtml(fixture)}
+              <strong class="away-team">${escapeHtml(fixture.away)}${signals.awayCards}</strong>
+              ${signals.goal}
             </div>
             <button class="remove-button" data-remove-id="${entry.id}" aria-label="Remove match">×</button>
           </div>
@@ -1077,8 +1101,10 @@ function updateAutoClearClock() {
 
 function autoClearIfDue() {
   updateAutoClearClock();
+  if (state.completedCleanupHours <= 0) return;
+  const cleanupDelay = state.completedCleanupHours * 60 * 60 * 1000;
   Object.values(state.lists).forEach((list) => {
-    if (list.finishedAt && Date.now() - list.finishedAt >= DAY) {
+    if (list.finishedAt && Date.now() - list.finishedAt >= cleanupDelay) {
       list.selected = {};
       list.finishedAt = null;
     }
@@ -1264,6 +1290,7 @@ function renderAll() {
   renderFavouriteLeagues();
   renderSoundSetting();
   renderRefreshSettings();
+  renderCleanupSetting();
   const count = allListEntries().length;
   const badge = document.getElementById("trackerBadge");
   badge.hidden = count === 0;
@@ -1285,6 +1312,18 @@ function renderRefreshSettings() {
     button.setAttribute("aria-pressed", String(active));
   });
   renderRefreshCountdown();
+}
+
+function renderCleanupSetting() {
+  document.querySelectorAll("#completedCleanupControl button[data-hours]").forEach((button) => {
+    const active = Number(button.dataset.hours) === state.completedCleanupHours;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  const copy = document.getElementById("completedCleanupCopy");
+  if (copy) copy.textContent = state.completedCleanupHours <= 0
+    ? "Completed matches stay until you clear them manually."
+    : `Lists clear ${state.completedCleanupHours === 24 ? "24 hours" : state.completedCleanupHours === 48 ? "48 hours" : "7 days"} after every tracked match is complete.`;
 }
 
 function renderSoundSetting() {
@@ -1337,6 +1376,15 @@ function bindEvents() {
     localStorage.setItem(`${STORAGE_PREFIX}signal-refresh-seconds`, String(state.signalRefreshSeconds));
     state.lastSignalRefresh = 0;
     renderRefreshSettings();
+  });
+  document.getElementById("completedCleanupControl").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-hours]");
+    if (!button) return;
+    state.completedCleanupHours = Number(button.dataset.hours);
+    localStorage.setItem(`${STORAGE_PREFIX}completed-cleanup-hours`, String(state.completedCleanupHours));
+    autoClearIfDue();
+    renderCleanupSetting();
+    renderAll();
   });
   document.getElementById("jumpFavouriteLeagues").addEventListener("click", () => {
     const section = document.getElementById("favouriteLeaguesSection");
@@ -1402,7 +1450,7 @@ function bindEvents() {
     if (!first) { alert("Add a match to the active list first."); return; }
     const [id] = first;
     const current = signalForFixture(id);
-    state.matchSignals[id] = { ...current, redCards: Math.max(1, Number(current.redCards) || 0), testRedCard: true, testRedCardBase: Number(current.redCards) || 0 };
+    state.matchSignals[id] = { ...current, redCards: Math.max(1, Number(current.redCards) || 0), homeRedCards: Math.max(1, Number(current.homeRedCards) || 0), testRedCard: true, testRedCardBase: Number(current.redCards) || 0, testHomeRedCardBase: Number(current.homeRedCards) || 0 };
     saveSignals();
     renderAll();
     alert("A test red-card icon has been added to the first match in this list.");
@@ -1413,7 +1461,7 @@ function bindEvents() {
         const signal = state.matchSignals[id];
         const base = Number(signal.testRedCardBase) || 0;
         const currentCount = Number(signal.redCards) || 0;
-        state.matchSignals[id] = { ...signal, redCards: currentCount > 1 ? currentCount : base, testRedCard: false, testRedCardBase: undefined };
+        state.matchSignals[id] = { ...signal, redCards: currentCount > 1 ? currentCount : base, homeRedCards: Number(signal.testHomeRedCardBase) || 0, testRedCard: false, testRedCardBase: undefined, testHomeRedCardBase: undefined };
       }
     });
     saveSignals();
@@ -1444,7 +1492,7 @@ async function start() {
   renderRefreshSettings();
   setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.2").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.3").catch(() => {});
 }
 
 start();

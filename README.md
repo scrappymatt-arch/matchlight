@@ -1,15 +1,13 @@
-# MatchBuddy V3.2
+# MatchBuddy V3.3
 
-## V3.2 changes
+## V3.3 changes
 
-- Prevents live-score, signal and match-detail requests from colliding in the app.
-- Pauses background event checks while Match Details is open.
-- Loads match details sequentially, with events first so goals and red cards are prioritised.
-- Adds request spacing, automatic retry and extra headroom below API-Football's per-second limit.
-- Prevents one unavailable event feed from cancelling every tracked match's red-card check.
-- Recognises more second-yellow and yellow-red dismissal descriptions.
-- Replaces raw provider errors with a clear temporary-busy message.
-- Updates the visible version and service-worker cache to V3.2.
+- Places red-card indicators beside the correct team.
+- Uses slim red card shapes rather than square badges or numbered counters.
+- Repeats the card once for each sending-off.
+- Adds completed-match cleanup choices: 24 hours, 48 hours, 7 days, or Never.
+- Keeps 24 hours as the default for existing and new users.
+- Updates the visible version and service-worker cache to V3.3.
 
 ## Upload
 

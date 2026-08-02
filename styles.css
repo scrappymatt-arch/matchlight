@@ -298,10 +298,12 @@ body { background: radial-gradient(circle at 50% -20%, var(--bg-glow) 0, var(--b
 .match-signals { display: inline-flex; align-items: center; justify-content: flex-start; gap: 7px; margin-left: 7px; white-space: nowrap; }
 .goal-pulse { display: inline-grid; place-items: center; width: 23px; height: 23px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 18%, var(--surface)); font-size: .92rem; animation: goalPulse 1s ease-in-out infinite; transform-origin: center; }
 @keyframes goalPulse { 0%,100% { transform: scale(.88); box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 50%, transparent); } 50% { transform: scale(1.12); box-shadow: 0 0 0 6px transparent; } }
-.red-card-signal { display: inline-flex; align-items: center; gap: 4px; min-width: 23px; height: 23px; padding: 0 5px; border-radius: 7px; background: rgba(255,53,76,.13); color: #ff5366; font-size: .72rem; font-weight: 950; }
-.red-card-signal i { display: block; width: 9px; height: 13px; border-radius: 1px; background: #f1263e; box-shadow: inset 0 0 0 1px rgba(255,255,255,.18); }
+.team-red-cards { display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; }
+.team-red-cards.home { margin-right: 5px; }
+.team-red-cards.away { margin-left: 5px; }
+.team-red-cards i { display: block; width: 6px; height: 13px; border-radius: 1.5px; background: #f1263e; box-shadow: inset 0 0 0 1px rgba(255,255,255,.16), 0 0 5px rgba(241,38,62,.16); }
 @media (prefers-reduced-motion: reduce) { .goal-pulse { animation: none; } }
-@media (max-width: 460px) { .match-signals { gap: 4px; margin-left: 4px; } .goal-pulse, .red-card-signal { height: 21px; } .goal-pulse { width: 21px; font-size: .82rem; } }
+@media (max-width: 460px) { .match-signals { gap: 4px; margin-left: 4px; } .goal-pulse { height: 21px; width: 21px; font-size: .82rem; } .team-red-cards { gap: 2px; } .team-red-cards i { width: 5px; height: 11px; } }
 
 
 /* V2.8 favourite-league filter notice */
@@ -364,10 +366,7 @@ body { background: radial-gradient(circle at 50% -20%, var(--bg-glow) 0, var(--b
 #trackerView .condition-edit, #trackerView .status-copy { font-size: .6rem; }
 #trackerView .remove-button { font-size: 1rem; }
 #trackerView .match-signals { gap: 3px; margin-left: 2px; }
-#trackerView .goal-pulse, #trackerView .red-card-signal { height: 19px; }
 #trackerView .goal-pulse { width: 19px; font-size: .73rem; }
-#trackerView .red-card-signal { min-width: 19px; padding: 0 4px; font-size: .62rem; }
-#trackerView .red-card-signal i { width: 7px; height: 11px; }
 @media (max-width: 480px) {
   .app-shell { padding-top: 9px; }
   .topbar { margin-bottom: 18px; }
@@ -651,3 +650,9 @@ body.tracker-active .app-version { padding: 2px 5px; font-size: .52rem; }
   .tracker-update-group .overall-list-status { min-width: 0; }
   .refresh-countdown { flex: 0 0 auto; }
 }
+
+/* MatchBuddy V3.3 — team-positioned red cards and cleanup choices */
+.home-team, .away-team { display: inline-flex; align-items: center; min-width: 0; }
+.home-team { justify-content: flex-end; }
+.away-team { justify-content: flex-start; }
+.cleanup-button-group { justify-content: flex-end; }

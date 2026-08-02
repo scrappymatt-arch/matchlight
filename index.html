@@ -15,7 +15,7 @@
     <header class="topbar">
       <div>
         <p class="eyebrow">FOOTBALL, WITHOUT THE CLUTTER</p>
-        <h1>MatchBuddy <span class="app-version">V3.2</span></h1>
+        <h1>MatchBuddy <span class="app-version">V3.3</span></h1>
       </div>
       <button id="themeToggle" class="icon-button" aria-label="Toggle theme" title="Toggle theme">☼</button>
     </header>
@@ -149,9 +149,14 @@
           </div>
         </div>
 
-        <div class="settings-card">
-          <div><h3>Completed matches</h3><p>The list clears 24 hours after every tracked match is complete.</p></div>
-          <span class="status-pill">24 hours</span>
+        <div class="settings-card refresh-setting">
+          <div><h3>Completed match cleanup</h3><p id="completedCleanupCopy">Lists clear 24 hours after every tracked match is complete.</p></div>
+          <div id="completedCleanupControl" class="refresh-button-group cleanup-button-group" role="group" aria-label="Completed match cleanup interval">
+            <button type="button" data-hours="24">24 hours</button>
+            <button type="button" data-hours="48">48 hours</button>
+            <button type="button" data-hours="168">7 days</button>
+            <button type="button" data-hours="0">Never</button>
+          </div>
         </div>
 
         <div class="settings-card">

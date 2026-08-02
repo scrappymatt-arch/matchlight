@@ -656,3 +656,48 @@ body.tracker-active .app-version { padding: 2px 5px; font-size: .52rem; }
 .home-team { justify-content: flex-end; }
 .away-team { justify-content: flex-start; }
 .cleanup-button-group { justify-content: flex-end; }
+
+
+/* MatchBuddy V3.4 — clearer version badge, team-side cards and mirrored timeline */
+.app-version,
+body.tracker-active .app-version {
+  margin-left: 8px;
+  padding: 4px 8px;
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  color: var(--accent);
+  font-size: .66rem;
+  line-height: 1;
+  letter-spacing: .04em;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.025);
+}
+
+.match-line .home-team,
+.match-line .away-team {
+  overflow: visible;
+  white-space: nowrap;
+}
+.match-line .team-red-cards { position: static; }
+.match-line .team-red-cards.home { order: -1; }
+.match-line .team-red-cards.away { order: 2; }
+
+.event-timeline li {
+  grid-template-columns: minmax(0,1fr) 38px 50px minmax(0,1fr);
+  gap: 8px;
+  min-height: 56px;
+}
+.event-timeline li time { grid-column: 3; text-align: center; }
+.event-timeline li .event-icon { grid-column: 2; }
+.event-timeline li .event-copy { grid-column: 1; text-align: right; min-width: 0; }
+.event-timeline li.event-away .event-icon { grid-column: 3; }
+.event-timeline li.event-away time { grid-column: 2; }
+.event-timeline li.event-away .event-copy { grid-column: 4; text-align: left; }
+.event-timeline li.event-neutral .event-icon { grid-column: 2; }
+.event-timeline li.event-neutral time { grid-column: 3; }
+.event-timeline li.event-neutral .event-copy { grid-column: 4; text-align: left; }
+.event-timeline .event-copy p { overflow-wrap: anywhere; }
+
+@media (max-width: 560px) {
+  .event-timeline li { grid-template-columns: minmax(0,1fr) 34px 42px minmax(0,1fr); padding-inline: 9px; gap: 6px; }
+  .event-icon { width: 28px; min-height: 28px; }
+}

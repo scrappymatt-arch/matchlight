@@ -1239,7 +1239,18 @@ function renderMatchDetails(fixture, data) {
     const minute = `${event.time?.elapsed ?? ""}${event.time?.extra ? `+${event.time.extra}` : ""}′`;
     const team = event.team?.name || "";
     const player = event.player?.name || event.assist?.name || "";
-    return `<li><time>${escapeHtml(minute)}</time><span class="event-icon">${eventIcon(event.type, event.detail)}</span><div><strong>${escapeHtml(event.detail || event.type || "Event")}</strong><p>${escapeHtml(player)}${team ? ` · ${escapeHtml(team)}` : ""}</p></div></li>`;
+    const eventTeamId = String(event.team?.id ?? "");
+    const homeId = String(fixture.homeId ?? match.teams?.home?.id ?? "");
+    const awayId = String(fixture.awayId ?? match.teams?.away?.id ?? "");
+    const normalise = (value) => String(value || "").trim().toLowerCase();
+    let side = "neutral";
+    if ((eventTeamId && homeId && eventTeamId === homeId) || normalise(team) === normalise(fixture.home)) side = "home";
+    if ((eventTeamId && awayId && eventTeamId === awayId) || normalise(team) === normalise(fixture.away)) side = "away";
+    return `<li class="event-${side}">
+      <time>${escapeHtml(minute)}</time>
+      <span class="event-icon">${eventIcon(event.type, event.detail)}</span>
+      <div class="event-copy"><strong>${escapeHtml(event.detail || event.type || "Event")}</strong><p>${escapeHtml(player)}${team ? ` · ${escapeHtml(team)}` : ""}</p></div>
+    </li>`;
   }).join("") : '<div class="empty-state compact"><strong>No timeline available</strong>Events may not be supplied for this competition.</div>';
   const statRows = statistics.length === 2 ? (statistics[0].statistics || []).map((stat, index) => {
     const away = statistics[1].statistics?.[index]?.value ?? "–";
@@ -1492,7 +1503,7 @@ async function start() {
   renderRefreshSettings();
   setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.3").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.4").catch(() => {});
 }
 
 start();

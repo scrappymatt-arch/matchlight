@@ -1,15 +1,16 @@
-# MatchBuddy V2.12
+# MatchBuddy V2.13
 
-## V2.12 changes
+## V2.13 changes
 
-- Fixtures now return to the exact same scroll position after adding or editing a tracked match.
-- Opening Match Details and pressing Back also restores the previous Scores or My Matches position.
-- Selection labels such as Over 2.5, BTTS Yes and Draw now use a fixed left-aligned column in My Matches.
-- Status text such as Needs 1 goal remains right-aligned.
-- MatchBuddy V2.12 is shown at the top and uses a fresh service-worker cache.
+- Match Details now shows API-Football model percentages for Home, Draw and Away when available.
+- Predictions load only when a match is opened and are cached by the Cloudflare Worker.
+- Prediction failures no longer prevent scorers, cards, statistics or line-ups from loading.
+- Summary boxes are reordered: Winning / Won on the left, Needs 1 / Needs 2+ in the middle, Upcoming / Lost on the right.
+- MatchBuddy V2.13 is shown at the top and uses a fresh service-worker cache.
 
 ## Upload
 
-Replace the app files in the existing GitHub repository. No Cloudflare Worker update is required for V2.12.
-
-After GitHub Pages redeploys, fully close and reopen MatchBuddy so the V2.12 cache replaces V2.10.
+1. Replace the app files in the existing GitHub repository.
+2. Replace the Cloudflare Worker code with the included `worker.js`, then press **Deploy**.
+3. Your existing `API_FOOTBALL_KEY` secret remains unchanged.
+4. Fully close and reopen MatchBuddy after GitHub Pages redeploys.

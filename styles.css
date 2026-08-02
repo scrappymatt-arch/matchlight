@@ -420,7 +420,7 @@ body.tracker-active .app-version { padding: 2px 5px; font-size: .52rem; }
 }
 
 
-/* MatchBuddy V2.12 — permanent outcomes, six-state summary and goal sounds */
+/* MatchBuddy V2.13 — permanent outcomes, six-state summary and goal sounds */
 .summary-mini-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .summary-mini.won strong { color: var(--green); }
 .summary-mini.lost strong { color: var(--lost); }
@@ -431,3 +431,15 @@ body.tracker-active .app-version { padding: 2px 5px; font-size: .52rem; }
   .summary-mini-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .summary-mini { min-height: 28px; padding: 3px 5px; }
 }
+
+
+/* MatchBuddy V2.13 — prediction panel and reordered summary */
+.prediction-values { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+.prediction-values span { display: grid; gap: 2px; padding: 9px 6px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); text-align: center; color: var(--muted); font-size: .68rem; font-weight: 850; }
+.prediction-values b { color: var(--text); font-size: 1rem; }
+.prediction-bar { display: flex; height: 10px; overflow: hidden; border-radius: 999px; background: var(--surface-2); }
+.prediction-bar i { display: block; min-width: 0; }
+.prediction-home { background: var(--green); }
+.prediction-draw { background: var(--yellow); }
+.prediction-away { background: var(--red); }
+.prediction-note, .prediction-unavailable { margin: 9px 0 0; color: var(--muted); font-size: .72rem; }

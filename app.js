@@ -871,9 +871,9 @@ function renderSummaryLine() {
   const boxes = [
     ["green", counts.green, "Winning"],
     ["yellow", counts.yellow, "Needs 1"],
-    ["red", counts.red, "Needs 2+"],
     ["grey", counts.grey, "Upcoming"],
     ["won", counts.won, "Won"],
+    ["red", counts.red, "Needs 2+"],
     ["lost", counts.lost, "Lost"],
   ];
   const target = document.getElementById("summaryBoxes");
@@ -1042,11 +1042,46 @@ function detailsHeaderHtml(fixture) {
   </section>`;
 }
 
+function predictionSectionHtml(prediction) {
+  const percentages = prediction?.predictions?.percent;
+  if (!percentages) {
+    return `<section class="details-section prediction-section"><h3>Prediction</h3><div class="prediction-unavailable">Prediction unavailable for this match.</div></section>`;
+  }
+
+  const cleanPercent = (value) => {
+    const number = Number.parseFloat(String(value ?? "").replace("%", ""));
+    return Number.isFinite(number) ? Math.max(0, Math.min(100, number)) : 0;
+  };
+  const home = cleanPercent(percentages.home);
+  const draw = cleanPercent(percentages.draw);
+  const away = cleanPercent(percentages.away);
+  const total = home + draw + away || 1;
+  const homeWidth = (home / total) * 100;
+  const drawWidth = (draw / total) * 100;
+  const awayWidth = (away / total) * 100;
+
+  return `<section class="details-section prediction-section">
+    <h3>Prediction</h3>
+    <div class="prediction-values" aria-label="Model prediction: home ${home} percent, draw ${draw} percent, away ${away} percent">
+      <span><b>${home}%</b> Home</span>
+      <span><b>${draw}%</b> Draw</span>
+      <span><b>${away}%</b> Away</span>
+    </div>
+    <div class="prediction-bar" aria-hidden="true">
+      <i class="prediction-home" style="width:${homeWidth}%"></i>
+      <i class="prediction-draw" style="width:${drawWidth}%"></i>
+      <i class="prediction-away" style="width:${awayWidth}%"></i>
+    </div>
+    <p class="prediction-note">Model estimate, not bookmaker odds.</p>
+  </section>`;
+}
+
 function renderMatchDetails(fixture, data) {
   const events = Array.isArray(data.events) ? data.events : [];
   const statistics = Array.isArray(data.statistics) ? data.statistics : [];
   const lineups = Array.isArray(data.lineups) ? data.lineups : [];
   const match = data.fixture || {};
+  const prediction = data.prediction || null;
   const eventHtml = events.length ? events.map((event) => {
     const minute = `${event.time?.elapsed ?? ""}${event.time?.extra ? `+${event.time.extra}` : ""}′`;
     const team = event.team?.name || "";
@@ -1060,6 +1095,7 @@ function renderMatchDetails(fixture, data) {
   const lineupHtml = lineups.length ? lineups.map((lineup) => `<section class="lineup-team"><h4>${escapeHtml(lineup.team?.name || "Team")}${lineup.formation ? ` · ${escapeHtml(lineup.formation)}` : ""}</h4><p>${(lineup.startXI || []).map((item) => escapeHtml(item.player?.name || "")).filter(Boolean).join(", ") || "Line-up unavailable"}</p></section>`).join("") : "";
   document.getElementById("detailsContent").innerHTML = `${detailsHeaderHtml(fixture)}
     <div class="details-meta">${match.fixture?.venue?.name ? `<span>⌖ ${escapeHtml(match.fixture.venue.name)}</span>` : ""}${match.fixture?.referee ? `<span>Referee: ${escapeHtml(match.fixture.referee)}</span>` : ""}</div>
+    ${predictionSectionHtml(prediction)}
     <section class="details-section"><h3>Match timeline</h3><ol class="event-timeline">${eventHtml}</ol></section>
     ${statRows ? `<section class="details-section"><h3>Statistics</h3><div class="stats-table">${statRows}</div></section>` : ""}
     ${lineupHtml ? `<section class="details-section"><h3>Line-ups</h3><div class="lineups-grid">${lineupHtml}</div></section>` : ""}`;
@@ -1239,7 +1275,7 @@ async function start() {
   if (liveItem) { state.currentListId = liveItem.list.id; setView("trackerView"); }
   setInterval(refreshLive, LIVE_REFRESH_MS);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=2.12").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=2.13").catch(() => {});
 }
 
 start();

@@ -73,7 +73,7 @@ export default {
       return jsonResponse({
         service: "MatchBuddy API",
         status: "online",
-        version: "2.10",
+        version: "2.13",
         endpoints: {
           fixtures: "/fixtures?from=2026-08-01&to=2026-08-01",
           live: "/live",
@@ -154,11 +154,22 @@ export default {
           requestApiFootball(`/fixtures/statistics?fixture=${encodeURIComponent(id)}`, env, 120),
           requestApiFootball(`/fixtures/lineups?fixture=${encodeURIComponent(id)}`, env, 3600),
         ]);
+
+        let prediction = null;
+        try {
+          const predictionData = await requestApiFootball(`/predictions?fixture=${encodeURIComponent(id)}`, env, 21600);
+          prediction = predictionData.response?.[0] || null;
+        } catch {
+          // Prediction coverage is not universal and must not prevent match details loading.
+          prediction = null;
+        }
+
         return jsonResponse({
           fixture: fixtureData.response?.[0] || null,
           events: eventsData.response || [],
           statistics: statisticsData.response || [],
           lineups: lineupsData.response || [],
+          prediction,
         }, 200, request, { "Cache-Control": "public, max-age=60" });
       } catch (error) {
         return jsonResponse({ error: "Unable to retrieve match details.", details: error.message || String(error) }, 502, request);

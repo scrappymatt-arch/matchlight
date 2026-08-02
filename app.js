@@ -861,6 +861,52 @@ function renderTracker() {
   renderSummaryLine();
 }
 
+function goalsNeededForSelection(fixture, condition) {
+  if (!fixture || condition === "none" || fixture.status === "cancelled") return 0;
+  const h = Number(fixture.homeScore) || 0;
+  const a = Number(fixture.awayScore) || 0;
+  const total = h + a;
+
+  if (condition === "home") return Math.max(0, a - h + 1);
+  if (condition === "draw") return Math.abs(h - a);
+  if (condition === "away") return Math.max(0, h - a + 1);
+  if (condition === "over15") return Math.max(0, 2 - total);
+  if (condition === "over25") return Math.max(0, 3 - total);
+  if (condition === "over35") return Math.max(0, 4 - total);
+  if (condition === "bttsYes") return (h > 0 && a > 0) ? 0 : ((h > 0 || a > 0) ? 1 : 2);
+  return 0;
+}
+
+function renderOverallListStatus(values) {
+  const target = document.getElementById("overallListStatus");
+  if (!target) return;
+
+  if (!values.length) {
+    target.hidden = true;
+    target.className = "overall-list-status";
+    target.textContent = "";
+    return;
+  }
+
+  target.hidden = false;
+  const statuses = values.map((entry) => trafficState(entry.fixture, entry.condition));
+  if (statuses.some((status) => status.colour === "lost")) {
+    target.className = "overall-list-status lost";
+    target.textContent = "LOST";
+    return;
+  }
+
+  const goalsNeeded = values.reduce((sum, entry) => sum + goalsNeededForSelection(entry.fixture, entry.condition), 0);
+  if (goalsNeeded > 0) {
+    target.className = "overall-list-status needed";
+    target.textContent = `${goalsNeeded} ${goalsNeeded === 1 ? "GOAL" : "GOALS"} NEEDED`;
+    return;
+  }
+
+  target.className = "overall-list-status correct";
+  target.textContent = "ALL CORRECT";
+}
+
 function renderSummaryLine() {
   const values = Object.values(state.selected);
   const counts = { green: 0, yellow: 0, red: 0, won: 0, lost: 0, grey: 0 };
@@ -879,6 +925,7 @@ function renderSummaryLine() {
   const target = document.getElementById("summaryBoxes");
   if (!target) return;
   target.innerHTML = boxes.map(([colour, value, label]) => `<div class="summary-mini ${colour}"><strong>${value}</strong><span>${label}</span></div>`).join("");
+  renderOverallListStatus(values);
 }
 
 function renderFavouriteLeagues() {
@@ -1275,7 +1322,7 @@ async function start() {
   if (liveItem) { state.currentListId = liveItem.list.id; setView("trackerView"); }
   setInterval(refreshLive, LIVE_REFRESH_MS);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=2.13").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=2.14").catch(() => {});
 }
 
 start();

@@ -420,7 +420,7 @@ body.tracker-active .app-version { padding: 2px 5px; font-size: .52rem; }
 }
 
 
-/* MatchBuddy V2.13 — permanent outcomes, six-state summary and goal sounds */
+/* MatchBuddy V2.14 — permanent outcomes, six-state summary and goal sounds */
 .summary-mini-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .summary-mini.won strong { color: var(--green); }
 .summary-mini.lost strong { color: var(--lost); }
@@ -433,7 +433,7 @@ body.tracker-active .app-version { padding: 2px 5px; font-size: .52rem; }
 }
 
 
-/* MatchBuddy V2.13 — prediction panel and reordered summary */
+/* MatchBuddy V2.14 — prediction panel and reordered summary */
 .prediction-values { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
 .prediction-values span { display: grid; gap: 2px; padding: 9px 6px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); text-align: center; color: var(--muted); font-size: .68rem; font-weight: 850; }
 .prediction-values b { color: var(--text); font-size: 1rem; }
@@ -443,3 +443,27 @@ body.tracker-active .app-version { padding: 2px 5px; font-size: .52rem; }
 .prediction-draw { background: var(--yellow); }
 .prediction-away { background: var(--red); }
 .prediction-note, .prediction-unavailable { margin: 9px 0 0; color: var(--muted); font-size: .72rem; }
+
+
+/* MatchBuddy V2.14 — overall selected-list status */
+.overall-list-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  margin: 3px 0 5px;
+  padding: 5px 10px;
+  border: 1px solid currentColor;
+  border-radius: 10px;
+  font-size: .75rem;
+  font-weight: 950;
+  letter-spacing: .06em;
+  text-align: center;
+}
+.overall-list-status[hidden] { display: none; }
+.overall-list-status.correct { color: var(--green); background: color-mix(in srgb, var(--green) 10%, var(--surface)); }
+.overall-list-status.needed { color: var(--yellow); background: color-mix(in srgb, var(--yellow) 10%, var(--surface)); }
+.overall-list-status.lost { color: var(--lost); background: color-mix(in srgb, var(--lost) 10%, var(--surface)); }
+@media (max-width: 560px) {
+  .overall-list-status { min-height: 25px; margin-block: 2px 4px; padding: 3px 8px; font-size: .66rem; border-radius: 8px; }
+}

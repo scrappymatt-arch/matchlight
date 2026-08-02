@@ -1,12 +1,12 @@
-# MatchBuddy V2.13
+# MatchBuddy V2.14
 
-## V2.13 changes
+## V2.14 changes
 
-- Match Details now shows API-Football model percentages for Home, Draw and Away when available.
-- Predictions load only when a match is opened and are cached by the Cloudflare Worker.
-- Prediction failures no longer prevent scorers, cards, statistics or line-ups from loading.
-- Summary boxes are reordered: Winning / Won on the left, Needs 1 / Needs 2+ in the middle, Upcoming / Lost on the right.
-- MatchBuddy V2.13 is shown at the top and uses a fresh service-worker cache.
+- Adds a compact overall status banner above the selected list.
+- Shows **LOST** in red as soon as any selection is permanently lost.
+- Shows the combined minimum goals still needed in yellow.
+- Shows **ALL CORRECT** in green when no further goals are currently required.
+- MatchBuddy V2.14 is shown at the top and uses a fresh service-worker cache.
 
 ## Upload
 

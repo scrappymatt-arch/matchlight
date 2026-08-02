@@ -726,3 +726,21 @@ body.tracker-active .app-version {
   #scoresView .section-heading { margin-bottom: 7px; }
   .league-heading span { gap: 4px; font-size: .68rem; }
 }
+
+
+/* MatchBuddy V3.7 — complete league catalogue and filters */
+.league-catalogue-tools { display: grid; gap: 10px; margin: 12px 0 4px; }
+.league-search { display: grid; gap: 6px; }
+.league-search span { color: var(--muted); font-size: .72rem; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; }
+.league-search input { width: 100%; min-height: 42px; padding: 0 13px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); color: var(--text); font: inherit; font-size: .9rem; outline: none; }
+.league-search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.league-category-control { display: flex; flex-wrap: wrap; gap: 6px; }
+.league-category-control button { min-height: 34px; padding: 0 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); color: var(--muted); font-size: .75rem; font-weight: 900; cursor: pointer; }
+.league-category-control button.active { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
+.current-leagues-toggle { display: flex; align-items: center; gap: 9px; width: fit-content; color: var(--text); font-size: .82rem; font-weight: 800; }
+.current-leagues-toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
+.league-choice span small { display: inline-block; margin-left: 6px; color: var(--muted); font-size: .65rem; font-weight: 800; }
+@media (max-width: 560px) {
+  .league-category-control { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .league-category-control button { padding: 0 7px; }
+}

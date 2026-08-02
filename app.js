@@ -141,6 +141,12 @@ const state = {
   favouriteLeagues: readJson(`${STORAGE_PREFIX}favourite-leagues`, []),
   showAllLeagues: false,
   knownLeagues: readJson(`${STORAGE_PREFIX}known-leagues`, []),
+  leagueCatalogueLoaded: false,
+  leagueCatalogueLoading: false,
+  leagueCatalogueError: "",
+  leagueSearch: "",
+  leagueCategory: "all",
+  currentLeaguesOnly: true,
   editingFixtureId: null,
   editingListId: null,
   activeView: "scoresView",
@@ -1034,12 +1040,75 @@ function renderSummaryLine() {
   renderOverallListStatus(values);
 }
 
+function leagueCategoryFor(league) {
+  const name = String(league.league || "").toLowerCase();
+  const type = String(league.type || "").toLowerCase();
+  if (/women|woman|femin|frauen|femen|ladies|wsl|nadeshiko/.test(name)) return "women";
+  if (/u[- ]?\d{2}|under[- ]?\d{2}|youth|junior|reserve|academy|primavera/.test(name)) return "youth";
+  if (type === "cup" || /cup|pokal|copa|trophy|shield|super cup/.test(name)) return "cups";
+  return "men";
+}
+
+async function loadLeagueCatalogue({ force = false } = {}) {
+  if (state.leagueCatalogueLoading || (state.leagueCatalogueLoaded && !force)) return;
+  state.leagueCatalogueLoading = true;
+  state.leagueCatalogueError = "";
+  renderFavouriteLeagues();
+  try {
+    const response = await fetch(`${API_BASE}/leagues`, { cache: force ? "reload" : "default" });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Unable to load leagues");
+    const catalogue = (Array.isArray(data.response) ? data.response : []).map((item) => ({
+      key: `${item.country || "International"}|${item.name}`,
+      country: item.country || "International",
+      league: item.name,
+      leagueId: item.id || null,
+      type: item.type || "League",
+      current: Boolean(item.current),
+      season: item.season || null,
+    }));
+    const merged = new Map(catalogue.map((league) => [league.key, league]));
+    state.knownLeagues.forEach((league) => {
+      if (!merged.has(league.key)) merged.set(league.key, { ...league, current: false, type: league.type || "League" });
+    });
+    state.knownLeagues = [...merged.values()].sort((a, b) => `${a.country} ${a.league}`.localeCompare(`${b.country} ${b.league}`));
+    state.leagueCatalogueLoaded = true;
+    localStorage.setItem(`${STORAGE_PREFIX}known-leagues`, JSON.stringify(state.knownLeagues));
+  } catch (error) {
+    state.leagueCatalogueError = error.message || "Unable to load the league catalogue.";
+  } finally {
+    state.leagueCatalogueLoading = false;
+    renderFavouriteLeagues();
+  }
+}
+
 function renderFavouriteLeagues() {
   const container = document.getElementById("favouriteLeagueOptions");
-  document.getElementById("leagueHelp").hidden = state.knownLeagues.length > 0;
+  const help = document.getElementById("leagueHelp");
+  if (!container || !help) return;
+
+  if (state.leagueCatalogueLoading) {
+    help.hidden = false;
+    help.textContent = "Loading the full league catalogue…";
+  } else if (state.leagueCatalogueError) {
+    help.hidden = false;
+    help.innerHTML = `${escapeHtml(state.leagueCatalogueError)} <button id="retryLeagueCatalogue" class="text-button" type="button">Try again</button>`;
+    document.getElementById("retryLeagueCatalogue")?.addEventListener("click", () => loadLeagueCatalogue({ force: true }));
+  } else {
+    help.hidden = state.knownLeagues.length > 0;
+    help.textContent = "No competitions match these filters.";
+  }
+
+  const query = state.leagueSearch.trim().toLowerCase();
+  const filteredLeagues = state.knownLeagues.filter((league) => {
+    if (state.currentLeaguesOnly && !league.current) return false;
+    const category = leagueCategoryFor(league);
+    if (state.leagueCategory !== "all" && category !== state.leagueCategory) return false;
+    return !query || `${league.country} ${league.league}`.toLowerCase().includes(query);
+  });
 
   const regions = new Map();
-  state.knownLeagues.forEach((league) => {
+  filteredLeagues.forEach((league) => {
     const region = regionForCountry(league.country);
     if (!regions.has(region)) regions.set(region, new Map());
     const countries = regions.get(region);
@@ -1068,7 +1137,8 @@ function renderFavouriteLeagues() {
         <div class="league-choice-grid">
           ${orderedLeagues.map((league) => {
             const checked = state.favouriteLeagues.includes(league.key);
-            return `<label class="league-choice"><input type="checkbox" data-league value="${escapeHtml(league.key)}" data-country-key="${countryKey}" ${checked ? "checked" : ""}><span>${escapeHtml(league.league)}</span></label>`;
+            const season = league.season ? `<small>${escapeHtml(String(league.season))}</small>` : "";
+            return `<label class="league-choice"><input type="checkbox" data-league value="${escapeHtml(league.key)}" data-country-key="${countryKey}" ${checked ? "checked" : ""}><span>${escapeHtml(league.league)}${season}</span></label>`;
           }).join("")}
         </div>
       </div>`;
@@ -1079,6 +1149,7 @@ function renderFavouriteLeagues() {
     </details>`;
   }).join("");
 
+  if (!state.leagueCatalogueLoading && !state.leagueCatalogueError && filteredLeagues.length === 0) help.hidden = false;
   container.querySelectorAll("input[data-partial='true']").forEach((input) => { input.indeterminate = true; });
   container.querySelectorAll("input[data-league]").forEach((input) => input.addEventListener("change", () => {
     state.favouriteLeagues = input.checked ? [...new Set([...state.favouriteLeagues, input.value])] : state.favouriteLeagues.filter((key) => key !== input.value);
@@ -1451,6 +1522,21 @@ function bindEvents() {
     requestAnimationFrame(() => section.classList.add("jump-highlight"));
     setTimeout(() => section.classList.remove("jump-highlight"), 1300);
   });
+  document.getElementById("leagueSearch").addEventListener("input", (event) => {
+    state.leagueSearch = event.target.value;
+    renderFavouriteLeagues();
+  });
+  document.getElementById("leagueCategoryControl").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-category]");
+    if (!button) return;
+    state.leagueCategory = button.dataset.category;
+    document.querySelectorAll("#leagueCategoryControl button").forEach((item) => item.classList.toggle("active", item === button));
+    renderFavouriteLeagues();
+  });
+  document.getElementById("currentLeaguesOnly").addEventListener("change", (event) => {
+    state.currentLeaguesOnly = event.target.checked;
+    renderFavouriteLeagues();
+  });
   document.getElementById("refreshCountdown").addEventListener("click", () => refreshLive({ manual: true }));
   document.getElementById("densityControl").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-density]");
@@ -1541,7 +1627,7 @@ async function start() {
   applyDensity();
   autoClearIfDue();
   renderAll();
-  await loadDate(state.selectedDate);
+  await Promise.all([loadDate(state.selectedDate), loadLeagueCatalogue()]);
 
   const liveItem = allListEntries().find(({ entry }) => entry.fixture?.status === "live");
   if (liveItem) { state.currentListId = liveItem.list.id; setView("trackerView"); }
@@ -1549,7 +1635,7 @@ async function start() {
   renderRefreshSettings();
   setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.6").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.7").catch(() => {});
 }
 
 start();

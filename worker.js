@@ -96,14 +96,43 @@ export default {
       return jsonResponse({
         service: "MatchBuddy API",
         status: "online",
-        version: "3.2",
+        version: "3.7",
         endpoints: {
           fixtures: "/fixtures?from=2026-08-01&to=2026-08-01",
           live: "/live",
           fixture: "/fixture?id=123456",
           signals: "/signals?ids=123456,123457",
+          leagues: "/leagues",
         },
       }, 200, request);
+    }
+
+
+    if (url.pathname === "/leagues") {
+      try {
+        // The competition catalogue changes infrequently, so cache it for a day.
+        const data = await requestApiFootball(`/leagues`, env, 86400, 2);
+        const competitions = (Array.isArray(data.response) ? data.response : []).map((item) => {
+          const seasons = Array.isArray(item.seasons) ? item.seasons : [];
+          const currentSeason = seasons.find((season) => season.current) || null;
+          const latestSeason = seasons.slice().sort((a, b) => Number(b.year || 0) - Number(a.year || 0))[0] || null;
+          return {
+            id: item.league?.id || null,
+            name: item.league?.name || "Unknown competition",
+            type: item.league?.type || "League",
+            logo: item.league?.logo || "",
+            country: item.country?.name || "International",
+            countryCode: item.country?.code || "",
+            flag: item.country?.flag || "",
+            current: Boolean(currentSeason),
+            season: currentSeason?.year || latestSeason?.year || null,
+          };
+        }).filter((item) => item.id && item.name);
+        competitions.sort((a, b) => `${a.country} ${a.name}`.localeCompare(`${b.country} ${b.name}`));
+        return jsonResponse({ results: competitions.length, response: competitions }, 200, request, { "Cache-Control": "public, max-age=86400" });
+      } catch (error) {
+        return jsonResponse({ error: "Unable to retrieve the league catalogue.", details: error.message || String(error) }, 502, request);
+      }
     }
 
     if (url.pathname === "/fixtures") {

@@ -1,18 +1,18 @@
-# MatchBuddy V3.6
+# MatchBuddy V3.7
 
-## V3.6 changes
+## V3.7 changes
 
-- Replaces the old tagline with **Football. Your way.** and places it beside MatchBuddy.
-- Removes the “3 days back · 10 days ahead” line above Fixtures.
-- Tightens spacing across the Fixtures header and competition groups to fit more matches on screen.
-- Shows the country inside every league header, for example **Germany · 2. Frauen Bundesliga**.
-- Removes the separate country headings to save vertical space.
-- Makes an empty **List 1** the default destination when adding a new match.
-- Keeps existing tracked matches attached to their current list when edited.
-- Updates the visible version and service-worker cache to V3.6.
+- Loads the complete API-Football league catalogue through the protected Cloudflare Worker.
+- Favourite Leagues no longer depends on competitions appearing in fixtures already viewed.
+- Selecting a country selects all matching leagues shown for that country, including leagues with no match today.
+- Adds league/country search.
+- Adds All, Men, Women, Youth and Cups category buttons.
+- Adds a Current competitions only option, enabled by default.
+- Caches the provider league catalogue for 24 hours to protect the API allowance.
+- Updates the visible version and service-worker cache to V3.7.
 
-## Upload
+## Deployment
 
-1. Replace all files in the existing GitHub repository.
-2. The Cloudflare Worker is unchanged from V3.5, so it does not need redeploying.
-3. Fully close and reopen MatchBuddy after GitHub Pages redeploys.
+1. Replace all GitHub Pages files with the contents of this ZIP.
+2. Replace the Cloudflare Worker code with `worker.js` and deploy it.
+3. Keep the existing `API_FOOTBALL_KEY` secret unchanged.

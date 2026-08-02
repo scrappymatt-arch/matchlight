@@ -8,13 +8,13 @@
   <title>MatchBuddy</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=3.6" />
+  <link rel="stylesheet" href="styles.css?v=3.7" />
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div class="brand-lockup">
-        <h1>MatchBuddy <span class="app-version">V3.6</span> <span class="brand-tagline">FOOTBALL. YOUR WAY.</span></h1>
+        <h1>MatchBuddy <span class="app-version">V3.7</span> <span class="brand-tagline">FOOTBALL. YOUR WAY.</span></h1>
       </div>
       <button id="themeToggle" class="icon-button" aria-label="Toggle theme" title="Toggle theme">☼</button>
     </header>
@@ -169,11 +169,22 @@
           </summary>
           <div class="favourite-settings-content">
             <div class="settings-panel-heading">
-              <p>When favourites are selected, only those competitions appear on the Fixtures screen.</p>
+              <p>Choose from the complete API-Football competition catalogue, even when a league has no match today.</p>
               <button id="clearFavouriteLeagues" class="text-button" type="button">Clear</button>
             </div>
+            <div class="league-catalogue-tools">
+              <label class="league-search"><span>Search leagues</span><input id="leagueSearch" type="search" placeholder="Country or competition" autocomplete="off"></label>
+              <div id="leagueCategoryControl" class="league-category-control" role="group" aria-label="Competition category">
+                <button type="button" data-category="all" class="active">All</button>
+                <button type="button" data-category="men">Men</button>
+                <button type="button" data-category="women">Women</button>
+                <button type="button" data-category="youth">Youth</button>
+                <button type="button" data-category="cups">Cups</button>
+              </div>
+              <label class="current-leagues-toggle"><input id="currentLeaguesOnly" type="checkbox" checked><span>Current competitions only</span></label>
+            </div>
             <div id="favouriteLeagueOptions" class="league-choice-grid"></div>
-            <p id="leagueHelp" class="settings-help">Leagues appear here after their fixtures have been loaded.</p>
+            <p id="leagueHelp" class="settings-help">Loading the full league catalogue…</p>
           </div>
         </details>
       </section>
@@ -212,6 +223,6 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=3.6" defer></script>
+  <script src="app.js?v=3.7" defer></script>
 </body>
 </html>

@@ -701,3 +701,28 @@ body.tracker-active .app-version {
   .event-timeline li { grid-template-columns: minmax(0,1fr) 34px 42px minmax(0,1fr); padding-inline: 9px; gap: 6px; }
   .event-icon { width: 28px; min-height: 28px; }
 }
+
+/* MatchBuddy V3.6 — denser fixture header and combined country/league labels */
+.brand-lockup h1 { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.brand-tagline { margin-left: 3px; color: #abc2dc; font-size: .64rem; font-weight: 900; letter-spacing: .15em; white-space: nowrap; }
+#scoresView .section-heading { margin-bottom: 10px; }
+#scoresView .section-heading h2 { margin-bottom: 0; }
+#scoresView .date-strip { padding-bottom: 7px; margin-bottom: 6px; }
+#scoresView .filter-row { margin-bottom: 8px; }
+#scoresView .region-group { margin-top: 12px; margin-bottom: 20px; }
+#scoresView .region-heading { margin-bottom: 7px; }
+#scoresView .league-group { margin-bottom: 8px; }
+.league-heading span { display: flex; align-items: baseline; min-width: 0; gap: 5px; }
+.league-heading span em { color: var(--text); font-style: normal; font-weight: 950; text-transform: uppercase; letter-spacing: .06em; }
+.league-heading span i { color: var(--muted); font-style: normal; }
+:root[data-theme="light"] .league-heading span em { color: #27364a; }
+:root[data-density="compact"] #scoresView .region-group { margin: 10px 0 18px; }
+:root[data-density="compact"] #scoresView .league-group { margin-bottom: 7px; }
+:root[data-density="compact"] .league-heading { min-height: 31px; padding-top: 5px; padding-bottom: 5px; }
+
+@media (max-width: 560px) {
+  .brand-lockup h1 { gap: 6px; }
+  .brand-tagline { flex-basis: auto; font-size: .56rem; letter-spacing: .11em; }
+  #scoresView .section-heading { margin-bottom: 7px; }
+  .league-heading span { gap: 4px; font-size: .68rem; }
+}

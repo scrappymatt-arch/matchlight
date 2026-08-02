@@ -695,19 +695,18 @@ function renderFixtures() {
   list.innerHTML = REGION_ORDER.filter((region) => regions.has(region)).map((region) => {
     const countries = regions.get(region);
     const matchCount = [...countries.values()].reduce((regionTotal, leagues) => regionTotal + [...leagues.values()].reduce((countryTotal, matches) => countryTotal + matches.length, 0), 0);
-    const countryHtml = [...countries.entries()].map(([country, leagues]) => {
-      const leagueHtml = [...leagues.entries()].map(([key, matches]) => {
+    const leagueHtml = [...countries.entries()].map(([country, leagues]) =>
+      [...leagues.entries()].map(([key, matches]) => {
         const first = matches[0];
         const star = state.favouriteLeagues.includes(key) ? "★ " : "";
         return `
           <section class="league-group">
-            <div class="league-heading"><span>${star}${escapeHtml(first.league)}</span><b>${matches.length} ${matches.length === 1 ? "match" : "matches"}</b></div>
+            <div class="league-heading"><span><em>${escapeHtml(country)}</em><i>·</i>${star}${escapeHtml(first.league)}</span><b>${matches.length} ${matches.length === 1 ? "match" : "matches"}</b></div>
             ${matches.map(fixtureCardHtml).join("")}
           </section>`;
-      }).join("");
-      return `<section class="country-group"><h4 class="country-heading">${escapeHtml(country)}</h4>${leagueHtml}</section>`;
-    }).join("");
-    return `<section class="region-group"><div class="region-heading"><h3>${escapeHtml(region)}</h3><span>${matchCount} ${matchCount === 1 ? "match" : "matches"}</span></div>${countryHtml}</section>`;
+      }).join("")
+    ).join("");
+    return `<section class="region-group"><div class="region-heading"><h3>${escapeHtml(region)}</h3><span>${matchCount} ${matchCount === 1 ? "match" : "matches"}</span></div>${leagueHtml}</section>`;
   }).join("");
 
   list.querySelectorAll("[data-fixture-id]").forEach((button) => {
@@ -744,7 +743,13 @@ function openConditionDialog(id) {
   rememberActiveScroll();
   const fixture = getFixtureById(id);
   if (!fixture) return;
-  if (state.editingFixtureId !== id || !state.editingListId) state.editingListId = state.currentListId;
+  const existingList = Object.values(state.lists).find((list) => Boolean(list.selected?.[id]));
+  const listOneIsEmpty = Boolean(state.lists.list1) && Object.keys(state.lists.list1.selected || {}).length === 0;
+  if (existingList) {
+    state.editingListId = existingList.id;
+  } else if (state.editingFixtureId !== id || !state.editingListId) {
+    state.editingListId = listOneIsEmpty ? "list1" : state.currentListId;
+  }
   state.editingFixtureId = id;
   document.getElementById("dialogMatchTitle").textContent = `${fixture.home} v ${fixture.away}`;
   renderDialogListSelect();
@@ -1544,7 +1549,7 @@ async function start() {
   renderRefreshSettings();
   setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.4").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.6").catch(() => {});
 }
 
 start();

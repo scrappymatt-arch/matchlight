@@ -420,7 +420,7 @@ body.tracker-active .app-version { padding: 2px 5px; font-size: .52rem; }
 }
 
 
-/* MatchBuddy V2.14 — permanent outcomes, six-state summary and goal sounds */
+/* MatchBuddy V2.15 — permanent outcomes, six-state summary and goal sounds */
 .summary-mini-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .summary-mini.won strong { color: var(--green); }
 .summary-mini.lost strong { color: var(--lost); }
@@ -433,7 +433,7 @@ body.tracker-active .app-version { padding: 2px 5px; font-size: .52rem; }
 }
 
 
-/* MatchBuddy V2.14 — prediction panel and reordered summary */
+/* MatchBuddy V2.15 — prediction panel and reordered summary */
 .prediction-values { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
 .prediction-values span { display: grid; gap: 2px; padding: 9px 6px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); text-align: center; color: var(--muted); font-size: .68rem; font-weight: 850; }
 .prediction-values b { color: var(--text); font-size: 1rem; }
@@ -445,7 +445,7 @@ body.tracker-active .app-version { padding: 2px 5px; font-size: .52rem; }
 .prediction-note, .prediction-unavailable { margin: 9px 0 0; color: var(--muted); font-size: .72rem; }
 
 
-/* MatchBuddy V2.14 — overall selected-list status */
+/* MatchBuddy V2.15 — overall selected-list status */
 .overall-list-status {
   display: flex;
   align-items: center;
@@ -466,4 +466,40 @@ body.tracker-active .app-version { padding: 2px 5px; font-size: .52rem; }
 .overall-list-status.lost { color: var(--lost); background: color-mix(in srgb, var(--lost) 10%, var(--surface)); }
 @media (max-width: 560px) {
   .overall-list-status { min-height: 25px; margin-block: 2px 4px; padding: 3px 8px; font-size: .66rem; border-radius: 8px; }
+}
+
+/* MatchBuddy V2.15 — higher-contrast amber states in light mode */
+:root[data-theme="light"] {
+  --yellow: #8a5700;
+  --yellow-bg: #fff0bf;
+}
+:root[data-theme="light"] .status-yellow {
+  color: #7a4b00;
+  background: #fff0bf;
+  border-color: #c78500;
+}
+:root[data-theme="light"] .status-yellow.in-play {
+  border-color: #b97800;
+  box-shadow: inset 0 0 0 1px rgba(185,120,0,.35);
+}
+:root[data-theme="light"] .status-yellow .status-copy,
+:root[data-theme="light"] .status-yellow .tracker-clock,
+:root[data-theme="light"] .status-yellow .condition-edit {
+  color: #714500;
+}
+:root[data-theme="light"] .summary-mini.yellow {
+  border-color: #d3a12b;
+  background: #fff7df;
+}
+:root[data-theme="light"] .summary-mini.yellow strong {
+  color: #875400;
+}
+:root[data-theme="light"] .overall-list-status.needed {
+  color: #754700;
+  border-color: #c78500;
+  background: #ffedb0;
+  box-shadow: inset 0 0 0 1px rgba(199,133,0,.10);
+}
+:root[data-theme="light"] .prediction-draw {
+  background: #c78500;
 }

@@ -1,12 +1,13 @@
-# MatchBuddy V2.14
+# MatchBuddy V2.15
 
-## V2.14 changes
+## V2.15 changes
 
-- Adds a compact overall status banner above the selected list.
-- Shows **LOST** in red as soon as any selection is permanently lost.
-- Shows the combined minimum goals still needed in yellow.
-- Shows **ALL CORRECT** in green when no further goals are currently required.
-- MatchBuddy V2.14 is shown at the top and uses a fresh service-worker cache.
+- Improves yellow/amber visibility in light mode.
+- Uses a deeper amber for text and borders instead of pale yellow on white.
+- Gives yellow match cards a stronger pale-gold background.
+- Gives the overall “GOALS NEEDED” banner a filled amber tint with higher contrast.
+- Improves the yellow totals-box contrast.
+- MatchBuddy V2.15 is shown at the top and uses a fresh service-worker cache.
 
 ## Upload
 

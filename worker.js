@@ -73,7 +73,7 @@ export default {
       return jsonResponse({
         service: "MatchBuddy API",
         status: "online",
-        version: "2.14",
+        version: "2.15",
         endpoints: {
           fixtures: "/fixtures?from=2026-08-01&to=2026-08-01",
           live: "/live",

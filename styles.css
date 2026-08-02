@@ -764,3 +764,131 @@ body.tracker-active .app-version {
   .timezone-options button { align-items: flex-start; flex-direction: column; gap: .15rem; }
   .timezone-options button small { text-align: left; }
 }
+
+/* YorAkka V3.9 — phone-first density, wrapped team names and updated brand line */
+@media (max-width: 600px) {
+  .app-shell { padding: 10px 10px 96px; }
+  .topbar { margin-bottom: 14px; gap: 8px; }
+  .topbar h1 { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 7px; font-size: 1.7rem; letter-spacing: -.045em; }
+  .app-version { margin-left: 0; }
+  .brand-tagline { flex-basis: auto; margin-left: 0; font-size: .53rem; letter-spacing: .105em; }
+  .icon-button { width: 41px; height: 41px; border-radius: 13px; }
+
+  /* Keep fixture rows compact while allowing long names to use two lines. */
+  .fixture-card,
+  :root[data-density="compact"] .fixture-card {
+    grid-template-columns: 45px minmax(0,1fr) 40px;
+    gap: 5px;
+    min-height: 68px;
+    padding: 7px 6px;
+  }
+  .match-line { grid-template-columns: minmax(0,1fr) 50px minmax(0,1fr) auto; gap: 5px; }
+  .match-line strong {
+    display: -webkit-box;
+    overflow: hidden;
+    white-space: normal;
+    text-overflow: ellipsis;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    line-height: 1.05;
+    max-height: 2.1em;
+    overflow-wrap: normal;
+    word-break: normal;
+    font-size: .84rem;
+  }
+  .central-score { min-width: 50px; font-size: 1rem; }
+  .add-button { width: 38px; height: 38px; border-radius: 12px; }
+
+  /* Deliberate phone layout for My Matches instead of wrapped desktop rows. */
+  #trackerView .tracker-head-grid {
+    display: grid;
+    grid-template-columns: minmax(0,1fr);
+    gap: 7px;
+    margin-bottom: 7px;
+  }
+  #trackerView .list-strip-row {
+    display: grid;
+    grid-template-columns: minmax(0,1fr) auto;
+    align-items: center;
+    gap: 7px;
+    margin: 0;
+  }
+  #trackerView .list-strip-row .list-tabs {
+    min-width: 0;
+    flex-basis: auto;
+    padding: 0 0 2px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+  #trackerView .list-strip-row .list-actions {
+    margin: 0;
+    display: flex;
+    gap: 5px;
+  }
+  #trackerView .mini-action { min-width: 35px; min-height: 35px; padding: 0 8px; border-radius: 10px; }
+  #trackerView .summary-mini-grid {
+    grid-template-columns: repeat(6, minmax(0,1fr));
+    gap: 4px;
+  }
+  #trackerView .summary-mini { min-height: 34px; padding: 4px 3px; display: grid; justify-items: center; gap: 2px; }
+  #trackerView .summary-mini strong { font-size: .78rem; }
+  #trackerView .summary-mini span { display: block; font-size: .39rem; line-height: 1; text-align: center; }
+
+  #trackerView .tracker-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0,1fr) auto;
+    grid-template-areas:
+      "filters sort"
+      "update update";
+    gap: 7px;
+    margin-bottom: 7px;
+  }
+  #trackerView #trackerFilters { grid-area: filters; min-width: 0; }
+  #trackerView #trackerSort { grid-area: sort; width: 76px; min-height: 38px; }
+  #trackerView .tracker-update-group {
+    grid-area: update;
+    display: grid;
+    grid-template-columns: minmax(0,1fr) auto;
+    align-items: stretch;
+    gap: 7px;
+    flex-basis: auto;
+    order: initial;
+  }
+  #trackerView .tracker-update-group .overall-list-status {
+    min-width: 0;
+    margin: 0;
+    min-height: 36px;
+  }
+  #trackerView .refresh-countdown { min-height: 36px; white-space: nowrap; padding-inline: 10px; }
+  #trackerView .day-heading { margin-top: 10px; }
+
+  #trackerView .tracker-card { padding: 9px 8px; margin-bottom: 7px; border-radius: 15px; }
+  #trackerView .tracker-topline { grid-template-columns: 52px minmax(0,1fr) 24px; gap: 4px; }
+  #trackerView .tracker-clock { font-size: 1.08rem; }
+  #trackerView .tracker-match-line .home-team,
+  #trackerView .tracker-match-line .away-team {
+    display: -webkit-box;
+    overflow: hidden;
+    white-space: normal;
+    text-overflow: ellipsis;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    line-height: 1.05;
+    max-height: 2.1em;
+    overflow-wrap: normal;
+    word-break: normal;
+    font-size: .82rem;
+  }
+  #trackerView .tracker-match-line { grid-template-columns: minmax(0,1fr) 48px minmax(0,1fr) auto; gap: 4px; }
+  #trackerView .tracker-match-line .central-score { min-width: 48px; }
+  #trackerView .tracker-meta { margin-top: 7px; padding-top: 6px; }
+}
+
+@media (max-width: 390px) {
+  #trackerView .summary-mini span { display: none; }
+  #trackerView .summary-mini { min-height: 30px; }
+  #trackerView .tracker-update-group { grid-template-columns: minmax(0,1fr) auto; }
+  .brand-tagline { flex-basis: 100%; }
+}

@@ -503,3 +503,38 @@ body.tracker-active .app-version { padding: 2px 5px; font-size: .52rem; }
 :root[data-theme="light"] .prediction-draw {
   background: #c78500;
 }
+
+/* V3.0 paid-plan refresh controls */
+.tracker-status-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px;
+  align-items: center;
+  margin-block: 2px 4px;
+}
+.tracker-status-row .overall-list-status { margin: 0; }
+.refresh-countdown {
+  min-height: 27px;
+  padding: 4px 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: .66rem;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.refresh-countdown:hover { color: var(--text); border-color: var(--accent); }
+.refresh-countdown.updating { color: var(--accent); }
+.refresh-setting { align-items: center; }
+.select-setting { display: grid; gap: 4px; min-width: 190px; }
+.select-setting > span { color: var(--muted); font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+.select-setting select { width: 100%; }
+@media (max-width: 520px) {
+  .tracker-status-row { grid-template-columns: minmax(0, 1fr) auto; gap: 5px; }
+  .refresh-countdown { font-size: .59rem; padding-inline: 7px; }
+  .refresh-setting { align-items: stretch; }
+  .select-setting { min-width: 0; width: 100%; }
+}

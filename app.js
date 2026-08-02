@@ -1,7 +1,7 @@
 const API_BASE = "https://matchbuddy-api.scrappymatt.workers.dev";
 const DAY = 86400000;
-const LIVE_REFRESH_MS = 120000;
-const SIGNAL_REFRESH_MS = 120000;
+const DEFAULT_LIVE_REFRESH_SECONDS = 30;
+const DEFAULT_SIGNAL_REFRESH_SECONDS = 30;
 const GOAL_PULSE_MS = 60000;
 const MAX_SIGNAL_FIXTURES = 12;
 const DAY_CACHE_MS = 5 * 60 * 1000;
@@ -153,6 +153,11 @@ const state = {
   trackerScrollY: 0,
   pendingScrollView: null,
   goalSoundsEnabled: localStorage.getItem(`${STORAGE_PREFIX}goal-sounds`) === "true",
+  liveRefreshSeconds: Number(localStorage.getItem(`${STORAGE_PREFIX}live-refresh-seconds`) ?? DEFAULT_LIVE_REFRESH_SECONDS),
+  signalRefreshSeconds: Number(localStorage.getItem(`${STORAGE_PREFIX}signal-refresh-seconds`) ?? DEFAULT_SIGNAL_REFRESH_SECONDS),
+  nextRefreshAt: Date.now() + DEFAULT_LIVE_REFRESH_SECONDS * 1000,
+  refreshInProgress: false,
+  lastRefreshSucceededAt: null,
   audioContext: null,
 };
 
@@ -338,7 +343,7 @@ function matchSignalHtml(fixture) {
 async function refreshMatchSignals(fixtures) {
   const trackedLive = allListEntries().map(({ entry }) => entry.fixture).filter((fixture) => fixture?.status === "live");
   const live = [...new Map([...fixtures, ...trackedLive].filter((fixture) => fixture?.status === "live").map((fixture) => [String(fixture.id), fixture])).values()];
-  if (!live.length || Date.now() - state.lastSignalRefresh < SIGNAL_REFRESH_MS - 5000) return;
+  if (!live.length || Date.now() - state.lastSignalRefresh < Math.max(5000, state.signalRefreshSeconds * 1000 - 1000)) return;
 
   const selectedIds = new Set(allListEntries().filter(({ entry }) => entry.fixture?.status === "live").map(({ id }) => String(id)));
   const ordered = [...live].sort((a, b) => Number(selectedIds.has(b.id)) - Number(selectedIds.has(a.id)) || Number(isFavourite(b)) - Number(isFavourite(a)) || a.timestamp - b.timestamp);
@@ -405,17 +410,24 @@ async function loadDate(date, { force = false } = {}) {
 function friendlyError(error) {
   const message = String(error?.message || error || "Unknown error");
   if (message.includes("rateLimit") || message.includes("Too many requests")) {
-    return "The free live-data limit is temporarily busy. Wait a minute, then tap Retry.";
+    return "The live-data service is temporarily busy. Wait a moment, then tap Retry.";
   }
   return "Live fixtures could not be reached. Check your connection and try again.";
 }
 
-async function refreshLive() {
-  if (document.hidden) return;
+async function refreshLive({ manual = false } = {}) {
+  if (document.hidden || state.refreshInProgress) return;
+  state.refreshInProgress = true;
+  renderRefreshCountdown();
   const selectedFixtures = allListEntries().map(({ entry }) => entry.fixture);
   const selectedLive = selectedFixtures.some((fixture) => fixture.status === "live");
   const viewingToday = state.activeView === "scoresView" && state.selectedDate === isoDate(today);
-  if (!selectedLive && !viewingToday) return;
+  if (!manual && !selectedLive && !viewingToday) {
+    state.refreshInProgress = false;
+    scheduleNextRefresh();
+    renderRefreshCountdown();
+    return;
+  }
 
   try {
     const response = await fetch(`${API_BASE}/live`, { cache: "no-store" });
@@ -442,11 +454,59 @@ async function refreshLive() {
       });
     });
     saveSelected();
+    state.lastRefreshSucceededAt = Date.now();
     renderAll();
     refreshMatchSignals(liveFixtures);
   } catch {
     // Keep the last known scores visible if a background refresh fails.
+  } finally {
+    state.refreshInProgress = false;
+    scheduleNextRefresh();
+    renderRefreshCountdown();
   }
+}
+
+function liveRefreshMs() {
+  return Math.max(0, Number(state.liveRefreshSeconds) || 0) * 1000;
+}
+
+function scheduleNextRefresh() {
+  const interval = liveRefreshMs();
+  state.nextRefreshAt = interval > 0 ? Date.now() + interval : 0;
+}
+
+function renderRefreshCountdown() {
+  const button = document.getElementById("refreshCountdown");
+  if (!button) return;
+  if (state.refreshInProgress) {
+    button.textContent = "Updating…";
+    button.classList.add("updating");
+    return;
+  }
+  button.classList.remove("updating");
+  if (liveRefreshMs() === 0) {
+    button.textContent = "Refresh now · Manual";
+    return;
+  }
+  const seconds = Math.max(0, Math.ceil((state.nextRefreshAt - Date.now()) / 1000));
+  button.textContent = seconds <= 0 ? "Updating…" : `Next update in ${seconds}s`;
+}
+
+function countdownTick() {
+  renderRefreshCountdown();
+  if (document.hidden) return;
+
+  const liveFixtures = [
+    ...(state.fixturesByDate[state.selectedDate] || []),
+    ...allListEntries().map(({ entry }) => entry.fixture),
+  ].filter((fixture) => fixture?.status === "live");
+
+  if (liveFixtures.length && Date.now() - state.lastSignalRefresh >= state.signalRefreshSeconds * 1000) {
+    refreshMatchSignals(liveFixtures);
+  }
+
+  if (state.refreshInProgress || liveRefreshMs() === 0) return;
+  if (Date.now() >= state.nextRefreshAt) refreshLive();
 }
 
 function updateKnownLeagues(fixtures) {
@@ -1183,6 +1243,7 @@ function renderAll() {
   renderTracker();
   renderFavouriteLeagues();
   renderSoundSetting();
+  renderRefreshSettings();
   const count = allListEntries().length;
   const badge = document.getElementById("trackerBadge");
   badge.hidden = count === 0;
@@ -1190,6 +1251,14 @@ function renderAll() {
   document.getElementById("clearTracker").disabled = Object.keys(state.selected).length === 0;
   document.getElementById("showSelectedOnly").classList.toggle("active", state.selectedOnly);
   document.getElementById("showSelectedOnly").setAttribute("aria-pressed", String(state.selectedOnly));
+}
+
+function renderRefreshSettings() {
+  const live = document.getElementById("liveRefreshSelect");
+  const signal = document.getElementById("signalRefreshSelect");
+  if (live) live.value = String(state.liveRefreshSeconds);
+  if (signal) signal.value = String(state.signalRefreshSeconds);
+  renderRefreshCountdown();
 }
 
 function renderSoundSetting() {
@@ -1227,6 +1296,19 @@ function bindEvents() {
   });
   document.getElementById("testPositiveSound").addEventListener("click", () => { ensureAudioContext(); playGoalTone("positive"); });
   document.getElementById("testNegativeSound").addEventListener("click", () => { ensureAudioContext(); playGoalTone("negative"); });
+  document.getElementById("liveRefreshSelect").addEventListener("change", (event) => {
+    state.liveRefreshSeconds = Number(event.target.value);
+    localStorage.setItem(`${STORAGE_PREFIX}live-refresh-seconds`, String(state.liveRefreshSeconds));
+    scheduleNextRefresh();
+    renderRefreshSettings();
+  });
+  document.getElementById("signalRefreshSelect").addEventListener("change", (event) => {
+    state.signalRefreshSeconds = Number(event.target.value);
+    localStorage.setItem(`${STORAGE_PREFIX}signal-refresh-seconds`, String(state.signalRefreshSeconds));
+    state.lastSignalRefresh = 0;
+    renderRefreshSettings();
+  });
+  document.getElementById("refreshCountdown").addEventListener("click", () => refreshLive({ manual: true }));
   document.getElementById("densityControl").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-density]");
     if (!button) return;
@@ -1307,7 +1389,7 @@ function bindEvents() {
       renderAll();
     }
   });
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshLive(); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshLive({ manual: true }); });
 }
 
 async function start() {
@@ -1320,9 +1402,11 @@ async function start() {
 
   const liveItem = allListEntries().find(({ entry }) => entry.fixture?.status === "live");
   if (liveItem) { state.currentListId = liveItem.list.id; setView("trackerView"); }
-  setInterval(refreshLive, LIVE_REFRESH_MS);
+  scheduleNextRefresh();
+  renderRefreshSettings();
+  setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=2.15").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.0").catch(() => {});
 }
 
 start();

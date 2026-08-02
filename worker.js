@@ -73,7 +73,7 @@ export default {
       return jsonResponse({
         service: "MatchBuddy API",
         status: "online",
-        version: "2.15",
+        version: "3.0",
         endpoints: {
           fixtures: "/fixtures?from=2026-08-01&to=2026-08-01",
           live: "/live",
@@ -106,8 +106,8 @@ export default {
 
     if (url.pathname === "/live") {
       try {
-        const data = await requestApiFootball(`/fixtures?live=all&timezone=${encodeURIComponent("Europe/London")}`, env, 20);
-        return jsonResponse(data, 200, request, { "Cache-Control": "public, max-age=20" });
+        const data = await requestApiFootball(`/fixtures?live=all&timezone=${encodeURIComponent("Europe/London")}`, env, 15);
+        return jsonResponse(data, 200, request, { "Cache-Control": "public, max-age=15" });
       } catch (error) {
         return jsonResponse({ error: "Unable to retrieve live matches.", details: error.message || String(error) }, 502, request);
       }
@@ -115,11 +115,12 @@ export default {
 
     if (url.pathname === "/signals") {
       const rawIds = (url.searchParams.get("ids") || "").split(",").map((id) => id.trim()).filter(Boolean);
-      const ids = [...new Set(rawIds)].filter((id) => /^\d+$/.test(id)).slice(0, 8);
-      if (!ids.length) return jsonResponse({ error: "Provide up to eight numeric fixture ids." }, 400, request);
+      const ids = [...new Set(rawIds)].filter((id) => /^\d+$/.test(id)).slice(0, 12);
+      if (!ids.length) return jsonResponse({ error: "Provide up to twelve numeric fixture ids." }, 400, request);
       try {
-        const results = await Promise.all(ids.map(async (id) => {
-          const data = await requestApiFootball(`/fixtures/events?fixture=${encodeURIComponent(id)}`, env, 60);
+        const results = [];
+        for (const id of ids) {
+          const data = await requestApiFootball(`/fixtures/events?fixture=${encodeURIComponent(id)}`, env, 15);
           const events = Array.isArray(data.response) ? data.response : [];
           const dismissals = events.filter((event) => {
             const type = String(event.type || "").trim().toLowerCase();
@@ -134,9 +135,11 @@ export default {
             event.time?.elapsed || "",
             event.time?.extra || "",
           ].join("|")));
-          return { fixtureId: id, redCards: unique.size };
-        }));
-        return jsonResponse({ results: results.length, response: results }, 200, request, { "Cache-Control": "public, max-age=60" });
+          results.push({ fixtureId: id, redCards: unique.size });
+          // API-Football Pro permits five calls per second. Pace event requests safely.
+          if (ids.length > 1) await new Promise((resolve) => setTimeout(resolve, 220));
+        }
+        return jsonResponse({ results: results.length, response: results }, 200, request, { "Cache-Control": "public, max-age=15" });
       } catch (error) {
         return jsonResponse({ error: "Unable to retrieve live match signals.", details: error.message || String(error) }, 502, request);
       }

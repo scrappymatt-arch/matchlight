@@ -8,14 +8,14 @@
   <title>MatchBuddy</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=2.15" />
+  <link rel="stylesheet" href="styles.css?v=3.0" />
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div>
         <p class="eyebrow">FOOTBALL, WITHOUT THE CLUTTER</p>
-        <h1>MatchBuddy <span class="app-version">V2.15</span></h1>
+        <h1>MatchBuddy <span class="app-version">V3.0</span></h1>
       </div>
       <button id="themeToggle" class="icon-button" aria-label="Toggle theme" title="Toggle theme">☼</button>
     </header>
@@ -53,7 +53,10 @@
           <div id="summaryBoxes" class="summary-mini-grid" aria-live="polite"></div>
         </div>
 
-        <div id="overallListStatus" class="overall-list-status" aria-live="polite"></div>
+        <div class="tracker-status-row">
+          <div id="overallListStatus" class="overall-list-status" aria-live="polite"></div>
+          <button id="refreshCountdown" class="refresh-countdown" type="button" title="Refresh now">Next update in 30s</button>
+        </div>
 
         <div class="tracker-compact-bar actions-only">
           <div class="list-actions" aria-label="List actions">
@@ -147,9 +150,30 @@
           <span class="status-pill">Live</span>
         </div>
 
-        <div class="settings-card">
-          <div><h3>Live refresh</h3><p>Checks approximately every two minutes only while the app is open and live matches matter.</p></div>
-          <span class="status-pill muted">2 min</span>
+        <div class="settings-card refresh-setting">
+          <div><h3>Live score refresh</h3><p>Faster settings detect score changes sooner but use more requests. 30 seconds is recommended for the Pro plan.</p></div>
+          <label class="select-setting" for="liveRefreshSelect">
+            <span>Interval</span>
+            <select id="liveRefreshSelect">
+              <option value="15">15 seconds</option>
+              <option value="30">30 seconds · Recommended</option>
+              <option value="60">60 seconds</option>
+              <option value="120">2 minutes</option>
+              <option value="0">Manual only</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="settings-card refresh-setting">
+          <div><h3>Goal and card checks</h3><p>Controls how often MatchBuddy checks detailed events for tracked live matches.</p></div>
+          <label class="select-setting" for="signalRefreshSelect">
+            <span>Interval</span>
+            <select id="signalRefreshSelect">
+              <option value="15">15 seconds</option>
+              <option value="30">30 seconds · Recommended</option>
+              <option value="60">60 seconds</option>
+            </select>
+          </label>
         </div>
       </section>
     </main>
@@ -187,6 +211,6 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=2.15" defer></script>
+  <script src="app.js?v=3.0" defer></script>
 </body>
 </html>

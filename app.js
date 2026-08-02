@@ -3,7 +3,7 @@ const DAY = 86400000;
 const DEFAULT_LIVE_REFRESH_SECONDS = 30;
 const DEFAULT_SIGNAL_REFRESH_SECONDS = 30;
 const GOAL_PULSE_MS = 60000;
-const MAX_SIGNAL_FIXTURES = 12;
+const MAX_SIGNAL_FIXTURES = 8;
 const DAY_CACHE_MS = 5 * 60 * 1000;
 const STORAGE_PREFIX = "matchbuddy-";
 
@@ -149,6 +149,8 @@ const state = {
   detailsPreviousView: "scoresView",
   matchSignals: readJson(`${STORAGE_PREFIX}match-signals`, {}),
   lastSignalRefresh: 0,
+  signalRefreshInProgress: false,
+  detailsRequestInProgress: false,
   scoresScrollY: 0,
   trackerScrollY: 0,
   pendingScrollView: null,
@@ -341,6 +343,7 @@ function matchSignalHtml(fixture) {
 }
 
 async function refreshMatchSignals(fixtures) {
+  if (state.signalRefreshInProgress || state.detailsRequestInProgress || state.activeView === "detailsView") return;
   const trackedLive = allListEntries().map(({ entry }) => entry.fixture).filter((fixture) => fixture?.status === "live");
   const live = [...new Map([...fixtures, ...trackedLive].filter((fixture) => fixture?.status === "live").map((fixture) => [String(fixture.id), fixture])).values()];
   if (!live.length || Date.now() - state.lastSignalRefresh < Math.max(5000, state.signalRefreshSeconds * 1000 - 1000)) return;
@@ -351,6 +354,7 @@ async function refreshMatchSignals(fixtures) {
   if (!ids.length) return;
 
   state.lastSignalRefresh = Date.now();
+  state.signalRefreshInProgress = true;
   try {
     const response = await fetch(`${API_BASE}/signals?ids=${encodeURIComponent(ids.join(","))}`, { cache: "no-store" });
     const data = await response.json();
@@ -365,6 +369,8 @@ async function refreshMatchSignals(fixtures) {
     renderTracker();
   } catch {
     // Signal icons are supplementary; keep scores working if this request fails.
+  } finally {
+    state.signalRefreshInProgress = false;
   }
 }
 
@@ -416,7 +422,7 @@ function friendlyError(error) {
 }
 
 async function refreshLive({ manual = false } = {}) {
-  if (document.hidden || state.refreshInProgress) return;
+  if (document.hidden || state.refreshInProgress || state.detailsRequestInProgress) return;
   state.refreshInProgress = true;
   renderRefreshCountdown();
   const selectedFixtures = allListEntries().map(({ entry }) => entry.fixture);
@@ -1125,14 +1131,28 @@ async function openMatchDetails(id) {
     renderMatchDetails(fixture, cached.data);
     return;
   }
+  state.detailsRequestInProgress = true;
   try {
-    const response = await fetch(`${API_BASE}/fixture?id=${encodeURIComponent(fixture.apiId || fixture.id)}`);
-    const data = await response.json();
-    if (!response.ok || data.error) throw new Error(data.details || data.error || "Unable to load match details");
+    let response;
+    let data;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      response = await fetch(`${API_BASE}/fixture?id=${encodeURIComponent(fixture.apiId || fixture.id)}`, { cache: "no-store" });
+      data = await response.json();
+      if (response.ok && !data.error) break;
+      const retryable = response.status === 429 || data.retryable;
+      if (!retryable || attempt === 1) throw new Error(data.details || data.error || "Unable to load match details");
+      document.getElementById("detailsContent").innerHTML = `${detailsHeaderHtml(fixture)}<div class="details-loading">The live-data service is busy. Retrying match details…</div>`;
+      await new Promise((resolve) => setTimeout(resolve, 8000));
+    }
     state.detailsCache[id] = { savedAt: Date.now(), data };
     renderMatchDetails(fixture, data);
   } catch (error) {
-    document.getElementById("detailsContent").innerHTML = `${detailsHeaderHtml(fixture)}<div class="empty-state"><strong>Details unavailable</strong>${escapeHtml(error.message)}. Update the Cloudflare Worker with the worker code included in the ZIP.</div>`;
+    const message = String(error?.message || error || "Unable to load match details");
+    const busy = /rate|too many|limit of requests|wait a few seconds/i.test(message);
+    document.getElementById("detailsContent").innerHTML = `${detailsHeaderHtml(fixture)}<div class="empty-state"><strong>${busy ? "Live data temporarily busy" : "Details unavailable"}</strong>${busy ? "Wait a few seconds, then go Back and reopen this match." : escapeHtml(message)}</div>`;
+  } finally {
+    state.detailsRequestInProgress = false;
+    state.lastSignalRefresh = Date.now();
   }
 }
 
@@ -1424,7 +1444,7 @@ async function start() {
   renderRefreshSettings();
   setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.1").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.2").catch(() => {});
 }
 
 start();

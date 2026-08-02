@@ -50,16 +50,39 @@ function providerHasErrors(data) {
   return Array.isArray(data.errors) ? data.errors.length > 0 : Object.keys(data.errors).length > 0;
 }
 
-async function requestApiFootball(path, env, cacheSeconds) {
-  const response = await fetch(`${API_BASE}${path}`, {
-    headers: { "x-apisports-key": env.API_FOOTBALL_KEY },
-    cf: { cacheEverything: true, cacheTtl: cacheSeconds },
-  });
-  const data = await response.json();
-  if (!response.ok || providerHasErrors(data)) {
-    throw new Error(JSON.stringify({ status: response.status, errors: data.errors || {} }));
+function providerErrorText(data) {
+  try { return JSON.stringify(data?.errors || {}).toLowerCase(); }
+  catch { return ""; }
+}
+
+function isRateLimited(response, data) {
+  const text = providerErrorText(data);
+  return response.status === 429 || text.includes("rate") || text.includes("too many requests") || text.includes("limit of requests");
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function requestApiFootball(path, env, cacheSeconds, retries = 3) {
+  let lastError = null;
+  const retryDelays = [1400, 3200, 7000];
+
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    const response = await fetch(`${API_BASE}${path}`, {
+      headers: { "x-apisports-key": env.API_FOOTBALL_KEY },
+      cf: { cacheEverything: true, cacheTtl: cacheSeconds },
+    });
+    const data = await response.json();
+
+    if (response.ok && !providerHasErrors(data)) return data;
+
+    lastError = new Error(JSON.stringify({ status: response.status, errors: data.errors || {} }));
+    if (!isRateLimited(response, data) || attempt >= retries) throw lastError;
+    await wait(retryDelays[Math.min(attempt, retryDelays.length - 1)]);
   }
-  return data;
+
+  throw lastError || new Error("API request failed.");
 }
 
 export default {
@@ -73,7 +96,7 @@ export default {
       return jsonResponse({
         service: "MatchBuddy API",
         status: "online",
-        version: "3.0",
+        version: "3.2",
         endpoints: {
           fixtures: "/fixtures?from=2026-08-01&to=2026-08-01",
           live: "/live",
@@ -120,26 +143,31 @@ export default {
       try {
         const results = [];
         for (const id of ids) {
-          const data = await requestApiFootball(`/fixtures/events?fixture=${encodeURIComponent(id)}`, env, 15);
-          const events = Array.isArray(data.response) ? data.response : [];
-          const dismissals = events.filter((event) => {
-            const type = String(event.type || "").trim().toLowerCase();
-            const detail = String(event.detail || "").trim().toLowerCase();
-            const comments = String(event.comments || "").trim().toLowerCase();
-            const text = `${detail} ${comments}`;
-            return (type === "card" || type.includes("card")) && (text.includes("red") || text.includes("second yellow") || text.includes("2nd yellow"));
-          });
-          const unique = new Set(dismissals.map((event) => [
-            event.team?.id || event.team?.name || "",
-            event.player?.id || event.player?.name || "",
-            event.time?.elapsed || "",
-            event.time?.extra || "",
-          ].join("|")));
-          results.push({ fixtureId: id, redCards: unique.size });
-          // API-Football Pro permits five calls per second. Pace event requests safely.
-          if (ids.length > 1) await new Promise((resolve) => setTimeout(resolve, 220));
+          try {
+            const data = await requestApiFootball(`/fixtures/events?fixture=${encodeURIComponent(id)}`, env, 20, 2);
+            const events = Array.isArray(data.response) ? data.response : [];
+            const dismissals = events.filter((event) => {
+              const type = String(event.type || "").trim().toLowerCase();
+              const detail = String(event.detail || "").trim().toLowerCase();
+              const comments = String(event.comments || "").trim().toLowerCase();
+              const text = `${type} ${detail} ${comments}`;
+              return text.includes("red card") || text.includes("second yellow") || text.includes("2nd yellow") || text.includes("yellow-red") || text.includes("yellow red");
+            });
+            const unique = new Set(dismissals.map((event) => [
+              event.team?.id || event.team?.name || "",
+              event.player?.id || event.player?.name || "",
+              event.time?.elapsed || "",
+              event.time?.extra || "",
+            ].join("|")));
+            results.push({ fixtureId: id, redCards: unique.size });
+          } catch {
+            // One unavailable event feed must not discard the other tracked matches.
+            results.push({ fixtureId: id, redCards: null });
+          }
+          // Leave headroom for simultaneous live-score and details requests.
+          if (ids.length > 1) await wait(350);
         }
-        return jsonResponse({ results: results.length, response: results }, 200, request, { "Cache-Control": "public, max-age=15" });
+        return jsonResponse({ results: results.length, response: results }, 200, request, { "Cache-Control": "public, max-age=20" });
       } catch (error) {
         return jsonResponse({ error: "Unable to retrieve live match signals.", details: error.message || String(error) }, 502, request);
       }
@@ -149,21 +177,30 @@ export default {
       const id = url.searchParams.get("id");
       if (!/^\d+$/.test(id || "")) return jsonResponse({ error: "A numeric fixture id is required." }, 400, request);
       try {
-        // Four provider calls are made only when a user opens an individual match.
-        // Cloudflare caches each provider response, so repeated opens reuse the data.
-        const [fixtureData, eventsData, statisticsData, lineupsData] = await Promise.all([
-          requestApiFootball(`/fixtures?id=${encodeURIComponent(id)}&timezone=${encodeURIComponent("Europe/London")}`, env, 60),
-          requestApiFootball(`/fixtures/events?fixture=${encodeURIComponent(id)}`, env, 60),
-          requestApiFootball(`/fixtures/statistics?fixture=${encodeURIComponent(id)}`, env, 120),
-          requestApiFootball(`/fixtures/lineups?fixture=${encodeURIComponent(id)}`, env, 3600),
-        ]);
+        // Events are the priority because they contain goals and dismissals.
+        // Requests are deliberately sequential to avoid a five-call burst.
+        const eventsData = await requestApiFootball(`/fixtures/events?fixture=${encodeURIComponent(id)}`, env, 30, 3);
+        await wait(350);
 
+        const fixtureData = await requestApiFootball(`/fixtures?id=${encodeURIComponent(id)}&timezone=${encodeURIComponent("Europe/London")}`, env, 45, 2);
+        await wait(350);
+
+        let statisticsData = { response: [] };
+        let lineupsData = { response: [] };
         let prediction = null;
+
+        try { statisticsData = await requestApiFootball(`/fixtures/statistics?fixture=${encodeURIComponent(id)}`, env, 120, 2); }
+        catch { statisticsData = { response: [] }; }
+        await wait(350);
+
+        try { lineupsData = await requestApiFootball(`/fixtures/lineups?fixture=${encodeURIComponent(id)}`, env, 3600, 2); }
+        catch { lineupsData = { response: [] }; }
+        await wait(350);
+
         try {
-          const predictionData = await requestApiFootball(`/predictions?fixture=${encodeURIComponent(id)}`, env, 21600);
+          const predictionData = await requestApiFootball(`/predictions?fixture=${encodeURIComponent(id)}`, env, 21600, 2);
           prediction = predictionData.response?.[0] || null;
         } catch {
-          // Prediction coverage is not universal and must not prevent match details loading.
           prediction = null;
         }
 
@@ -173,9 +210,15 @@ export default {
           statistics: statisticsData.response || [],
           lineups: lineupsData.response || [],
           prediction,
-        }, 200, request, { "Cache-Control": "public, max-age=60" });
+        }, 200, request, { "Cache-Control": "public, max-age=30" });
       } catch (error) {
-        return jsonResponse({ error: "Unable to retrieve match details.", details: error.message || String(error) }, 502, request);
+        const message = String(error?.message || error || "");
+        const busy = message.toLowerCase().includes("rate") || message.toLowerCase().includes("too many") || message.toLowerCase().includes("limit of requests");
+        return jsonResponse({
+          error: busy ? "The live-data service is busy. MatchBuddy will try again shortly." : "Unable to retrieve match details.",
+          details: busy ? "Please wait a few seconds and reopen this match." : message,
+          retryable: busy,
+        }, busy ? 429 : 502, request, busy ? { "Retry-After": "8" } : {});
       }
     }
 

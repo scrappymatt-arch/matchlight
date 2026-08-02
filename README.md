@@ -1,18 +1,19 @@
-# MatchBuddy V3.1
+# MatchBuddy V3.2
 
-## V3.1 changes
+## V3.2 changes
 
-- Replaces the old refresh dropdowns with modern segmented buttons.
-- Moves all general settings above Favourite Leagues.
-- Makes Favourite Leagues collapsible and adds a quick-jump button at the top of Settings.
-- Moves Edit, Delete and Clear beside the New List control.
-- Places Goals Needed and the update countdown between the tracker filters and Date sorting.
-- Removes a complete header row so tracked matches start higher on screen.
-- Updates the visible version and service-worker cache to V3.1.
+- Prevents live-score, signal and match-detail requests from colliding in the app.
+- Pauses background event checks while Match Details is open.
+- Loads match details sequentially, with events first so goals and red cards are prioritised.
+- Adds request spacing, automatic retry and extra headroom below API-Football's per-second limit.
+- Prevents one unavailable event feed from cancelling every tracked match's red-card check.
+- Recognises more second-yellow and yellow-red dismissal descriptions.
+- Replaces raw provider errors with a clear temporary-busy message.
+- Updates the visible version and service-worker cache to V3.2.
 
 ## Upload
 
 1. Replace all files in the existing GitHub repository.
-2. The included `worker.js` is unchanged from V3.0, so redeploying the Worker is optional.
-3. Your existing `API_FOOTBALL_KEY` secret remains unchanged.
+2. Replace all code in the Cloudflare Worker with the included `worker.js`, then press Deploy.
+3. Do not change the existing `API_FOOTBALL_KEY` secret.
 4. Fully close and reopen MatchBuddy after GitHub Pages redeploys.

@@ -149,6 +149,9 @@ const state = {
   detailsPreviousView: "scoresView",
   matchSignals: readJson(`${STORAGE_PREFIX}match-signals`, {}),
   lastSignalRefresh: 0,
+  scoresScrollY: 0,
+  trackerScrollY: 0,
+  pendingScrollView: null,
 };
 
 if (!state.lists[state.currentListId]) state.currentListId = Object.keys(state.lists)[0];
@@ -441,6 +444,16 @@ function renderDataStatus() {
   }
 }
 
+function rememberActiveScroll() {
+  if (state.activeView === "scoresView") state.scoresScrollY = window.scrollY;
+  if (state.activeView === "trackerView") state.trackerScrollY = window.scrollY;
+}
+
+function restoreScrollFor(viewId) {
+  const position = viewId === "scoresView" ? state.scoresScrollY : viewId === "trackerView" ? state.trackerScrollY : 0;
+  requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo({ top: position, left: 0, behavior: "auto" })));
+}
+
 function renderFixtures() {
   const list = document.getElementById("fixtureList");
   const fixtures = [...(state.fixturesByDate[state.selectedDate] || [])];
@@ -553,6 +566,7 @@ function getFixtureById(id) {
 }
 
 function openConditionDialog(id) {
+  rememberActiveScroll();
   const fixture = getFixtureById(id);
   if (!fixture) return;
   if (state.editingFixtureId !== id || !state.editingListId) state.editingListId = state.currentListId;
@@ -588,9 +602,11 @@ function selectCondition(condition) {
   state.currentListId = list.id;
   saveSelected();
   document.getElementById("conditionDialog").close();
+  const returnView = state.activeView;
   state.editingFixtureId = null;
   state.editingListId = null;
   renderAll();
+  restoreScrollFor(returnView);
 }
 
 function conditionLabel(id) { return CONDITIONS.find((condition) => condition.id === id)?.label || "Just track match"; }
@@ -751,7 +767,8 @@ function renderTracker() {
           </div>
           <div class="tracker-meta">
             <span class="tracker-league">${escapeHtml(fixture.country)} · ${escapeHtml(fixture.league)}</span>
-            <span class="tracker-selection-status"><button class="condition-edit" data-edit-id="${entry.id}">${escapeHtml(conditionLabel(entry.condition))}</button><span aria-hidden="true"> · </span><span class="status-copy">${escapeHtml(status.copy)}</span></span>
+            <button class="condition-edit tracker-condition" data-edit-id="${entry.id}">${escapeHtml(conditionLabel(entry.condition))}</button>
+            <span class="status-copy tracker-status">${escapeHtml(status.copy)}</span>
           </div>
         </article>`;
     }).join("");
@@ -911,6 +928,7 @@ function eventIcon(type, detail) {
 async function openMatchDetails(id) {
   const fixture = getFixtureById(id);
   if (!fixture) return;
+  if (state.activeView !== "detailsView") rememberActiveScroll();
   state.detailsPreviousView = state.activeView === "detailsView" ? state.detailsPreviousView : state.activeView;
   setView("detailsView");
   document.getElementById("detailsContent").innerHTML = detailsLoadingHtml(fixture);
@@ -967,7 +985,9 @@ function renderMatchDetails(fixture, data) {
 }
 
 function closeMatchDetails() {
-  setView(state.detailsPreviousView || "scoresView");
+  const returnView = state.detailsPreviousView || "scoresView";
+  setView(returnView);
+  restoreScrollFor(returnView);
 }
 
 function setView(viewId) {
@@ -1122,7 +1142,7 @@ async function start() {
   if (liveItem) { state.currentListId = liveItem.list.id; setView("trackerView"); }
   setInterval(refreshLive, LIVE_REFRESH_MS);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=2.10").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=2.11").catch(() => {});
 }
 
 start();

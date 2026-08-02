@@ -385,7 +385,7 @@ body.tracker-active .app-version { padding: 2px 5px; font-size: .52rem; }
 }
 
 
-/* MatchBuddy V2.10 — compact tracker summary and richer match metadata */
+/* MatchBuddy V2.11 — scroll restoration and aligned tracker conditions */
 .tracker-head-grid { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 10px; align-items: start; margin-bottom: 2px; }
 .summary-mini-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
 .summary-mini { min-height: 35px; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 6px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
@@ -396,10 +396,10 @@ body.tracker-active .app-version { padding: 2px 5px; font-size: .52rem; }
 .summary-mini.red strong { color: var(--red); }
 .summary-mini.grey strong { color: var(--grey); }
 .tracker-compact-bar.actions-only { justify-content: flex-end; min-height: 29px; margin-top: 1px; }
-#trackerView .tracker-meta { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 8px; }
+#trackerView .tracker-meta { display: grid; grid-template-columns: minmax(0,1fr) 78px 90px; align-items: center; gap: 7px; }
 #trackerView .tracker-league { min-width: 0; overflow: hidden; color: var(--muted); font-size: .57rem; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
-#trackerView .tracker-selection-status { display: flex; align-items: center; gap: 3px; min-width: 0; white-space: nowrap; }
-#trackerView .tracker-selection-status .condition-edit { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+#trackerView .tracker-condition { width: 78px; min-width: 0; overflow: hidden; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+#trackerView .tracker-status { width: 90px; min-width: 0; overflow: hidden; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
 .settings-test-actions { display: flex; align-items: center; gap: 8px; }
 @media (max-width: 560px) {
   .tracker-head-grid { grid-template-columns: minmax(0, 1fr) 47%; gap: 7px; }
@@ -409,7 +409,9 @@ body.tracker-active .app-version { padding: 2px 5px; font-size: .52rem; }
   .summary-mini span { font-size: .46rem; }
   .list-tabs { padding-bottom: 4px; }
   #trackerView .tracker-league { font-size: .52rem; }
-  #trackerView .tracker-selection-status { max-width: 57%; }
+  #trackerView .tracker-meta { grid-template-columns: minmax(0,1fr) 70px 82px; gap: 5px; }
+  #trackerView .tracker-condition { width: 70px; }
+  #trackerView .tracker-status { width: 82px; }
 }
 @media (max-width: 380px) {
   .tracker-head-grid { grid-template-columns: minmax(0,1fr) 45%; }

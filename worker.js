@@ -73,7 +73,7 @@ export default {
       return jsonResponse({
         service: "MatchBuddy API",
         status: "online",
-        version: "2.7",
+        version: "2.9",
         endpoints: {
           fixtures: "/fixtures?from=2026-08-01&to=2026-08-01",
           live: "/live",
@@ -122,9 +122,11 @@ export default {
           const data = await requestApiFootball(`/fixtures/events?fixture=${encodeURIComponent(id)}`, env, 60);
           const events = Array.isArray(data.response) ? data.response : [];
           const dismissals = events.filter((event) => {
-            const type = String(event.type || "").toLowerCase();
-            const detail = String(event.detail || "").toLowerCase();
-            return type === "card" && (detail.includes("red card") || detail.includes("second yellow"));
+            const type = String(event.type || "").trim().toLowerCase();
+            const detail = String(event.detail || "").trim().toLowerCase();
+            const comments = String(event.comments || "").trim().toLowerCase();
+            const text = `${detail} ${comments}`;
+            return (type === "card" || type.includes("card")) && (text.includes("red") || text.includes("second yellow") || text.includes("2nd yellow"));
           });
           const unique = new Set(dismissals.map((event) => [
             event.team?.id || event.team?.name || "",

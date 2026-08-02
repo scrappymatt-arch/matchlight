@@ -8,14 +8,14 @@
   <title>MatchBuddy</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=2.8" />
+  <link rel="stylesheet" href="styles.css?v=2.9" />
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div>
         <p class="eyebrow">FOOTBALL, WITHOUT THE CLUTTER</p>
-        <h1>MatchBuddy <span class="app-version">V2.8</span></h1>
+        <h1>MatchBuddy <span class="app-version">V2.9</span></h1>
       </div>
       <button id="themeToggle" class="icon-button" aria-label="Toggle theme" title="Toggle theme">☼</button>
     </header>
@@ -45,23 +45,19 @@
         <div id="fixtureList" class="fixture-list"></div>
       </section>
 
-      <section id="trackerView" class="view" aria-labelledby="trackerTitle">
-        <div class="section-heading tracker-heading">
-          <div>
-            <p class="section-kicker">YOUR MATCHES</p>
-            <h2 id="trackerTitle">My Matches</h2>
+      <section id="trackerView" class="view" aria-label="My Matches">
+        <div class="list-strip-row">
+          <div id="matchListTabs" class="list-tabs" role="tablist" aria-label="Match lists"></div>
+        </div>
+
+        <div class="tracker-compact-bar">
+          <div id="summaryLine" class="summary-line" aria-live="polite"></div>
+          <div class="list-actions" aria-label="List actions">
+            <button id="renameList" class="mini-action" type="button" title="Rename list" aria-label="Rename list">✎</button>
+            <button id="deleteList" class="mini-action danger" type="button" title="Delete list" aria-label="Delete list">🗑</button>
+            <button id="clearTracker" class="mini-action danger" type="button" title="Clear list" aria-label="Clear list">Clear</button>
           </div>
-          <button id="clearTracker" class="danger-button">Clear</button>
         </div>
-
-        <div class="list-toolbar" aria-label="Match lists">
-          <select id="matchListSelect" aria-label="Choose match list"></select>
-          <button id="newList" class="secondary-button" type="button">New</button>
-          <button id="renameList" class="secondary-button" type="button">Rename</button>
-          <button id="deleteList" class="danger-button" type="button">Delete</button>
-        </div>
-
-        <div id="summaryCards" class="summary-grid"></div>
 
         <div class="tracker-toolbar">
           <div id="trackerFilters" class="segmented-control" role="group" aria-label="Tracker filter">
@@ -168,6 +164,6 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=2.8" defer></script>
+  <script src="app.js?v=2.9" defer></script>
 </body>
 </html>

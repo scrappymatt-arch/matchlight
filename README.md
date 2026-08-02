@@ -1,19 +1,22 @@
-# MatchBuddy V2.8
+# MatchBuddy V2.9
 
-This release changes Favourite Leagues into an active fixture filter:
+This release focuses on fitting a full acca onto a phone screen and fixes the red-card signal path.
 
-- With no favourite leagues selected, Fixtures shows all available leagues.
-- As soon as one or more favourites are selected, Fixtures shows only those leagues.
-- A notice above the fixture list shows when filtering is active.
-- **Show all leagues** temporarily reveals everything without deleting favourites.
-- **Show favourites only** reapplies the filter instantly.
-- Changing favourite selections automatically returns to favourites-only mode.
+## V2.9 changes
 
-All V2.7 goal-pulse, red-card, match-detail and multi-list features remain included.
+- Removed the large My Matches/list heading and the five total cards.
+- Replaced them with one compact status line.
+- Replaced the match-list dropdown with a single-row strip of tappable list boxes.
+- Swipe left or right to reach extra lists; the row never wraps.
+- Added compact rename, delete and clear controls.
+- Reduced My Matches spacing, row height and mobile header height while retaining readable scores, selections, goal pulses and red-card icons.
+- Red-card checks now include tracked live matches even when the user is viewing fixtures from another date.
+- Straight-red and second-yellow wording variants are recognised more robustly.
+- Once a red-card count has appeared, a temporary failed refresh cannot remove it.
 
 ## GitHub Pages update
 
-Upload and replace these files in the existing repository:
+Upload and replace:
 
 - `index.html`
 - `styles.css`
@@ -22,6 +25,8 @@ Upload and replace these files in the existing repository:
 - `icon.svg`
 - `sw.js`
 
-After GitHub Pages deploys, fully close and reopen MatchBuddy so the V2.8 service-worker cache replaces V2.7.
+Fully close and reopen MatchBuddy after GitHub Pages deploys so the V2.9 cache replaces V2.8.
 
-`worker.js` is included for completeness, but this release does not require a new Cloudflare Worker deployment if V2.7's Worker is already active.
+## Cloudflare Worker update
+
+Replace the Worker code with the included `worker.js` and press **Deploy**. Your existing `API_FOOTBALL_KEY` secret remains in place.

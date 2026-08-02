@@ -331,3 +331,55 @@ body { background: radial-gradient(circle at 50% -20%, var(--bg-glow) 0, var(--b
 @media (max-width: 430px) {
   .favourite-filter-notice { align-items: flex-start; }
 }
+
+/* MatchBuddy V2.9 — compact mobile tracker and swipeable list tabs */
+#trackerView { padding-top: 0; }
+.list-strip-row { margin: -4px 0 6px; }
+.list-tabs { display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; padding: 2px 1px 7px; scrollbar-width: none; scroll-snap-type: x proximity; }
+.list-tabs::-webkit-scrollbar { display: none; }
+.list-tab { flex: 0 0 auto; min-height: 34px; padding: 0 12px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); color: var(--muted); font-size: .76rem; font-weight: 900; white-space: nowrap; cursor: pointer; scroll-snap-align: center; }
+.list-tab.active { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
+.new-list-tab { border-style: dashed; color: var(--accent); }
+.tracker-compact-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 31px; margin-bottom: 5px; }
+.summary-line { min-width: 0; overflow: hidden; color: var(--muted); font-size: .68rem; font-weight: 850; white-space: nowrap; text-overflow: ellipsis; }
+.sum-green { color: var(--green); } .sum-yellow { color: var(--yellow); } .sum-red { color: var(--red); } .sum-lost { color: var(--lost); } .sum-grey { color: var(--grey); }
+.list-actions { display: flex; flex: 0 0 auto; gap: 4px; }
+.mini-action { min-width: 31px; height: 29px; padding: 0 7px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--muted); font-size: .68rem; font-weight: 900; cursor: pointer; }
+.mini-action.danger { color: var(--red); }
+.mini-action:disabled { opacity: .35; }
+#trackerView .tracker-toolbar { margin-bottom: 4px; gap: 6px; }
+#trackerView .segmented-control { padding: 2px; border-radius: 10px; }
+#trackerView .segmented-control button { padding: 5px 8px; font-size: .69rem; }
+#trackerView .tracker-toolbar select { padding: 6px; font-size: .7rem; }
+#trackerView .day-heading { margin: 7px 4px 3px; font-size: .61rem; }
+#trackerView .tracker-card { margin-bottom: 3px; padding: 7px 8px; border-radius: 12px; }
+#trackerView .tracker-card::before { width: 3px; }
+#trackerView .tracker-topline { grid-template-columns: 45px minmax(0,1fr) 22px; gap: 3px; }
+#trackerView .tracker-clock { font-size: .94rem; }
+#trackerView .tracker-clock small { margin-top: 0; font-size: .48rem; }
+#trackerView .tracker-match-line { grid-template-columns: minmax(0,1fr) 45px minmax(0,1fr) auto; gap: 3px; }
+#trackerView .tracker-match-line strong { font-size: .75rem; }
+#trackerView .tracker-match-line .central-score { min-width: 45px; font-size: .9rem; }
+#trackerView .tracker-meta { margin-top: 4px; padding-top: 4px; }
+#trackerView .condition-edit, #trackerView .status-copy { font-size: .6rem; }
+#trackerView .remove-button { font-size: 1rem; }
+#trackerView .match-signals { gap: 3px; margin-left: 2px; }
+#trackerView .goal-pulse, #trackerView .red-card-signal { height: 19px; }
+#trackerView .goal-pulse { width: 19px; font-size: .73rem; }
+#trackerView .red-card-signal { min-width: 19px; padding: 0 4px; font-size: .62rem; }
+#trackerView .red-card-signal i { width: 7px; height: 11px; }
+@media (max-width: 480px) {
+  .app-shell { padding-top: 9px; }
+  .topbar { margin-bottom: 18px; }
+  #trackerView .tracker-toolbar { overflow: hidden; }
+  #trackerView .segmented-control { min-width: 0; }
+  #trackerView .segmented-control button { padding-inline: 6px; }
+}
+body.tracker-active .topbar { margin-bottom: 8px; }
+body.tracker-active .topbar .eyebrow { display: none; }
+body.tracker-active .topbar h1 { font-size: 1.18rem; letter-spacing: -.025em; }
+body.tracker-active .topbar .icon-button { width: 34px; height: 34px; border-radius: 10px; font-size: .95rem; }
+body.tracker-active .app-version { padding: 2px 5px; font-size: .52rem; }
+@media (max-width: 480px) {
+  body.tracker-active .app-shell { padding-top: 6px; }
+}

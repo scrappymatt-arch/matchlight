@@ -3,7 +3,7 @@ const DAY = 86400000;
 const LIVE_REFRESH_MS = 120000;
 const SIGNAL_REFRESH_MS = 120000;
 const GOAL_PULSE_MS = 60000;
-const MAX_SIGNAL_FIXTURES = 8;
+const MAX_SIGNAL_FIXTURES = 12;
 const DAY_CACHE_MS = 5 * 60 * 1000;
 const STORAGE_PREFIX = "matchbuddy-";
 
@@ -258,7 +258,8 @@ function matchSignalHtml(fixture) {
 }
 
 async function refreshMatchSignals(fixtures) {
-  const live = fixtures.filter((fixture) => fixture.status === "live");
+  const trackedLive = allListEntries().map(({ entry }) => entry.fixture).filter((fixture) => fixture?.status === "live");
+  const live = [...new Map([...fixtures, ...trackedLive].filter((fixture) => fixture?.status === "live").map((fixture) => [String(fixture.id), fixture])).values()];
   if (!live.length || Date.now() - state.lastSignalRefresh < SIGNAL_REFRESH_MS - 5000) return;
 
   const selectedIds = new Set(allListEntries().filter(({ entry }) => entry.fixture?.status === "live").map(({ id }) => String(id)));
@@ -274,7 +275,7 @@ async function refreshMatchSignals(fixtures) {
     (data.response || []).forEach((item) => {
       const id = String(item.fixtureId);
       const current = signalForFixture(id);
-      state.matchSignals[id] = { ...current, redCards: Number(item.redCards) || 0 };
+      state.matchSignals[id] = { ...current, redCards: Math.max(Number(current.redCards) || 0, Number(item.redCards) || 0) };
     });
     saveSignals();
     renderFixtures();
@@ -764,16 +765,20 @@ function renderTracker() {
   list.querySelectorAll("[data-edit-id]").forEach((button) => button.addEventListener("click", (event) => { event.stopPropagation(); openConditionDialog(button.dataset.editId); }));
   list.querySelectorAll("[data-remove-id]").forEach((button) => button.addEventListener("click", (event) => event.stopPropagation(), { once: true }));
   bindFixtureDetailOpeners(list);
-  renderSummary();
+  renderSummaryLine();
 }
 
-function renderSummary() {
+function renderSummaryLine() {
   const values = Object.values(state.selected);
   const counts = { green: 0, yellow: 0, red: 0, lost: 0, grey: 0 };
   values.forEach((entry) => counts[trafficState(entry.fixture, entry.condition).colour] += 1);
-  document.getElementById("summaryCards").innerHTML = [
-    ["green", counts.green, "Winning"], ["yellow", counts.yellow, "1 goal"], ["red", counts.red, "Others"], ["lost", counts.lost, "Lost"], ["grey", counts.grey, "Upcoming"],
-  ].map(([colour, value, label]) => `<div class="summary-card ${colour}"><strong>${value}</strong><span>${label}</span></div>`).join("");
+  const parts = [`${values.length} match${values.length === 1 ? "" : "es"}`];
+  if (counts.green) parts.push(`<span class="sum-green">${counts.green} winning</span>`);
+  if (counts.yellow) parts.push(`<span class="sum-yellow">${counts.yellow} need 1</span>`);
+  if (counts.red) parts.push(`<span class="sum-red">${counts.red} others</span>`);
+  if (counts.lost) parts.push(`<span class="sum-lost">${counts.lost} lost</span>`);
+  if (counts.grey) parts.push(`<span class="sum-grey">${counts.grey} upcoming</span>`);
+  document.getElementById("summaryLine").innerHTML = parts.join(" · ");
 }
 
 function renderFavouriteLeagues() {
@@ -869,11 +874,12 @@ function autoClearIfDue() {
 }
 
 function renderListControls() {
-  const select = document.getElementById("matchListSelect");
-  if (!select) return;
-  select.innerHTML = Object.values(state.lists).map((list) => `<option value="${escapeHtml(list.id)}" ${list.id === state.currentListId ? "selected" : ""}>${escapeHtml(list.name)}</option>`).join("");
+  const tabs = document.getElementById("matchListTabs");
+  if (!tabs) return;
+  tabs.innerHTML = Object.values(state.lists).map((list) => `
+    <button type="button" class="list-tab ${list.id === state.currentListId ? "active" : ""}" data-list-id="${escapeHtml(list.id)}" role="tab" aria-selected="${list.id === state.currentListId}">${escapeHtml(list.name)}</button>
+  `).join("") + '<button type="button" id="newList" class="list-tab new-list-tab">+ New list</button>';
   document.getElementById("deleteList").disabled = Object.keys(state.lists).length <= 1;
-  document.getElementById("trackerTitle").textContent = state.lists[state.currentListId]?.name || "My Matches";
 }
 
 
@@ -967,6 +973,7 @@ function setView(viewId) {
   document.querySelectorAll(".view").forEach((view) => view.classList.toggle("active", view.id === viewId));
   document.querySelectorAll(".bottom-nav button").forEach((button) => button.classList.toggle("active", button.dataset.view === viewId));
   document.querySelector(".bottom-nav").classList.toggle("details-hidden", viewId === "detailsView");
+  document.body.classList.toggle("tracker-active", viewId === "trackerView");
   if (viewId === "trackerView") renderTracker();
 }
 
@@ -1031,14 +1038,19 @@ function bindEvents() {
     localStorage.setItem(`${STORAGE_PREFIX}favourite-leagues`, "[]");
     renderAll();
   });
-  document.getElementById("matchListSelect").addEventListener("change", (event) => {
-    state.currentListId = event.target.value;
-    saveSelected();
-    renderAll();
-  });
-  document.getElementById("newList").addEventListener("click", () => {
-    const proposed = prompt("Name this list", nextListName());
-    if (proposed !== null) createList(proposed.trim() || nextListName());
+  document.getElementById("matchListTabs").addEventListener("click", (event) => {
+    const listButton = event.target.closest("button[data-list-id]");
+    if (listButton) {
+      state.currentListId = listButton.dataset.listId;
+      saveSelected();
+      renderAll();
+      listButton.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+      return;
+    }
+    if (event.target.closest("#newList")) {
+      const proposed = prompt("Name this list", nextListName());
+      if (proposed !== null) createList(proposed.trim() || nextListName());
+    }
   });
   document.getElementById("renameList").addEventListener("click", () => {
     const list = state.lists[state.currentListId];
@@ -1086,7 +1098,7 @@ async function start() {
   if (liveItem) { state.currentListId = liveItem.list.id; setView("trackerView"); }
   setInterval(refreshLive, LIVE_REFRESH_MS);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=2.8").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=2.9").catch(() => {});
 }
 
 start();

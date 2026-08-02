@@ -418,3 +418,16 @@ body.tracker-active .app-version { padding: 2px 5px; font-size: .52rem; }
   .summary-mini span { display: none; }
   .summary-mini { justify-content: center; grid-template-columns: auto; text-align: center; }
 }
+
+
+/* MatchBuddy V2.12 — permanent outcomes, six-state summary and goal sounds */
+.summary-mini-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.summary-mini.won strong { color: var(--green); }
+.summary-mini.lost strong { color: var(--lost); }
+.status-won { border-color: var(--green) !important; background: color-mix(in srgb, var(--green) 10%, var(--surface)) !important; }
+.status-won .status-copy { color: var(--green); }
+#goalSoundsToggle.active { border-color: var(--green); color: var(--green); }
+@media (max-width: 560px) {
+  .summary-mini-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .summary-mini { min-height: 28px; padding: 3px 5px; }
+}

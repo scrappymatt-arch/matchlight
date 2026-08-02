@@ -152,6 +152,8 @@ const state = {
   scoresScrollY: 0,
   trackerScrollY: 0,
   pendingScrollView: null,
+  goalSoundsEnabled: localStorage.getItem(`${STORAGE_PREFIX}goal-sounds`) === "true",
+  audioContext: null,
 };
 
 if (!state.lists[state.currentListId]) state.currentListId = Object.keys(state.lists)[0];
@@ -238,11 +240,84 @@ function saveSignals() {
   localStorage.setItem(`${STORAGE_PREFIX}match-signals`, JSON.stringify(state.matchSignals));
 }
 
+
+function ensureAudioContext() {
+  if (!state.audioContext) {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return null;
+    state.audioContext = new AudioContextClass();
+  }
+  if (state.audioContext.state === "suspended") state.audioContext.resume().catch(() => {});
+  return state.audioContext;
+}
+
+function playGoalTone(kind) {
+  if (!state.goalSoundsEnabled) return;
+  const context = ensureAudioContext();
+  if (!context) return;
+  const now = context.currentTime;
+  const notes = kind === "positive" ? [523.25, 659.25, 783.99] : [220, 174.61, 130.81];
+  notes.forEach((frequency, index) => {
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = kind === "positive" ? "sine" : "triangle";
+    oscillator.frequency.setValueAtTime(frequency, now + index * 0.09);
+    gain.gain.setValueAtTime(0.0001, now + index * 0.09);
+    gain.gain.exponentialRampToValueAtTime(0.14, now + index * 0.09 + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + index * 0.09 + 0.16);
+    oscillator.connect(gain).connect(context.destination);
+    oscillator.start(now + index * 0.09);
+    oscillator.stop(now + index * 0.09 + 0.18);
+  });
+}
+
+function goalEffect(previous, next, condition) {
+  const oldH = Number(previous?.homeScore) || 0;
+  const oldA = Number(previous?.awayScore) || 0;
+  const newH = Number(next?.homeScore) || 0;
+  const newA = Number(next?.awayScore) || 0;
+  const homeScored = newH > oldH;
+  const awayScored = newA > oldA;
+  if (!homeScored && !awayScored) return "neutral";
+
+  if (["over15", "over25", "over35"].includes(condition)) {
+    return trafficState(previous, condition).copy === "Won" ? "neutral" : "positive";
+  }
+  if (["under15", "under25", "under35"].includes(condition)) return "negative";
+  if (condition === "home") return homeScored ? "positive" : "negative";
+  if (condition === "away") return awayScored ? "positive" : "negative";
+  if (condition === "draw") {
+    const oldGap = Math.abs(oldH - oldA);
+    const newGap = Math.abs(newH - newA);
+    return newGap < oldGap ? "positive" : newGap > oldGap ? "negative" : "neutral";
+  }
+  if (condition === "bttsYes") {
+    const wasWon = oldH > 0 && oldA > 0;
+    const nowWon = newH > 0 && newA > 0;
+    return !wasWon && nowWon ? "positive" : "neutral";
+  }
+  if (condition === "bttsNo") {
+    const wasLost = oldH > 0 && oldA > 0;
+    const nowLost = newH > 0 && newA > 0;
+    return !wasLost && nowLost ? "negative" : "neutral";
+  }
+  return "neutral";
+}
+
+function playTrackedGoalEffect(previous, next) {
+  const activeList = state.lists[state.currentListId];
+  const condition = activeList?.selected?.[String(next.id)]?.condition;
+  if (!condition || condition === "none") return;
+  const effect = goalEffect(previous, next, condition);
+  if (effect === "positive" || effect === "negative") playGoalTone(effect);
+}
+
 function recordScoreChange(previous, next) {
   if (!previous || next.status !== "live") return;
   const oldTotal = (Number(previous.homeScore) || 0) + (Number(previous.awayScore) || 0);
   const newTotal = (Number(next.homeScore) || 0) + (Number(next.awayScore) || 0);
   if (newTotal > oldTotal) {
+    playTrackedGoalEffect(previous, next);
     const current = signalForFixture(next.id);
     state.matchSignals[next.id] = { ...current, goalUntil: Date.now() + GOAL_PULSE_MS };
     saveSignals();
@@ -667,7 +742,8 @@ function trafficState(fixture, condition) {
     if (!winning) return { colour: "lost", copy: "Lost" };
   }
 
-  if (fixture.status === "finished") return winning ? { colour: "green", copy: "Won" } : { colour: "red", copy: "Lost" };
+  if (fixture.status === "finished") return winning ? { colour: "won", copy: "Won" } : { colour: "lost", copy: "Lost" };
+  if (winning && ["over15", "over25", "over35", "bttsYes"].includes(condition)) return { colour: "won", copy: "Won" };
   if (winning) return { colour: "green", copy: "Winning" };
   if (goalsNeeded === 1) return { colour: "yellow", copy: "Needs 1 goal" };
   if (Number.isInteger(goalsNeeded) && goalsNeeded > 1) return { colour: "red", copy: `Needs ${goalsNeeded} goals` };
@@ -688,13 +764,13 @@ function runTrafficStateTests() {
     [fixture(2, 2), "draw", "green", "Winning"],
     [fixture(0, 0), "over15", "red", "Needs 2 goals"],
     [fixture(1, 0), "over15", "yellow", "Needs 1 goal"],
-    [fixture(1, 1), "over15", "green", "Winning"],
+    [fixture(1, 1), "over15", "won", "Won"],
     [fixture(0, 0), "over25", "red", "Needs 3 goals"],
     [fixture(1, 1), "over25", "yellow", "Needs 1 goal"],
-    [fixture(2, 1), "over25", "green", "Winning"],
+    [fixture(2, 1), "over25", "won", "Won"],
     [fixture(0, 0), "over35", "red", "Needs 4 goals"],
     [fixture(2, 1), "over35", "yellow", "Needs 1 goal"],
-    [fixture(2, 2), "over35", "green", "Winning"],
+    [fixture(2, 2), "over35", "won", "Won"],
     [fixture(1, 0), "under15", "green", "Winning"],
     [fixture(1, 1), "under15", "lost", "Lost"],
     [fixture(2, 0), "under25", "green", "Winning"],
@@ -703,12 +779,12 @@ function runTrafficStateTests() {
     [fixture(2, 2), "under35", "lost", "Lost"],
     [fixture(0, 0), "bttsYes", "red", "Needs 2 goals"],
     [fixture(1, 0), "bttsYes", "yellow", "Needs 1 goal"],
-    [fixture(1, 1), "bttsYes", "green", "Winning"],
+    [fixture(1, 1), "bttsYes", "won", "Won"],
     [fixture(0, 0), "bttsNo", "green", "Winning"],
     [fixture(2, 0), "bttsNo", "green", "Winning"],
     [fixture(1, 1), "bttsNo", "lost", "Lost"],
     [fixture(1, 2, "finished"), "home", "red", "Lost"],
-    [fixture(2, 1, "finished"), "home", "green", "Won"],
+    [fixture(2, 1, "finished"), "home", "won", "Won"],
   ];
 
   const failures = cases.filter(([testFixture, condition, colour, copy]) => {
@@ -736,7 +812,7 @@ function renderTracker() {
 
   entries.sort((a, b) => {
     if (state.trackerSort === "urgency") {
-      const rank = { yellow: 0, red: 1, lost: 2, green: 3, grey: 4 };
+      const rank = { yellow: 0, red: 1, green: 2, won: 3, lost: 4, grey: 5 };
       const difference = rank[trafficState(a.fixture, a.condition).colour] - rank[trafficState(b.fixture, b.condition).colour];
       if (difference) return difference;
     }
@@ -787,13 +863,18 @@ function renderTracker() {
 
 function renderSummaryLine() {
   const values = Object.values(state.selected);
-  const counts = { green: 0, yellow: 0, red: 0, lost: 0, grey: 0 };
-  values.forEach((entry) => counts[trafficState(entry.fixture, entry.condition).colour] += 1);
+  const counts = { green: 0, yellow: 0, red: 0, won: 0, lost: 0, grey: 0 };
+  values.forEach((entry) => {
+    const colour = trafficState(entry.fixture, entry.condition).colour;
+    counts[colour] = (counts[colour] || 0) + 1;
+  });
   const boxes = [
     ["green", counts.green, "Winning"],
-    ["yellow", counts.yellow, "1 Goal"],
-    ["red", counts.red + counts.lost, "Others"],
+    ["yellow", counts.yellow, "Needs 1"],
+    ["red", counts.red, "Needs 2+"],
     ["grey", counts.grey, "Upcoming"],
+    ["won", counts.won, "Won"],
+    ["lost", counts.lost, "Lost"],
   ];
   const target = document.getElementById("summaryBoxes");
   if (!target) return;
@@ -1018,6 +1099,7 @@ function renderAll() {
   renderFixtures();
   renderTracker();
   renderFavouriteLeagues();
+  renderSoundSetting();
   const count = allListEntries().length;
   const badge = document.getElementById("trackerBadge");
   badge.hidden = count === 0;
@@ -1025,6 +1107,13 @@ function renderAll() {
   document.getElementById("clearTracker").disabled = Object.keys(state.selected).length === 0;
   document.getElementById("showSelectedOnly").classList.toggle("active", state.selectedOnly);
   document.getElementById("showSelectedOnly").setAttribute("aria-pressed", String(state.selectedOnly));
+}
+
+function renderSoundSetting() {
+  const button = document.getElementById("goalSoundsToggle");
+  if (!button) return;
+  button.textContent = state.goalSoundsEnabled ? "On" : "Off";
+  button.classList.toggle("active", state.goalSoundsEnabled);
 }
 
 function bindEvents() {
@@ -1047,6 +1136,14 @@ function bindEvents() {
   const toggleTheme = () => { state.theme = state.theme === "dark" ? "light" : "dark"; applyTheme(); };
   document.getElementById("themeToggle").addEventListener("click", toggleTheme);
   document.getElementById("settingsThemeToggle").addEventListener("click", toggleTheme);
+  document.getElementById("goalSoundsToggle").addEventListener("click", () => {
+    state.goalSoundsEnabled = !state.goalSoundsEnabled;
+    localStorage.setItem(`${STORAGE_PREFIX}goal-sounds`, String(state.goalSoundsEnabled));
+    if (state.goalSoundsEnabled) ensureAudioContext();
+    renderSoundSetting();
+  });
+  document.getElementById("testPositiveSound").addEventListener("click", () => { ensureAudioContext(); playGoalTone("positive"); });
+  document.getElementById("testNegativeSound").addEventListener("click", () => { ensureAudioContext(); playGoalTone("negative"); });
   document.getElementById("densityControl").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-density]");
     if (!button) return;
@@ -1142,7 +1239,7 @@ async function start() {
   if (liveItem) { state.currentListId = liveItem.list.id; setView("trackerView"); }
   setInterval(refreshLive, LIVE_REFRESH_MS);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=2.11").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=2.12").catch(() => {});
 }
 
 start();

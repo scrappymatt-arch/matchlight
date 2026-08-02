@@ -1254,10 +1254,16 @@ function renderAll() {
 }
 
 function renderRefreshSettings() {
-  const live = document.getElementById("liveRefreshSelect");
-  const signal = document.getElementById("signalRefreshSelect");
-  if (live) live.value = String(state.liveRefreshSeconds);
-  if (signal) signal.value = String(state.signalRefreshSeconds);
+  document.querySelectorAll("#liveRefreshControl button[data-seconds]").forEach((button) => {
+    const active = Number(button.dataset.seconds) === state.liveRefreshSeconds;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  document.querySelectorAll("#signalRefreshControl button[data-seconds]").forEach((button) => {
+    const active = Number(button.dataset.seconds) === state.signalRefreshSeconds;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
   renderRefreshCountdown();
 }
 
@@ -1296,17 +1302,29 @@ function bindEvents() {
   });
   document.getElementById("testPositiveSound").addEventListener("click", () => { ensureAudioContext(); playGoalTone("positive"); });
   document.getElementById("testNegativeSound").addEventListener("click", () => { ensureAudioContext(); playGoalTone("negative"); });
-  document.getElementById("liveRefreshSelect").addEventListener("change", (event) => {
-    state.liveRefreshSeconds = Number(event.target.value);
+  document.getElementById("liveRefreshControl").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-seconds]");
+    if (!button) return;
+    state.liveRefreshSeconds = Number(button.dataset.seconds);
     localStorage.setItem(`${STORAGE_PREFIX}live-refresh-seconds`, String(state.liveRefreshSeconds));
     scheduleNextRefresh();
     renderRefreshSettings();
   });
-  document.getElementById("signalRefreshSelect").addEventListener("change", (event) => {
-    state.signalRefreshSeconds = Number(event.target.value);
+  document.getElementById("signalRefreshControl").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-seconds]");
+    if (!button) return;
+    state.signalRefreshSeconds = Number(button.dataset.seconds);
     localStorage.setItem(`${STORAGE_PREFIX}signal-refresh-seconds`, String(state.signalRefreshSeconds));
     state.lastSignalRefresh = 0;
     renderRefreshSettings();
+  });
+  document.getElementById("jumpFavouriteLeagues").addEventListener("click", () => {
+    const section = document.getElementById("favouriteLeaguesSection");
+    section.open = true;
+    section.scrollIntoView({ behavior: "smooth", block: "start" });
+    section.classList.remove("jump-highlight");
+    requestAnimationFrame(() => section.classList.add("jump-highlight"));
+    setTimeout(() => section.classList.remove("jump-highlight"), 1300);
   });
   document.getElementById("refreshCountdown").addEventListener("click", () => refreshLive({ manual: true }));
   document.getElementById("densityControl").addEventListener("click", (event) => {
@@ -1406,7 +1424,7 @@ async function start() {
   renderRefreshSettings();
   setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.0").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.1").catch(() => {});
 }
 
 start();

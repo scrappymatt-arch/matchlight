@@ -1,24 +1,18 @@
-# MatchBuddy V3.0
+# MatchBuddy V3.1
 
-## V3.0 changes
+## V3.1 changes
 
-- Improves yellow/amber visibility in light mode.
-- Uses a deeper amber for text and borders instead of pale yellow on white.
-- Gives yellow match cards a stronger pale-gold background.
-- Gives the overall “GOALS NEEDED” banner a filled amber tint with higher contrast.
-- Improves the yellow totals-box contrast.
-- MatchBuddy V3.0 is shown at the top and uses a fresh service-worker cache.
+- Replaces the old refresh dropdowns with modern segmented buttons.
+- Moves all general settings above Favourite Leagues.
+- Makes Favourite Leagues collapsible and adds a quick-jump button at the top of Settings.
+- Moves Edit, Delete and Clear beside the New List control.
+- Places Goals Needed and the update countdown between the tracker filters and Date sorting.
+- Removes a complete header row so tracked matches start higher on screen.
+- Updates the visible version and service-worker cache to V3.1.
 
 ## Upload
 
-1. Replace the app files in the existing GitHub repository.
-2. Replace the Cloudflare Worker code with the included `worker.js`, then press **Deploy**.
+1. Replace all files in the existing GitHub repository.
+2. The included `worker.js` is unchanged from V3.0, so redeploying the Worker is optional.
 3. Your existing `API_FOOTBALL_KEY` secret remains unchanged.
 4. Fully close and reopen MatchBuddy after GitHub Pages redeploys.
-
-
-## V3.0
-- Pro-plan live refresh controls (15s, 30s, 60s, 2 minutes, or manual)
-- Separate goal/card event interval
-- Live countdown and tap-to-refresh control on My Matches
-- Refreshes immediately when the app returns to the foreground

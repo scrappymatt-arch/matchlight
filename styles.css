@@ -538,3 +538,116 @@ body.tracker-active .app-version { padding: 2px 5px; font-size: .52rem; }
   .refresh-setting { align-items: stretch; }
   .select-setting { min-width: 0; width: 100%; }
 }
+
+/* MatchBuddy V3.1 — compact tracker header and modern settings controls */
+.list-strip-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 6px;
+  margin: -4px 0 2px;
+}
+.list-strip-row .list-tabs { flex: 1 1 auto; min-width: 0; padding-bottom: 3px; }
+.list-strip-row .list-actions { flex: 0 0 auto; }
+.tracker-update-group {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  gap: 6px;
+  flex: 1 1 300px;
+}
+.tracker-update-group .overall-list-status {
+  flex: 1 1 auto;
+  min-width: 145px;
+  margin: 0;
+  min-height: 29px;
+  padding-block: 5px;
+}
+#trackerView .tracker-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 4px;
+}
+#trackerView .tracker-toolbar > #trackerFilters { flex: 0 0 auto; }
+#trackerView .tracker-toolbar > #trackerSort { flex: 0 0 auto; }
+.settings-jump-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 11px;
+}
+.refresh-button-group {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 280px;
+}
+.refresh-button-group button {
+  min-height: 38px;
+  padding: 6px 11px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font: inherit;
+  font-size: .74rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+.refresh-button-group button small {
+  display: block;
+  margin-top: 1px;
+  color: inherit;
+  font-size: .48rem;
+  letter-spacing: .025em;
+  text-transform: uppercase;
+}
+.refresh-button-group button:hover { border-color: var(--accent); color: var(--text); }
+.refresh-button-group button.active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.favourite-settings-panel { padding: 0; overflow: hidden; scroll-margin-top: 14px; }
+.favourite-settings-panel > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 17px;
+  cursor: pointer;
+  list-style: none;
+}
+.favourite-settings-panel > summary::-webkit-details-marker { display: none; }
+.favourite-settings-panel > summary strong { display: block; font-size: 1rem; }
+.favourite-settings-panel > summary small { display: block; margin-top: 3px; color: var(--muted); font-size: .78rem; }
+.summary-chevron { color: var(--accent); font-size: 1.2rem; transition: transform .2s ease; }
+.favourite-settings-panel[open] .summary-chevron { transform: rotate(180deg); }
+.favourite-settings-content { padding: 0 17px 17px; border-top: 1px solid var(--border); }
+.favourite-settings-content .settings-panel-heading { padding-top: 13px; }
+.favourite-settings-panel.jump-highlight { animation: settingsJump 1.25s ease; }
+@keyframes settingsJump {
+  0%,100% { box-shadow: none; }
+  30% { border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 20%, transparent); }
+}
+@media (max-width: 760px) {
+  #trackerView .tracker-toolbar { flex-wrap: wrap; }
+  .tracker-update-group { order: 3; flex-basis: 100%; }
+}
+@media (max-width: 560px) {
+  .tracker-head-grid { grid-template-columns: minmax(0,1fr) 47%; }
+  .list-strip-row { align-items: flex-start; flex-wrap: wrap; }
+  .list-strip-row .list-tabs { flex-basis: 100%; }
+  .list-strip-row .list-actions { margin-top: -1px; }
+  .refresh-setting { align-items: stretch; }
+  .refresh-button-group { min-width: 0; justify-content: flex-start; }
+  .refresh-button-group button { flex: 1 1 76px; }
+}
+@media (max-width: 430px) {
+  .tracker-head-grid { grid-template-columns: minmax(0,1fr) 45%; }
+  #trackerView .tracker-toolbar > #trackerFilters { width: auto; }
+  .tracker-update-group .overall-list-status { min-width: 0; }
+  .refresh-countdown { flex: 0 0 auto; }
+}

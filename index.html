@@ -8,14 +8,14 @@
   <title>MatchBuddy</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=3.0" />
+  <link rel="stylesheet" href="styles.css?v=3.1" />
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div>
         <p class="eyebrow">FOOTBALL, WITHOUT THE CLUTTER</p>
-        <h1>MatchBuddy <span class="app-version">V3.0</span></h1>
+        <h1>MatchBuddy <span class="app-version">V3.1</span></h1>
       </div>
       <button id="themeToggle" class="icon-button" aria-label="Toggle theme" title="Toggle theme">☼</button>
     </header>
@@ -49,21 +49,13 @@
         <div class="tracker-head-grid">
           <div class="list-strip-row">
             <div id="matchListTabs" class="list-tabs" role="tablist" aria-label="Match lists"></div>
+            <div class="list-actions" aria-label="List actions">
+              <button id="renameList" class="mini-action" type="button" title="Rename list" aria-label="Rename list">✎</button>
+              <button id="deleteList" class="mini-action danger" type="button" title="Delete list" aria-label="Delete list">🗑</button>
+              <button id="clearTracker" class="mini-action danger" type="button" title="Clear list" aria-label="Clear list">Clear</button>
+            </div>
           </div>
           <div id="summaryBoxes" class="summary-mini-grid" aria-live="polite"></div>
-        </div>
-
-        <div class="tracker-status-row">
-          <div id="overallListStatus" class="overall-list-status" aria-live="polite"></div>
-          <button id="refreshCountdown" class="refresh-countdown" type="button" title="Refresh now">Next update in 30s</button>
-        </div>
-
-        <div class="tracker-compact-bar actions-only">
-          <div class="list-actions" aria-label="List actions">
-            <button id="renameList" class="mini-action" type="button" title="Rename list" aria-label="Rename list">✎</button>
-            <button id="deleteList" class="mini-action danger" type="button" title="Delete list" aria-label="Delete list">🗑</button>
-            <button id="clearTracker" class="mini-action danger" type="button" title="Clear list" aria-label="Clear list">Clear</button>
-          </div>
         </div>
 
         <div class="tracker-toolbar">
@@ -72,6 +64,10 @@
             <button data-filter="live">Live</button>
             <button data-filter="upcoming">Upcoming</button>
             <button data-filter="finished">Finished</button>
+          </div>
+          <div class="tracker-update-group">
+            <div id="overallListStatus" class="overall-list-status" aria-live="polite"></div>
+            <button id="refreshCountdown" class="refresh-countdown" type="button" title="Refresh now">Next update in 30s</button>
           </div>
           <select id="trackerSort" aria-label="Sort matches">
             <option value="date">Date</option>
@@ -99,6 +95,10 @@
           </div>
         </div>
 
+        <div class="settings-jump-bar">
+          <button id="jumpFavouriteLeagues" class="secondary-button" type="button">★ Favourite leagues</button>
+        </div>
+
         <div class="settings-card">
           <div><h3>Theme</h3><p>Switch between dark and light mode.</p></div>
           <button id="settingsThemeToggle" class="secondary-button">Toggle</button>
@@ -112,16 +112,25 @@
           </div>
         </div>
 
-        <div class="settings-panel">
-          <div class="settings-panel-heading">
-            <div><h3>Favourite leagues</h3><p>When favourites are selected, only those competitions appear on the Fixtures screen.</p></div>
-            <button id="clearFavouriteLeagues" class="text-button" type="button">Clear</button>
+        <div class="settings-card refresh-setting">
+          <div><h3>Live score refresh</h3><p>Faster settings detect score changes sooner but use more requests. 30 seconds is recommended for the Pro plan.</p></div>
+          <div id="liveRefreshControl" class="refresh-button-group" role="group" aria-label="Live score refresh interval">
+            <button type="button" data-seconds="15">15 sec</button>
+            <button type="button" data-seconds="30">30 sec <small>Recommended</small></button>
+            <button type="button" data-seconds="60">60 sec</button>
+            <button type="button" data-seconds="120">2 min</button>
+            <button type="button" data-seconds="0">Manual</button>
           </div>
-          <div id="favouriteLeagueOptions" class="league-choice-grid"></div>
-          <p id="leagueHelp" class="settings-help">Leagues appear here after their fixtures have been loaded.</p>
         </div>
 
-
+        <div class="settings-card refresh-setting">
+          <div><h3>Goal and card checks</h3><p>Controls how often MatchBuddy checks detailed events for tracked live matches.</p></div>
+          <div id="signalRefreshControl" class="refresh-button-group" role="group" aria-label="Goal and card check interval">
+            <button type="button" data-seconds="15">15 sec</button>
+            <button type="button" data-seconds="30">30 sec <small>Recommended</small></button>
+            <button type="button" data-seconds="60">60 sec</button>
+          </div>
+        </div>
 
         <div class="settings-card">
           <div><h3>Goal sounds</h3><p>Plays a rising tone when a goal helps the active list and a descending tone when it hurts it. Works while MatchBuddy is open.</p></div>
@@ -150,31 +159,20 @@
           <span class="status-pill">Live</span>
         </div>
 
-        <div class="settings-card refresh-setting">
-          <div><h3>Live score refresh</h3><p>Faster settings detect score changes sooner but use more requests. 30 seconds is recommended for the Pro plan.</p></div>
-          <label class="select-setting" for="liveRefreshSelect">
-            <span>Interval</span>
-            <select id="liveRefreshSelect">
-              <option value="15">15 seconds</option>
-              <option value="30">30 seconds · Recommended</option>
-              <option value="60">60 seconds</option>
-              <option value="120">2 minutes</option>
-              <option value="0">Manual only</option>
-            </select>
-          </label>
-        </div>
-
-        <div class="settings-card refresh-setting">
-          <div><h3>Goal and card checks</h3><p>Controls how often MatchBuddy checks detailed events for tracked live matches.</p></div>
-          <label class="select-setting" for="signalRefreshSelect">
-            <span>Interval</span>
-            <select id="signalRefreshSelect">
-              <option value="15">15 seconds</option>
-              <option value="30">30 seconds · Recommended</option>
-              <option value="60">60 seconds</option>
-            </select>
-          </label>
-        </div>
+        <details id="favouriteLeaguesSection" class="settings-panel favourite-settings-panel" open>
+          <summary>
+            <span><strong>Favourite leagues</strong><small>Choose which competitions appear on the Fixtures screen.</small></span>
+            <span class="summary-chevron">⌄</span>
+          </summary>
+          <div class="favourite-settings-content">
+            <div class="settings-panel-heading">
+              <p>When favourites are selected, only those competitions appear on the Fixtures screen.</p>
+              <button id="clearFavouriteLeagues" class="text-button" type="button">Clear</button>
+            </div>
+            <div id="favouriteLeagueOptions" class="league-choice-grid"></div>
+            <p id="leagueHelp" class="settings-help">Leagues appear here after their fixtures have been loaded.</p>
+          </div>
+        </details>
       </section>
     </main>
 
@@ -211,6 +209,6 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=3.0" defer></script>
+  <script src="app.js?v=3.1" defer></script>
 </body>
 </html>

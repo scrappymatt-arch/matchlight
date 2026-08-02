@@ -765,7 +765,7 @@ body.tracker-active .app-version {
   .timezone-options button small { text-align: left; }
 }
 
-/* YorAkka V3.10 — phone-first density, wrapped team names and updated brand line */
+/* YorAkka V3.11 — phone-first density, wrapped team names and updated brand line */
 @media (max-width: 600px) {
   .app-shell { padding: 10px 10px 96px; }
   .topbar { margin-bottom: 14px; gap: 8px; }
@@ -894,7 +894,7 @@ body.tracker-active .app-version {
 }
 
 
-/* YorAkka V3.10 — reliable two-line team-name wrapping on phone fixture rows */
+/* YorAkka V3.11 — reliable two-line team-name wrapping on phone fixture rows */
 .match-line .team-name { min-width: 0; }
 
 @media (max-width: 600px) {
@@ -938,4 +938,64 @@ body.tracker-active .app-version {
   .fixture-card .away-team .team-name { text-align: left; }
   .fixture-card .central-score { min-width: 48px; width: 48px; }
   .fixture-card .add-button { position: relative; z-index: 2; }
+}
+
+
+/* YorAkka V3.11 — fixture-page-only mobile wrapping correction.
+   The team containers and inner labels must both be allowed to shrink;
+   otherwise an inline-flex team keeps its max-content width and can run
+   beneath the protected add-button column. */
+@media (max-width: 600px) {
+  #fixturesView .fixture-card {
+    grid-template-columns: 44px minmax(0, 1fr) 40px;
+    column-gap: 5px;
+    overflow: hidden;
+  }
+
+  #fixturesView .fixture-card .match-line {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    grid-template-columns: minmax(0, 1fr) 46px minmax(0, 1fr) auto;
+    column-gap: 4px;
+    overflow: hidden;
+  }
+
+  #fixturesView .fixture-card .home-team,
+  #fixturesView .fixture-card .away-team {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    flex: 1 1 0;
+  }
+
+  #fixturesView .fixture-card .team-name {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    flex: 1 1 0;
+    display: -webkit-box;
+    white-space: normal;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    word-break: normal;
+    text-overflow: ellipsis;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    line-height: 1.05;
+    max-height: 2.1em;
+  }
+
+  #fixturesView .fixture-card .central-score {
+    width: 46px;
+    min-width: 46px;
+  }
+
+  #fixturesView .fixture-card .add-button {
+    width: 38px;
+    min-width: 38px;
+    justify-self: end;
+  }
 }

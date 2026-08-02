@@ -658,7 +658,7 @@ body.tracker-active .app-version { padding: 2px 5px; font-size: .52rem; }
 .cleanup-button-group { justify-content: flex-end; }
 
 
-/* MatchBuddy V3.4 — clearer version badge, team-side cards and mirrored timeline */
+/* MatchBuddy V3.5 — clearer version badge, team-side cards and mirrored timeline */
 .app-version,
 body.tracker-active .app-version {
   margin-left: 8px;

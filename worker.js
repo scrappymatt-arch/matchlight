@@ -137,12 +137,21 @@ export default {
     }
 
     if (url.pathname === "/signals") {
-      const rawIds = (url.searchParams.get("ids") || "").split(",").map((id) => id.trim()).filter(Boolean);
-      const ids = [...new Set(rawIds)].filter((id) => /^\d+$/.test(id)).slice(0, 12);
-      if (!ids.length) return jsonResponse({ error: "Provide up to twelve numeric fixture ids." }, 400, request);
+      const rawTokens = (url.searchParams.get("ids") || "").split(",").map((token) => token.trim()).filter(Boolean);
+      const fixtures = [];
+      const seenFixtureIds = new Set();
+      for (const token of rawTokens) {
+        const [id, homeId = "", awayId = ""] = token.split(":");
+        if (!/^\d+$/.test(id) || seenFixtureIds.has(id)) continue;
+        seenFixtureIds.add(id);
+        fixtures.push({ id, homeId: /^\d+$/.test(homeId) ? homeId : "", awayId: /^\d+$/.test(awayId) ? awayId : "" });
+        if (fixtures.length >= 12) break;
+      }
+      if (!fixtures.length) return jsonResponse({ error: "Provide up to twelve numeric fixture ids." }, 400, request);
       try {
         const results = [];
-        for (const id of ids) {
+        for (const fixtureRef of fixtures) {
+          const { id, homeId, awayId } = fixtureRef;
           try {
             const data = await requestApiFootball(`/fixtures/events?fixture=${encodeURIComponent(id)}`, env, 20, 2);
             const events = Array.isArray(data.response) ? data.response : [];
@@ -164,19 +173,23 @@ export default {
               if (!uniqueEvents.has(key)) uniqueEvents.set(key, event);
             });
             const teamCards = {};
+            let homeRedCards = 0;
+            let awayRedCards = 0;
             uniqueEvents.forEach((event) => {
               const idKey = event.team?.id != null ? String(event.team.id) : "";
               const nameKey = String(event.team?.name || "").trim().toLowerCase();
               if (idKey) teamCards[idKey] = (teamCards[idKey] || 0) + 1;
               if (nameKey) teamCards[nameKey] = (teamCards[nameKey] || 0) + 1;
+              if (homeId && idKey === homeId) homeRedCards += 1;
+              if (awayId && idKey === awayId) awayRedCards += 1;
             });
-            results.push({ fixtureId: id, redCards: uniqueEvents.size, teamCards });
+            results.push({ fixtureId: id, redCards: uniqueEvents.size, homeRedCards, awayRedCards, teamCards });
           } catch {
             // One unavailable event feed must not discard the other tracked matches.
             results.push({ fixtureId: id, redCards: null });
           }
           // Leave headroom for simultaneous live-score and details requests.
-          if (ids.length > 1) await wait(350);
+          if (fixtures.length > 1) await wait(350);
         }
         return jsonResponse({ results: results.length, response: results }, 200, request, { "Cache-Control": "public, max-age=20" });
       } catch (error) {

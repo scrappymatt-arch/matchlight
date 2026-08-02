@@ -362,13 +362,17 @@ async function refreshMatchSignals(fixtures) {
 
   const selectedIds = new Set(allListEntries().filter(({ entry }) => entry.fixture?.status === "live").map(({ id }) => String(id)));
   const ordered = [...live].sort((a, b) => Number(selectedIds.has(b.id)) - Number(selectedIds.has(a.id)) || Number(isFavourite(b)) - Number(isFavourite(a)) || a.timestamp - b.timestamp);
-  const ids = [...new Set(ordered.map((fixture) => fixture.id))].slice(0, MAX_SIGNAL_FIXTURES);
+  const signalFixtures = [...new Map(ordered.map((fixture) => [String(fixture.id), fixture])).values()].slice(0, MAX_SIGNAL_FIXTURES);
+  const ids = signalFixtures.map((fixture) => String(fixture.id));
   if (!ids.length) return;
+  // Include the home and away API team IDs so the Worker can assign each dismissal
+  // to the correct side without relying on variations in team names.
+  const signalTokens = signalFixtures.map((fixture) => [fixture.id, fixture.homeId || "", fixture.awayId || ""].join(":"));
 
   state.lastSignalRefresh = Date.now();
   state.signalRefreshInProgress = true;
   try {
-    const response = await fetch(`${API_BASE}/signals?ids=${encodeURIComponent(ids.join(","))}`, { cache: "no-store" });
+    const response = await fetch(`${API_BASE}/signals?ids=${encodeURIComponent(signalTokens.join(","))}`, { cache: "no-store" });
     const data = await response.json();
     if (!response.ok || data.error) return;
     (data.response || []).forEach((item) => {
@@ -376,7 +380,14 @@ async function refreshMatchSignals(fixtures) {
       const current = signalForFixture(id);
       const fixture = live.find((match) => String(match.id) === id);
       const teamCards = item.teamCards || {};
-      const byKey = (teamId, teamName) => Number(teamCards[String(teamId)] ?? teamCards[String(teamName).toLowerCase()] ?? 0) || 0;
+      const normaliseTeam = (value) => String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+      const byKey = (teamId, teamName) => {
+        const direct = teamCards[String(teamId)] ?? teamCards[String(teamName || "").trim().toLowerCase()];
+        if (direct != null) return Number(direct) || 0;
+        const wanted = normaliseTeam(teamName);
+        const matchedKey = Object.keys(teamCards).find((key) => normaliseTeam(key) === wanted);
+        return matchedKey ? Number(teamCards[matchedKey]) || 0 : 0;
+      };
       const homeRedCards = item.homeRedCards != null ? Number(item.homeRedCards) || 0 : byKey(fixture?.homeId, fixture?.home);
       const awayRedCards = item.awayRedCards != null ? Number(item.awayRedCards) || 0 : byKey(fixture?.awayId, fixture?.away);
       state.matchSignals[id] = {
@@ -1145,6 +1156,34 @@ function eventIcon(type, detail) {
   return "•";
 }
 
+function updateRedCardsFromEvents(fixture, events, match = {}) {
+  const homeId = String(fixture.homeId ?? match.teams?.home?.id ?? "");
+  const awayId = String(fixture.awayId ?? match.teams?.away?.id ?? "");
+  const normalise = (value) => String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+  const seen = new Set();
+  let homeRedCards = 0;
+  let awayRedCards = 0;
+  (Array.isArray(events) ? events : []).forEach((event) => {
+    const text = `${event.type || ""} ${event.detail || ""} ${event.comments || ""}`.toLowerCase();
+    if (!(text.includes("red card") || text.includes("second yellow") || text.includes("2nd yellow") || text.includes("yellow-red") || text.includes("yellow red"))) return;
+    const key = [event.team?.id || event.team?.name || "", event.player?.id || event.player?.name || "", event.time?.elapsed || "", event.time?.extra || ""].join("|");
+    if (seen.has(key)) return;
+    seen.add(key);
+    const eventTeamId = String(event.team?.id ?? "");
+    const eventTeamName = normalise(event.team?.name);
+    if ((eventTeamId && homeId && eventTeamId === homeId) || eventTeamName === normalise(fixture.home)) homeRedCards += 1;
+    else if ((eventTeamId && awayId && eventTeamId === awayId) || eventTeamName === normalise(fixture.away)) awayRedCards += 1;
+  });
+  const current = signalForFixture(fixture.id);
+  state.matchSignals[String(fixture.id)] = {
+    ...current,
+    redCards: Math.max(Number(current.redCards) || 0, homeRedCards + awayRedCards),
+    homeRedCards: Math.max(Number(current.homeRedCards) || 0, homeRedCards),
+    awayRedCards: Math.max(Number(current.awayRedCards) || 0, awayRedCards),
+  };
+  saveSignals();
+}
+
 async function openMatchDetails(id) {
   const fixture = getFixtureById(id);
   if (!fixture) return;
@@ -1154,6 +1193,7 @@ async function openMatchDetails(id) {
   document.getElementById("detailsContent").innerHTML = detailsLoadingHtml(fixture);
   const cached = state.detailsCache[id];
   if (cached && Date.now() - cached.savedAt < 60000) {
+    updateRedCardsFromEvents(fixture, cached.data.events, cached.data.fixture || {});
     renderMatchDetails(fixture, cached.data);
     return;
   }
@@ -1170,6 +1210,7 @@ async function openMatchDetails(id) {
       document.getElementById("detailsContent").innerHTML = `${detailsHeaderHtml(fixture)}<div class="details-loading">The live-data service is busy. Retrying match details…</div>`;
       await new Promise((resolve) => setTimeout(resolve, 8000));
     }
+    updateRedCardsFromEvents(fixture, data.events, data.fixture || {});
     state.detailsCache[id] = { savedAt: Date.now(), data };
     renderMatchDetails(fixture, data);
   } catch (error) {

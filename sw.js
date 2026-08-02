@@ -1,4 +1,4 @@
-const CACHE_NAME = "matchbuddy-v3.4";
+const CACHE_NAME = "matchbuddy-v3.5";
 const APP_FILES = ["./", "./index.html", "./styles.css?v=3.4", "./app.js?v=3.4", "./manifest.json", "./icon.svg"];
 self.addEventListener("install", (event) => { event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_FILES))); self.skipWaiting(); });
 self.addEventListener("activate", (event) => { event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))); self.clients.claim(); });

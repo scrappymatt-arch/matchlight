@@ -8,14 +8,14 @@
   <title>MatchBuddy</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=2.9" />
+  <link rel="stylesheet" href="styles.css?v=2.10" />
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div>
         <p class="eyebrow">FOOTBALL, WITHOUT THE CLUTTER</p>
-        <h1>MatchBuddy <span class="app-version">V2.9</span></h1>
+        <h1>MatchBuddy <span class="app-version">V2.10</span></h1>
       </div>
       <button id="themeToggle" class="icon-button" aria-label="Toggle theme" title="Toggle theme">☼</button>
     </header>
@@ -46,12 +46,14 @@
       </section>
 
       <section id="trackerView" class="view" aria-label="My Matches">
-        <div class="list-strip-row">
-          <div id="matchListTabs" class="list-tabs" role="tablist" aria-label="Match lists"></div>
+        <div class="tracker-head-grid">
+          <div class="list-strip-row">
+            <div id="matchListTabs" class="list-tabs" role="tablist" aria-label="Match lists"></div>
+          </div>
+          <div id="summaryBoxes" class="summary-mini-grid" aria-live="polite"></div>
         </div>
 
-        <div class="tracker-compact-bar">
-          <div id="summaryLine" class="summary-line" aria-live="polite"></div>
+        <div class="tracker-compact-bar actions-only">
           <div class="list-actions" aria-label="List actions">
             <button id="renameList" class="mini-action" type="button" title="Rename list" aria-label="Rename list">✎</button>
             <button id="deleteList" class="mini-action danger" type="button" title="Delete list" aria-label="Delete list">🗑</button>
@@ -114,6 +116,15 @@
           <p id="leagueHelp" class="settings-help">Leagues appear here after their fixtures have been loaded.</p>
         </div>
 
+
+        <div class="settings-card">
+          <div><h3>Test red-card indicator</h3><p>Adds a temporary red-card icon to the first match in the active list so you can confirm the display works.</p></div>
+          <div class="settings-test-actions">
+            <button id="testRedCard" class="secondary-button" type="button">Test</button>
+            <button id="clearTestSignals" class="text-button" type="button">Clear test</button>
+          </div>
+        </div>
+
         <div class="settings-card">
           <div><h3>Completed matches</h3><p>The list clears 24 hours after every tracked match is complete.</p></div>
           <span class="status-pill">24 hours</span>
@@ -164,6 +175,6 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=2.9" defer></script>
+  <script src="app.js?v=2.10" defer></script>
 </body>
 </html>

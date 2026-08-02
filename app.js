@@ -750,8 +750,8 @@ function renderTracker() {
             <button class="remove-button" data-remove-id="${entry.id}" aria-label="Remove match">×</button>
           </div>
           <div class="tracker-meta">
-            <button class="condition-edit" data-edit-id="${entry.id}">${escapeHtml(conditionLabel(entry.condition))}</button>
-            <span class="status-copy">${escapeHtml(status.copy)}</span>
+            <span class="tracker-league">${escapeHtml(fixture.country)} · ${escapeHtml(fixture.league)}</span>
+            <span class="tracker-selection-status"><button class="condition-edit" data-edit-id="${entry.id}">${escapeHtml(conditionLabel(entry.condition))}</button><span aria-hidden="true"> · </span><span class="status-copy">${escapeHtml(status.copy)}</span></span>
           </div>
         </article>`;
     }).join("");
@@ -772,13 +772,15 @@ function renderSummaryLine() {
   const values = Object.values(state.selected);
   const counts = { green: 0, yellow: 0, red: 0, lost: 0, grey: 0 };
   values.forEach((entry) => counts[trafficState(entry.fixture, entry.condition).colour] += 1);
-  const parts = [`${values.length} match${values.length === 1 ? "" : "es"}`];
-  if (counts.green) parts.push(`<span class="sum-green">${counts.green} winning</span>`);
-  if (counts.yellow) parts.push(`<span class="sum-yellow">${counts.yellow} need 1</span>`);
-  if (counts.red) parts.push(`<span class="sum-red">${counts.red} others</span>`);
-  if (counts.lost) parts.push(`<span class="sum-lost">${counts.lost} lost</span>`);
-  if (counts.grey) parts.push(`<span class="sum-grey">${counts.grey} upcoming</span>`);
-  document.getElementById("summaryLine").innerHTML = parts.join(" · ");
+  const boxes = [
+    ["green", counts.green, "Winning"],
+    ["yellow", counts.yellow, "1 Goal"],
+    ["red", counts.red + counts.lost, "Others"],
+    ["grey", counts.grey, "Upcoming"],
+  ];
+  const target = document.getElementById("summaryBoxes");
+  if (!target) return;
+  target.innerHTML = boxes.map(([colour, value, label]) => `<div class="summary-mini ${colour}"><strong>${value}</strong><span>${label}</span></div>`).join("");
 }
 
 function renderFavouriteLeagues() {
@@ -1075,6 +1077,28 @@ function bindEvents() {
     state.editingListId = createList(proposed.trim() || nextListName());
     renderDialogListSelect();
   });
+  document.getElementById("testRedCard").addEventListener("click", () => {
+    const first = Object.entries(state.selected)[0];
+    if (!first) { alert("Add a match to the active list first."); return; }
+    const [id] = first;
+    const current = signalForFixture(id);
+    state.matchSignals[id] = { ...current, redCards: Math.max(1, Number(current.redCards) || 0), testRedCard: true, testRedCardBase: Number(current.redCards) || 0 };
+    saveSignals();
+    renderAll();
+    alert("A test red-card icon has been added to the first match in this list.");
+  });
+  document.getElementById("clearTestSignals").addEventListener("click", () => {
+    Object.keys(state.matchSignals).forEach((id) => {
+      if (state.matchSignals[id]?.testRedCard) {
+        const signal = state.matchSignals[id];
+        const base = Number(signal.testRedCardBase) || 0;
+        const currentCount = Number(signal.redCards) || 0;
+        state.matchSignals[id] = { ...signal, redCards: currentCount > 1 ? currentCount : base, testRedCard: false, testRedCardBase: undefined };
+      }
+    });
+    saveSignals();
+    renderAll();
+  });
   document.getElementById("clearTracker").addEventListener("click", () => document.getElementById("confirmDialog").showModal());
   document.getElementById("confirmDialog").addEventListener("close", (event) => {
     if (event.target.returnValue === "confirm") {
@@ -1098,7 +1122,7 @@ async function start() {
   if (liveItem) { state.currentListId = liveItem.list.id; setView("trackerView"); }
   setInterval(refreshLive, LIVE_REFRESH_MS);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=2.9").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=2.10").catch(() => {});
 }
 
 start();

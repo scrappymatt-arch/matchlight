@@ -765,7 +765,7 @@ body.tracker-active .app-version {
   .timezone-options button small { text-align: left; }
 }
 
-/* YorAkka V3.9 — phone-first density, wrapped team names and updated brand line */
+/* YorAkka V3.10 — phone-first density, wrapped team names and updated brand line */
 @media (max-width: 600px) {
   .app-shell { padding: 10px 10px 96px; }
   .topbar { margin-bottom: 14px; gap: 8px; }
@@ -891,4 +891,51 @@ body.tracker-active .app-version {
   #trackerView .summary-mini { min-height: 30px; }
   #trackerView .tracker-update-group { grid-template-columns: minmax(0,1fr) auto; }
   .brand-tagline { flex-basis: 100%; }
+}
+
+
+/* YorAkka V3.10 — reliable two-line team-name wrapping on phone fixture rows */
+.match-line .team-name { min-width: 0; }
+
+@media (max-width: 600px) {
+  .fixture-card .match-line {
+    grid-template-columns: minmax(0, 1fr) 48px minmax(0, 1fr) auto;
+    min-width: 0;
+    gap: 4px;
+  }
+
+  .fixture-card .match-line .home-team,
+  .fixture-card .match-line .away-team {
+    display: flex;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    white-space: normal;
+    align-items: center;
+  }
+
+  .fixture-card .match-line .home-team { justify-content: flex-end; }
+  .fixture-card .match-line .away-team { justify-content: flex-start; }
+
+  .fixture-card .match-line .team-name {
+    display: -webkit-box;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    white-space: normal;
+    text-overflow: ellipsis;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow-wrap: break-word;
+    word-break: normal;
+    line-height: 1.04;
+    max-height: 2.08em;
+    font-size: .84rem;
+  }
+
+  .fixture-card .home-team .team-name { text-align: right; }
+  .fixture-card .away-team .team-name { text-align: left; }
+  .fixture-card .central-score { min-width: 48px; width: 48px; }
+  .fixture-card .add-button { position: relative; z-index: 2; }
 }

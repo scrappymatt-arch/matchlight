@@ -785,9 +785,9 @@ function fixtureCardHtml(fixture) {
     <article class="fixture-card" data-open-fixture="${fixture.id}" tabindex="0" role="button" aria-label="Open ${escapeHtml(fixture.home)} versus ${escapeHtml(fixture.away)} details">
       <div class="match-time ${fixture.status === "live" ? "live" : ""}">${escapeHtml(clockText(fixture))}<small>${escapeHtml(statusLabel(fixture))}</small></div>
       <div class="match-line">
-        <strong class="home-team">${signals.homeCards}${escapeHtml(fixture.home)}</strong>
+        <strong class="home-team">${signals.homeCards}<span class="team-name">${escapeHtml(fixture.home)}</span></strong>
         <span class="central-score ${fixture.status === "scheduled" ? "scheduled" : ""}">${scoreText(fixture)}</span>
-        <strong class="away-team">${escapeHtml(fixture.away)}${signals.awayCards}</strong>
+        <strong class="away-team"><span class="team-name">${escapeHtml(fixture.away)}</span>${signals.awayCards}</strong>
         ${signals.goal}
       </div>
       <button class="add-button ${selected ? "selected" : ""}" data-fixture-id="${fixture.id}" aria-label="${selected ? "Edit tracked match" : "Track this match"}">${selected ? "✓" : "+"}</button>
@@ -1003,9 +1003,9 @@ function renderTracker() {
           <div class="tracker-topline">
             <div class="tracker-clock">${escapeHtml(clockText(fixture))}<small>${escapeHtml(statusLabel(fixture))}</small></div>
             <div class="match-line tracker-match-line">
-              <strong class="home-team">${signals.homeCards}${escapeHtml(fixture.home)}</strong>
+              <strong class="home-team">${signals.homeCards}<span class="team-name">${escapeHtml(fixture.home)}</span></strong>
               <span class="central-score ${fixture.status === "scheduled" ? "scheduled" : ""}">${scoreText(fixture)}</span>
-              <strong class="away-team">${escapeHtml(fixture.away)}${signals.awayCards}</strong>
+              <strong class="away-team"><span class="team-name">${escapeHtml(fixture.away)}</span>${signals.awayCards}</strong>
               ${signals.goal}
             </div>
             <button class="remove-button" data-remove-id="${entry.id}" aria-label="Remove match">×</button>

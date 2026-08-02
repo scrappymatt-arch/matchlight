@@ -744,3 +744,23 @@ body.tracker-active .app-version {
   .league-category-control { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .league-category-control button { padding: 0 7px; }
 }
+
+/* YorAkka V3.8 — CSV export and searchable time-zone picker */
+.export-button { white-space: nowrap; }
+.timezone-setting { align-items: center; }
+.timezone-picker-button { max-width: 18rem; text-align: right; }
+.timezone-dialog-card { width: min(92vw, 34rem); max-height: min(82vh, 44rem); display: flex; flex-direction: column; }
+.timezone-search { display: grid; gap: .35rem; margin: .25rem 0 .75rem; }
+.timezone-search span { font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.timezone-search input { width: 100%; }
+.timezone-options { display: grid; gap: .35rem; overflow-y: auto; padding-right: .2rem; }
+.timezone-options button { display: flex; justify-content: space-between; align-items: center; gap: 1rem; border: 1px solid var(--line); background: var(--panel-soft); color: var(--text); border-radius: .8rem; padding: .72rem .8rem; text-align: left; }
+.timezone-options button small { color: var(--muted); text-align: right; }
+.timezone-options button.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+@media (max-width: 600px) {
+  .filter-row { grid-template-columns: minmax(0,1fr) auto auto; }
+  .timezone-setting { align-items: stretch; }
+  .timezone-picker-button { max-width: none; text-align: left; }
+  .timezone-options button { align-items: flex-start; flex-direction: column; gap: .15rem; }
+  .timezone-options button small { text-align: left; }
+}

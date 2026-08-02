@@ -1,15 +1,16 @@
-# MatchBuddy V3.7
+# YorAkka V3.8
 
-## V3.7 changes
+## V3.8 changes
 
-- Loads the complete API-Football league catalogue through the protected Cloudflare Worker.
-- Favourite Leagues no longer depends on competitions appearing in fixtures already viewed.
-- Selecting a country selects all matching leagues shown for that country, including leagues with no match today.
-- Adds league/country search.
-- Adds All, Men, Women, Youth and Cups category buttons.
-- Adds a Current competitions only option, enabled by default.
-- Caches the provider league catalogue for 24 hours to protect the API allowance.
-- Updates the visible version and service-worker cache to V3.7.
+- Renames the app from MatchBuddy to **YorAkka**.
+- Uses the brand line **FOOTBALL. YOUR WAY.** beside the app name.
+- Adds **Download visible fixtures CSV** from the Fixtures screen.
+- CSV exports follow the current favourite-league, search and Selected filters.
+- CSV files include fixture, league and team IDs, UTC kick-off, selected local kick-off, status, scores and result.
+- Adds a searchable time-zone picker in Settings.
+- Defaults to **Europe/London** and handles UK daylight-saving time automatically.
+- Keeps previously known leagues selectable when the full catalogue endpoint is temporarily unavailable.
+- Updates the visible version and service-worker cache to V3.8.
 
 ## Deployment
 

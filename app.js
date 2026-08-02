@@ -6,7 +6,8 @@ const DEFAULT_COMPLETED_CLEANUP_HOURS = 24;
 const GOAL_PULSE_MS = 60000;
 const MAX_SIGNAL_FIXTURES = 8;
 const DAY_CACHE_MS = 5 * 60 * 1000;
-const STORAGE_PREFIX = "matchbuddy-";
+const STORAGE_PREFIX = "matchbuddy-"; // retained so existing users keep their lists and settings
+const DEFAULT_TIME_ZONE = "Europe/London";
 
 const today = new Date();
 today.setHours(0, 0, 0, 0);
@@ -165,6 +166,7 @@ const state = {
   liveRefreshSeconds: Number(localStorage.getItem(`${STORAGE_PREFIX}live-refresh-seconds`) ?? DEFAULT_LIVE_REFRESH_SECONDS),
   signalRefreshSeconds: Number(localStorage.getItem(`${STORAGE_PREFIX}signal-refresh-seconds`) ?? DEFAULT_SIGNAL_REFRESH_SECONDS),
   completedCleanupHours: Number(localStorage.getItem(`${STORAGE_PREFIX}completed-cleanup-hours`) ?? DEFAULT_COMPLETED_CLEANUP_HOURS),
+  timeZone: localStorage.getItem(`${STORAGE_PREFIX}time-zone`) || DEFAULT_TIME_ZONE,
   nextRefreshAt: Date.now() + DEFAULT_LIVE_REFRESH_SECONDS * 1000,
   refreshInProgress: false,
   lastRefreshSucceededAt: null,
@@ -231,7 +233,8 @@ function normaliseFixture(item) {
     apiId: item.fixture?.id,
     date: isoDate(dateObj),
     timestamp: dateObj.getTime(),
-    time: dateObj.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+    utcDate: dateObj.toISOString(),
+    time: dateObj.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: state?.timeZone || DEFAULT_TIME_ZONE }),
     league: item.league?.name || "Unknown competition",
     leagueId: item.league?.id || null,
     country: item.league?.country || "",
@@ -242,6 +245,8 @@ function normaliseFixture(item) {
     awayId: item.teams?.away?.id || null,
     homeScore: Number.isFinite(item.goals?.home) ? item.goals.home : 0,
     awayScore: Number.isFinite(item.goals?.away) ? item.goals.away : 0,
+    halfTimeHome: Number.isFinite(item.score?.halftime?.home) ? item.score.halftime.home : null,
+    halfTimeAway: Number.isFinite(item.score?.halftime?.away) ? item.score.halftime.away : null,
     status,
     statusShort,
     statusLong: item.fixture?.status?.long || "Not Started",
@@ -574,7 +579,25 @@ function clockText(fixture) {
   }
   if (fixture.status === "finished") return "FT";
   if (fixture.status === "cancelled") return fixture.statusShort;
-  return fixture.time;
+  return formatFixtureTime(fixture);
+}
+
+function formatFixtureTime(fixture) {
+  const stamp = Number(fixture?.timestamp);
+  if (!Number.isFinite(stamp)) return fixture?.time || "";
+  try {
+    return new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: state.timeZone }).format(new Date(stamp));
+  } catch {
+    return new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: DEFAULT_TIME_ZONE }).format(new Date(stamp));
+  }
+}
+
+function formatFixtureLocalDateTime(fixture) {
+  try {
+    const parts = new Intl.DateTimeFormat("en-GB", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: state.timeZone }).formatToParts(new Date(fixture.timestamp));
+    const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return `${value.year}-${value.month}-${value.day} ${value.hour}:${value.minute}:${value.second}`;
+  } catch { return new Date(fixture.timestamp).toISOString(); }
 }
 
 function statusLabel(fixture) {
@@ -634,17 +657,51 @@ function restoreScrollFor(viewId) {
   requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo({ top: position, left: 0, behavior: "auto" })));
 }
 
-function renderFixtures() {
-  const list = document.getElementById("fixtureList");
+function visibleFixtures() {
   const fixtures = [...(state.fixturesByDate[state.selectedDate] || [])];
   const query = state.search.trim().toLowerCase();
   const favouritesActive = state.favouriteLeagues.length > 0 && !state.showAllLeagues;
-  const filtered = fixtures.filter((fixture) => {
+  return fixtures.filter((fixture) => {
     if (favouritesActive && !isFavourite(fixture)) return false;
     if (state.selectedOnly && !fixtureIsSelectedAnywhere(fixture.id)) return false;
     if (!query) return true;
     return `${fixture.home} ${fixture.away} ${fixture.league} ${fixture.country}`.toLowerCase().includes(query);
   });
+}
+
+function csvEscape(value) {
+  const text = String(value ?? "");
+  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function fixtureResult(fixture) {
+  if (fixture.status !== "finished") return "";
+  if (fixture.homeScore > fixture.awayScore) return "H";
+  if (fixture.homeScore < fixture.awayScore) return "A";
+  return "D";
+}
+
+function downloadVisibleFixturesCsv() {
+  const fixtures = visibleFixtures();
+  if (!fixtures.length) { alert("There are no visible fixtures to export."); return; }
+  const columns = ["fixture_id","kick_off_utc","kick_off_local","timezone","country","league_id","league","round","home_team_id","home_team","away_team_id","away_team","status","status_code","minute","half_time_home","half_time_away","home_goals","away_goals","result"];
+  const rows = fixtures.map((fixture) => [
+    fixture.id, new Date(fixture.timestamp).toISOString(), formatFixtureLocalDateTime(fixture), state.timeZone, fixture.country, fixture.leagueId || "", fixture.league, fixture.round || "", fixture.homeId || "", fixture.home, fixture.awayId || "", fixture.away, fixture.status, fixture.statusShort, fixture.minute ?? "", fixture.halfTimeHome ?? "", fixture.halfTimeAway ?? "", fixture.status === "scheduled" ? "" : fixture.homeScore, fixture.status === "scheduled" ? "" : fixture.awayScore, fixtureResult(fixture)
+  ]);
+  const csv = [columns, ...rows].map((row) => row.map(csvEscape).join(",")).join("\r\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `YorAkka-fixtures-${state.selectedDate}.csv`;
+  document.body.appendChild(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function renderFixtures() {
+  const list = document.getElementById("fixtureList");
+  const fixtures = [...(state.fixturesByDate[state.selectedDate] || [])];
+  const filtered = visibleFixtures();
 
   const notice = document.getElementById("favouriteFilterNotice");
   if (notice) {
@@ -903,7 +960,7 @@ function runTrafficStateTests() {
     return result.colour !== colour || result.copy !== copy;
   });
 
-  if (failures.length) console.error("MatchBuddy traffic-light tests failed", failures);
+  if (failures.length) console.error("YorAkka traffic-light tests failed", failures);
 }
 
 runTrafficStateTests();
@@ -1076,6 +1133,8 @@ async function loadLeagueCatalogue({ force = false } = {}) {
     localStorage.setItem(`${STORAGE_PREFIX}known-leagues`, JSON.stringify(state.knownLeagues));
   } catch (error) {
     state.leagueCatalogueError = error.message || "Unable to load the league catalogue.";
+    // Keep previously discovered and cached leagues usable when the catalogue endpoint is unavailable.
+    state.leagueCatalogueLoaded = state.knownLeagues.length > 0;
   } finally {
     state.leagueCatalogueLoading = false;
     renderFavouriteLeagues();
@@ -1101,7 +1160,7 @@ function renderFavouriteLeagues() {
 
   const query = state.leagueSearch.trim().toLowerCase();
   const filteredLeagues = state.knownLeagues.filter((league) => {
-    if (state.currentLeaguesOnly && !league.current) return false;
+    if (state.currentLeaguesOnly && league.current === false) return false;
     const category = leagueCategoryFor(league);
     if (state.leagueCategory !== "all" && category !== state.leagueCategory) return false;
     return !query || `${league.country} ${league.league}`.toLowerCase().includes(query);
@@ -1461,6 +1520,43 @@ function renderSoundSetting() {
   button.classList.toggle("active", state.goalSoundsEnabled);
 }
 
+const COMMON_TIME_ZONES = [
+  ["Europe/London", "United Kingdom — London"], ["Europe/Dublin", "Ireland — Dublin"], ["Europe/Paris", "France — Paris"], ["Europe/Berlin", "Germany — Berlin"], ["Europe/Madrid", "Spain — Madrid"], ["Europe/Rome", "Italy — Rome"], ["America/New_York", "USA — New York"], ["America/Chicago", "USA — Chicago"], ["America/Denver", "USA — Denver"], ["America/Los_Angeles", "USA — Los Angeles"], ["America/Toronto", "Canada — Toronto"], ["America/Sao_Paulo", "Brazil — São Paulo"], ["Asia/Dubai", "UAE — Dubai"], ["Asia/Kolkata", "India — Kolkata"], ["Asia/Singapore", "Singapore"], ["Asia/Tokyo", "Japan — Tokyo"], ["Australia/Sydney", "Australia — Sydney"], ["Pacific/Auckland", "New Zealand — Auckland"]
+];
+
+function timeZoneLabel(zone) {
+  return COMMON_TIME_ZONES.find(([id]) => id === zone)?.[1] || zone.replace(/_/g, " ");
+}
+
+function renderTimeZoneSetting() {
+  const button = document.getElementById("timezonePickerButton");
+  if (button) button.textContent = timeZoneLabel(state.timeZone);
+}
+
+function allTimeZones() {
+  let zones = [];
+  try { zones = Intl.supportedValuesOf ? Intl.supportedValuesOf("timeZone") : []; } catch {}
+  const merged = new Map(COMMON_TIME_ZONES);
+  zones.forEach((zone) => { if (!merged.has(zone)) merged.set(zone, zone.replace(/_/g, " ")); });
+  return [...merged.entries()];
+}
+
+function renderTimeZoneOptions(query = "") {
+  const target = document.getElementById("timezoneOptions");
+  const wanted = query.trim().toLowerCase();
+  const options = allTimeZones().filter(([id, label]) => !wanted || `${id} ${label}`.toLowerCase().includes(wanted)).slice(0, 250);
+  target.innerHTML = options.map(([id, label]) => `<button type="button" data-timezone="${escapeHtml(id)}" class="${id === state.timeZone ? "active" : ""}"><strong>${escapeHtml(label)}</strong><small>${escapeHtml(id)}</small></button>`).join("");
+}
+
+function chooseTimeZone(zone) {
+  try { new Intl.DateTimeFormat("en-GB", { timeZone: zone }).format(new Date()); } catch { return; }
+  state.timeZone = zone;
+  localStorage.setItem(`${STORAGE_PREFIX}time-zone`, zone);
+  renderTimeZoneSetting();
+  renderAll();
+  document.getElementById("timezoneDialog").close();
+}
+
 function bindEvents() {
   document.querySelectorAll(".bottom-nav button").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
   document.getElementById("detailsBack").addEventListener("click", closeMatchDetails);
@@ -1470,6 +1566,7 @@ function bindEvents() {
   });
   document.getElementById("fixtureSearch").addEventListener("input", (event) => { state.search = event.target.value; renderFixtures(); });
   document.getElementById("showSelectedOnly").addEventListener("click", () => { state.selectedOnly = !state.selectedOnly; renderAll(); });
+  document.getElementById("downloadFixturesCsv").addEventListener("click", downloadVisibleFixturesCsv);
   document.getElementById("trackerFilters").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-filter]");
     if (!button) return;
@@ -1513,6 +1610,17 @@ function bindEvents() {
     autoClearIfDue();
     renderCleanupSetting();
     renderAll();
+  });
+  document.getElementById("timezonePickerButton").addEventListener("click", () => {
+    document.getElementById("timezoneSearch").value = "";
+    renderTimeZoneOptions();
+    document.getElementById("timezoneDialog").showModal();
+  });
+  document.getElementById("closeTimezoneDialog").addEventListener("click", () => document.getElementById("timezoneDialog").close());
+  document.getElementById("timezoneSearch").addEventListener("input", (event) => renderTimeZoneOptions(event.target.value));
+  document.getElementById("timezoneOptions").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-timezone]");
+    if (button) chooseTimeZone(button.dataset.timezone);
   });
   document.getElementById("jumpFavouriteLeagues").addEventListener("click", () => {
     const section = document.getElementById("favouriteLeaguesSection");
@@ -1627,6 +1735,7 @@ async function start() {
   applyDensity();
   autoClearIfDue();
   renderAll();
+  renderTimeZoneSetting();
   await Promise.all([loadDate(state.selectedDate), loadLeagueCatalogue()]);
 
   const liveItem = allListEntries().find(({ entry }) => entry.fixture?.status === "live");
@@ -1635,7 +1744,7 @@ async function start() {
   renderRefreshSettings();
   setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.7").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.8").catch(() => {});
 }
 
 start();

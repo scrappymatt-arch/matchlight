@@ -5,16 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#080b10" />
   <meta name="description" content="Live football fixtures and personal match-condition tracking." />
-  <title>MatchBuddy</title>
+  <title>YorAkka</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=3.7" />
+  <link rel="stylesheet" href="styles.css?v=3.8" />
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div class="brand-lockup">
-        <h1>MatchBuddy <span class="app-version">V3.7</span> <span class="brand-tagline">FOOTBALL. YOUR WAY.</span></h1>
+        <h1>YorAkka <span class="app-version">V3.8</span> <span class="brand-tagline">FOOTBALL. YOUR WAY.</span></h1>
       </div>
       <button id="themeToggle" class="icon-button" aria-label="Toggle theme" title="Toggle theme">☼</button>
     </header>
@@ -36,6 +36,7 @@
             <input id="fixtureSearch" type="search" placeholder="Search team or league" autocomplete="off" />
           </label>
           <button id="showSelectedOnly" class="filter-button" aria-pressed="false">Selected</button>
+          <button id="downloadFixturesCsv" class="filter-button export-button" type="button" title="Download the fixtures currently shown">↓ CSV</button>
         </div>
 
         <div id="dataStatus" class="data-status" aria-live="polite"></div>
@@ -122,7 +123,7 @@
         </div>
 
         <div class="settings-card refresh-setting">
-          <div><h3>Goal and card checks</h3><p>Controls how often MatchBuddy checks detailed events for tracked live matches.</p></div>
+          <div><h3>Goal and card checks</h3><p>Controls how often YorAkka checks detailed events for tracked live matches.</p></div>
           <div id="signalRefreshControl" class="refresh-button-group" role="group" aria-label="Goal and card check interval">
             <button type="button" data-seconds="15">15 sec</button>
             <button type="button" data-seconds="30">30 sec <small>Recommended</small></button>
@@ -131,7 +132,7 @@
         </div>
 
         <div class="settings-card">
-          <div><h3>Goal sounds</h3><p>Plays a rising tone when a goal helps the active list and a descending tone when it hurts it. Works while MatchBuddy is open.</p></div>
+          <div><h3>Goal sounds</h3><p>Plays a rising tone when a goal helps the active list and a descending tone when it hurts it. Works while YorAkka is open.</p></div>
           <div class="settings-test-actions">
             <button id="goalSoundsToggle" class="secondary-button" type="button">Off</button>
             <button id="testPositiveSound" class="text-button" type="button">Test +</button>
@@ -157,8 +158,13 @@
           </div>
         </div>
 
+        <div class="settings-card timezone-setting">
+          <div><h3>Time zone</h3><p>Kick-off times and CSV exports use this time zone. United Kingdom — London is the default.</p></div>
+          <button id="timezonePickerButton" class="secondary-button timezone-picker-button" type="button">United Kingdom — London</button>
+        </div>
+
         <div class="settings-card">
-          <div><h3>Data source</h3><p>Real fixtures and scores supplied through your protected MatchBuddy Worker.</p></div>
+          <div><h3>Data source</h3><p>Real fixtures and scores supplied through your protected YorAkka Worker.</p></div>
           <span class="status-pill">Live</span>
         </div>
 
@@ -223,6 +229,18 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=3.7" defer></script>
+
+  <dialog id="timezoneDialog">
+    <div class="dialog-card timezone-dialog-card">
+      <div class="dialog-header">
+        <div><p class="section-kicker">DISPLAY TIMES</p><h3>Choose time zone</h3></div>
+        <button id="closeTimezoneDialog" class="dialog-close" type="button" aria-label="Close">×</button>
+      </div>
+      <label class="timezone-search"><span>Search</span><input id="timezoneSearch" type="search" placeholder="London, New York, Sydney…" autocomplete="off"></label>
+      <div id="timezoneOptions" class="timezone-options"></div>
+    </div>
+  </dialog>
+
+  <script src="app.js?v=3.8" defer></script>
 </body>
 </html>

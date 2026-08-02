@@ -94,7 +94,7 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === "/") {
       return jsonResponse({
-        service: "MatchBuddy API",
+        service: "YorAkka API",
         status: "online",
         version: "3.7",
         endpoints: {
@@ -268,7 +268,7 @@ export default {
         const message = String(error?.message || error || "");
         const busy = message.toLowerCase().includes("rate") || message.toLowerCase().includes("too many") || message.toLowerCase().includes("limit of requests");
         return jsonResponse({
-          error: busy ? "The live-data service is busy. MatchBuddy will try again shortly." : "Unable to retrieve match details.",
+          error: busy ? "The live-data service is busy. YorAkka will try again shortly." : "Unable to retrieve match details.",
           details: busy ? "Please wait a few seconds and reopen this match." : message,
           retryable: busy,
         }, busy ? 429 : 502, request, busy ? { "Retry-After": "8" } : {});

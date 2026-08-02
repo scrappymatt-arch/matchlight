@@ -1,6 +1,6 @@
 {
-  "name": "MatchBuddy",
-  "short_name": "MatchBuddy",
+  "name": "YorAkka",
+  "short_name": "YorAkka",
   "description": "Live football fixtures and personal match-condition tracking.",
   "start_url": "./",
   "display": "standalone",

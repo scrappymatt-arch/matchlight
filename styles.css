@@ -999,3 +999,10 @@ body.tracker-active .app-version {
     justify-self: end;
   }
 }
+
+/* YorAkka V3.12 — favourite-league CSV availability */
+.export-button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  filter: saturate(0.35);
+}

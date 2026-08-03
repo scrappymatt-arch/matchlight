@@ -681,24 +681,81 @@ function fixtureResult(fixture) {
   return "D";
 }
 
+function fixtureLocalDateParts(fixture) {
+  try {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", hour12: false,
+      timeZone: state.timeZone,
+    }).formatToParts(new Date(fixture.timestamp));
+    const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return { date: `${value.year}-${value.month}-${value.day}`, time: `${value.hour}:${value.minute}` };
+  } catch {
+    const fallback = new Date(fixture.timestamp);
+    return { date: fallback.toISOString().slice(0, 10), time: fallback.toISOString().slice(11, 16) };
+  }
+}
+
+function favouriteFixturesForCsv() {
+  if (!state.favouriteLeagues.length) return [];
+  const query = state.search.trim().toLowerCase();
+  return [...(state.fixturesByDate[state.selectedDate] || [])].filter((fixture) => {
+    if (!isFavourite(fixture)) return false;
+    if (state.selectedOnly && !fixtureIsSelectedAnywhere(fixture.id)) return false;
+    if (!query) return true;
+    return `${fixture.home} ${fixture.away} ${fixture.league} ${fixture.country}`.toLowerCase().includes(query);
+  });
+}
+
+function updateCsvButtonState() {
+  const button = document.getElementById("downloadFixturesCsv");
+  if (!button) return;
+  const enabled = state.favouriteLeagues.length > 0;
+  button.disabled = !enabled;
+  button.title = enabled
+    ? "Download fixtures from your favourite leagues"
+    : "Select at least one favourite league to enable CSV download";
+  button.setAttribute("aria-disabled", String(!enabled));
+}
+
 function downloadVisibleFixturesCsv() {
-  const fixtures = visibleFixtures();
-  if (!fixtures.length) { alert("There are no visible fixtures to export."); return; }
-  const columns = ["fixture_id","kick_off_utc","kick_off_local","timezone","country","league_id","league","round","home_team_id","home_team","away_team_id","away_team","status","status_code","minute","half_time_home","half_time_away","home_goals","away_goals","result"];
-  const rows = fixtures.map((fixture) => [
-    fixture.id, new Date(fixture.timestamp).toISOString(), formatFixtureLocalDateTime(fixture), state.timeZone, fixture.country, fixture.leagueId || "", fixture.league, fixture.round || "", fixture.homeId || "", fixture.home, fixture.awayId || "", fixture.away, fixture.status, fixture.statusShort, fixture.minute ?? "", fixture.halfTimeHome ?? "", fixture.halfTimeAway ?? "", fixture.status === "scheduled" ? "" : fixture.homeScore, fixture.status === "scheduled" ? "" : fixture.awayScore, fixtureResult(fixture)
-  ]);
+  if (!state.favouriteLeagues.length) {
+    alert("Select at least one favourite league before downloading a CSV.");
+    return;
+  }
+  const fixtures = favouriteFixturesForCsv();
+  if (!fixtures.length) { alert("There are no favourite-league fixtures to export for this date and filter."); return; }
+  const columns = ["date", "time", "home team", "home goals", "away goals", "away team", "country", "league", "half time home", "half time away"];
+  const rows = fixtures
+    .sort((a, b) => a.timestamp - b.timestamp || a.country.localeCompare(b.country) || a.league.localeCompare(b.league))
+    .map((fixture) => {
+      const local = fixtureLocalDateParts(fixture);
+      const hasScore = fixture.status !== "scheduled";
+      return [
+        local.date,
+        local.time,
+        fixture.home,
+        hasScore ? fixture.homeScore : "",
+        hasScore ? fixture.awayScore : "",
+        fixture.away,
+        fixture.country,
+        fixture.league,
+        fixture.halfTimeHome ?? "",
+        fixture.halfTimeAway ?? "",
+      ];
+    });
   const csv = [columns, ...rows].map((row) => row.map(csvEscape).join(",")).join("\r\n");
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `YorAkka-fixtures-${state.selectedDate}.csv`;
+  link.download = `YorAkka-favourite-fixtures-${state.selectedDate}.csv`;
   document.body.appendChild(link); link.click(); link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function renderFixtures() {
+  updateCsvButtonState();
   const list = document.getElementById("fixtureList");
   const fixtures = [...(state.fixturesByDate[state.selectedDate] || [])];
   const filtered = visibleFixtures();

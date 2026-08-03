@@ -134,7 +134,6 @@ const state = {
   selectedOnly: false,
   search: "",
   trackerFilter: "all",
-  trackerSort: "date",
   lists: initialLists,
   currentListId: localStorage.getItem(`${STORAGE_PREFIX}current-list`) || Object.keys(initialLists)[0],
   theme: localStorage.getItem(`${STORAGE_PREFIX}theme`) || "dark",
@@ -169,6 +168,8 @@ const state = {
   timeZone: localStorage.getItem(`${STORAGE_PREFIX}time-zone`) || DEFAULT_TIME_ZONE,
   fixtureOrder: localStorage.getItem(`${STORAGE_PREFIX}fixture-order`) || "smart",
   favouriteOrder: localStorage.getItem(`${STORAGE_PREFIX}favourite-order`) || "selected",
+  trackerOrder: localStorage.getItem(`${STORAGE_PREFIX}tracker-order`) || "live",
+  trackerCustomOrders: readJson(`${STORAGE_PREFIX}tracker-custom-orders`, {}),
   nextRefreshAt: Date.now() + DEFAULT_LIVE_REFRESH_SECONDS * 1000,
   refreshInProgress: false,
   lastRefreshSucceededAt: null,
@@ -790,6 +791,7 @@ function compareFixtureGroups(a, b) {
 function renderOrderingSettings() {
   document.querySelectorAll("#fixtureOrderControl button[data-order]").forEach((button) => button.classList.toggle("active", button.dataset.order === state.fixtureOrder));
   document.querySelectorAll("#favouriteOrderControl button[data-order]").forEach((button) => button.classList.toggle("active", button.dataset.order === state.favouriteOrder));
+  document.querySelectorAll("#trackerOrderControl button[data-order]").forEach((button) => button.classList.toggle("active", button.dataset.order === state.trackerOrder));
 }
 
 function favouriteSelectionRank(key) {
@@ -1111,14 +1113,48 @@ function renderTracker() {
     return true;
   });
 
+  const statusRank = (entry) => {
+    const stateInfo = trafficState(entry.fixture, entry.condition);
+    if (entry.fixture.status === "scheduled") return 4;
+    if (stateInfo.colour === "green" || stateInfo.colour === "won") return 0;
+    if (stateInfo.copy === "Needs 1 goal") return 1;
+    if (/Needs \d+ goals/.test(stateInfo.copy)) return 2;
+    if (stateInfo.colour === "grey") return 3;
+    if (stateInfo.colour === "lost") return 5;
+    return 3;
+  };
+  const liveRank = (fixture) => fixture.status === "live" ? 0 : fixture.status === "scheduled" ? 1 : 2;
+  const customOrder = state.trackerCustomOrders[state.currentListId] || [];
+  const customIndex = new Map(customOrder.map((id, index) => [String(id), index]));
+
   entries.sort((a, b) => {
-    if (state.trackerSort === "urgency") {
-      const rank = { yellow: 0, red: 1, green: 2, won: 3, lost: 4, grey: 5 };
-      const difference = rank[trafficState(a.fixture, a.condition).colour] - rank[trafficState(b.fixture, b.condition).colour];
-      if (difference) return difference;
+    if (state.trackerOrder === "list") return (a.addedAt || 0) - (b.addedAt || 0);
+    if (state.trackerOrder === "kickoff") return a.fixture.timestamp - b.fixture.timestamp;
+    if (state.trackerOrder === "live") return liveRank(a.fixture) - liveRank(b.fixture) || a.fixture.timestamp - b.fixture.timestamp;
+    if (state.trackerOrder === "status") return statusRank(a) - statusRank(b) || a.fixture.timestamp - b.fixture.timestamp;
+    if (state.trackerOrder === "goals") {
+      const aLost = trafficState(a.fixture, a.condition).colour === "lost" ? 1 : 0;
+      const bLost = trafficState(b.fixture, b.condition).colour === "lost" ? 1 : 0;
+      return aLost - bLost || goalsNeededForSelection(a.fixture, a.condition) - goalsNeededForSelection(b.fixture, b.condition) || a.fixture.timestamp - b.fixture.timestamp;
+    }
+    if (state.trackerOrder === "popularity") return leaguePriority(a.fixture.league) - leaguePriority(b.fixture.league) || a.fixture.timestamp - b.fixture.timestamp;
+    if (state.trackerOrder === "alphabetical") return String(a.fixture.home).localeCompare(String(b.fixture.home)) || String(a.fixture.away).localeCompare(String(b.fixture.away));
+    if (state.trackerOrder === "custom") {
+      const ai = customIndex.has(String(a.id)) ? customIndex.get(String(a.id)) : Number.MAX_SAFE_INTEGER;
+      const bi = customIndex.has(String(b.id)) ? customIndex.get(String(b.id)) : Number.MAX_SAFE_INTEGER;
+      return ai - bi || (a.addedAt || 0) - (b.addedAt || 0);
     }
     return a.fixture.timestamp - b.fixture.timestamp;
   });
+
+  if (state.trackerOrder === "custom") {
+    const currentIds = entries.map((entry) => String(entry.id));
+    const merged = [...customOrder.filter((id) => currentIds.includes(String(id))), ...currentIds.filter((id) => !customIndex.has(String(id)))];
+    if (JSON.stringify(merged) !== JSON.stringify(customOrder)) {
+      state.trackerCustomOrders[state.currentListId] = merged;
+      localStorage.setItem(`${STORAGE_PREFIX}tracker-custom-orders`, JSON.stringify(state.trackerCustomOrders));
+    }
+  }
 
   const list = document.getElementById("trackerList");
   if (!entries.length) {
@@ -1141,6 +1177,7 @@ function renderTracker() {
               <strong class="away-team"><span class="team-name">${escapeHtml(fixture.away)}</span>${signals.awayCards}</strong>
               ${signals.goal}
             </div>
+            ${state.trackerOrder === "custom" ? `<div class="tracker-reorder" aria-label="Move match"><button type="button" data-move-id="${entry.id}" data-direction="up" aria-label="Move match up">↑</button><button type="button" data-move-id="${entry.id}" data-direction="down" aria-label="Move match down">↓</button></div>` : ""}
             <button class="remove-button" data-remove-id="${entry.id}" aria-label="Remove match">×</button>
           </div>
           <div class="tracker-meta">
@@ -1159,6 +1196,18 @@ function renderTracker() {
   }));
   list.querySelectorAll("[data-edit-id]").forEach((button) => button.addEventListener("click", (event) => { event.stopPropagation(); openConditionDialog(button.dataset.editId); }));
   list.querySelectorAll("[data-remove-id]").forEach((button) => button.addEventListener("click", (event) => event.stopPropagation(), { once: true }));
+  list.querySelectorAll("[data-move-id]").forEach((button) => button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const id = String(button.dataset.moveId);
+    const order = [...(state.trackerCustomOrders[state.currentListId] || entries.map((entry) => String(entry.id)))];
+    const index = order.indexOf(id);
+    const target = button.dataset.direction === "up" ? index - 1 : index + 1;
+    if (index < 0 || target < 0 || target >= order.length) return;
+    [order[index], order[target]] = [order[target], order[index]];
+    state.trackerCustomOrders[state.currentListId] = order;
+    localStorage.setItem(`${STORAGE_PREFIX}tracker-custom-orders`, JSON.stringify(state.trackerCustomOrders));
+    renderTracker();
+  }));
   bindFixtureDetailOpeners(list);
   renderSummaryLine();
 }
@@ -1704,7 +1753,6 @@ function bindEvents() {
     document.querySelectorAll("#trackerFilters button").forEach((item) => item.classList.toggle("active", item === button));
     renderTracker();
   });
-  document.getElementById("trackerSort").addEventListener("change", (event) => { state.trackerSort = event.target.value; renderTracker(); });
   const toggleTheme = () => { state.theme = state.theme === "dark" ? "light" : "dark"; applyTheme(); };
   document.getElementById("themeToggle").addEventListener("click", toggleTheme);
   document.getElementById("settingsThemeToggle").addEventListener("click", toggleTheme);
@@ -1757,14 +1805,25 @@ function bindEvents() {
     renderOrderingSettings();
     renderFavouriteLeagues();
   });
+  document.getElementById("trackerOrderControl").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-order]");
+    if (!button) return;
+    state.trackerOrder = button.dataset.order;
+    localStorage.setItem(`${STORAGE_PREFIX}tracker-order`, state.trackerOrder);
+    renderOrderingSettings();
+    renderTracker();
+  });
   document.getElementById("resetOrdering").addEventListener("click", () => {
     state.fixtureOrder = "smart";
     state.favouriteOrder = "selected";
+    state.trackerOrder = "live";
     localStorage.setItem(`${STORAGE_PREFIX}fixture-order`, state.fixtureOrder);
     localStorage.setItem(`${STORAGE_PREFIX}favourite-order`, state.favouriteOrder);
+    localStorage.setItem(`${STORAGE_PREFIX}tracker-order`, state.trackerOrder);
     renderOrderingSettings();
     renderFixtures();
     renderFavouriteLeagues();
+    renderTracker();
   });
   document.getElementById("timezonePickerButton").addEventListener("click", () => {
     document.getElementById("timezoneSearch").value = "";

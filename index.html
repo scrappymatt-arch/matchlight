@@ -8,13 +8,13 @@
   <title>YorAkka</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=3.9" />
+  <link rel="stylesheet" href="styles.css?v=3.14" />
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div class="brand-lockup">
-        <h1>YorAkka <span class="app-version">V3.13</span> <span class="brand-tagline">YOUR FOOTBALL. YOUR PICKS. YOUR WAY.</span></h1>
+        <h1>YorAkka <span class="app-version">V3.14</span> <span class="brand-tagline">YOUR FOOTBALL. YOUR PICKS. YOUR WAY.</span></h1>
       </div>
       <button id="themeToggle" class="icon-button" aria-label="Toggle theme" title="Toggle theme">☼</button>
     </header>
@@ -68,10 +68,6 @@
             <div id="overallListStatus" class="overall-list-status" aria-live="polite"></div>
             <button id="refreshCountdown" class="refresh-countdown" type="button" title="Refresh now">Next update in 30s</button>
           </div>
-          <select id="trackerSort" aria-label="Sort matches">
-            <option value="date">Date</option>
-            <option value="urgency">Urgency</option>
-          </select>
         </div>
 
         <div id="trackerList" class="tracker-list"></div>
@@ -183,6 +179,20 @@
                 <button type="button" data-order="recent">Recently selected</button>
               </div>
             </div>
+            <div class="ordering-control">
+              <span>My Matches</span>
+              <div id="trackerOrderControl" class="order-button-group" role="group" aria-label="My Matches order">
+                <button type="button" data-order="live">Live first</button>
+                <button type="button" data-order="list">List order</button>
+                <button type="button" data-order="kickoff">Kick-off</button>
+                <button type="button" data-order="status">Status</button>
+                <button type="button" data-order="goals">Goals needed</button>
+                <button type="button" data-order="popularity">Popularity</button>
+                <button type="button" data-order="alphabetical">Alphabetical</button>
+                <button type="button" data-order="custom">Custom</button>
+              </div>
+              <small class="ordering-hint">Custom order adds move buttons to each tracked match.</small>
+            </div>
             <button id="resetOrdering" class="text-button reset-ordering" type="button">Reset order</button>
           </div>
         </div>
@@ -270,6 +280,6 @@
     </div>
   </dialog>
 
-  <script src="app.js?v=3.9" defer></script>
+  <script src="app.js?v=3.14" defer></script>
 </body>
 </html>

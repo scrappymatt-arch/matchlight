@@ -1022,3 +1022,14 @@ body.tracker-active .app-version {
   .order-button-group { gap: 6px; }
   .order-button-group button { padding: 8px 10px; font-size: .78rem; }
 }
+
+/* V3.14: user-selectable My Matches ordering */
+.ordering-hint { display: block; margin-top: 7px; color: var(--muted); font-size: .76rem; }
+.tracker-reorder { display: inline-flex; flex-direction: column; gap: 2px; margin-left: 3px; }
+.tracker-reorder button { appearance: none; width: 24px; height: 21px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-2); color: var(--text); font: inherit; font-size: .72rem; line-height: 1; cursor: pointer; }
+.tracker-reorder button:active { transform: scale(.95); }
+@media (max-width: 680px) {
+  .tracker-reorder { flex-direction: row; position: absolute; right: 31px; bottom: 5px; }
+  .tracker-reorder button { width: 27px; height: 24px; }
+  #trackerView .tracker-card:has(.tracker-reorder) .tracker-meta { padding-right: 62px; }
+}

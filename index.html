@@ -14,7 +14,7 @@
   <div class="app-shell">
     <header class="topbar">
       <div class="brand-lockup">
-        <h1>YorAkka <span class="app-version">V3.12</span> <span class="brand-tagline">YOUR FOOTBALL. YOUR PICKS. YOUR WAY.</span></h1>
+        <h1>YorAkka <span class="app-version">V3.13</span> <span class="brand-tagline">YOUR FOOTBALL. YOUR PICKS. YOUR WAY.</span></h1>
       </div>
       <button id="themeToggle" class="icon-button" aria-label="Toggle theme" title="Toggle theme">☼</button>
     </header>
@@ -155,6 +155,35 @@
             <button type="button" data-hours="48">48 hours</button>
             <button type="button" data-hours="168">7 days</button>
             <button type="button" data-hours="0">Never</button>
+          </div>
+        </div>
+
+
+        <div class="settings-card ordering-setting">
+          <div><h3>Ordering</h3><p>Choose how fixtures and the Favourite Leagues catalogue are arranged.</p></div>
+          <div class="ordering-controls">
+            <div class="ordering-control">
+              <span>Fixtures</span>
+              <div id="fixtureOrderControl" class="order-button-group" role="group" aria-label="Fixture order">
+                <button type="button" data-order="smart">Smart</button>
+                <button type="button" data-order="alphabetical">Alphabetical</button>
+                <button type="button" data-order="popularity">Popularity</button>
+                <button type="button" data-order="country">Country</button>
+                <button type="button" data-order="kickoff">Kick-off</button>
+                <button type="button" data-order="live">Live first</button>
+              </div>
+            </div>
+            <div class="ordering-control">
+              <span>Favourite leagues</span>
+              <div id="favouriteOrderControl" class="order-button-group" role="group" aria-label="Favourite league order">
+                <button type="button" data-order="selected">Selected first</button>
+                <button type="button" data-order="alphabetical">Alphabetical</button>
+                <button type="button" data-order="popularity">Popularity</button>
+                <button type="button" data-order="country">Country</button>
+                <button type="button" data-order="recent">Recently selected</button>
+              </div>
+            </div>
+            <button id="resetOrdering" class="text-button reset-ordering" type="button">Reset order</button>
           </div>
         </div>
 

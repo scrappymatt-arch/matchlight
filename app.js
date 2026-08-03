@@ -167,6 +167,8 @@ const state = {
   signalRefreshSeconds: Number(localStorage.getItem(`${STORAGE_PREFIX}signal-refresh-seconds`) ?? DEFAULT_SIGNAL_REFRESH_SECONDS),
   completedCleanupHours: Number(localStorage.getItem(`${STORAGE_PREFIX}completed-cleanup-hours`) ?? DEFAULT_COMPLETED_CLEANUP_HOURS),
   timeZone: localStorage.getItem(`${STORAGE_PREFIX}time-zone`) || DEFAULT_TIME_ZONE,
+  fixtureOrder: localStorage.getItem(`${STORAGE_PREFIX}fixture-order`) || "smart",
+  favouriteOrder: localStorage.getItem(`${STORAGE_PREFIX}favourite-order`) || "selected",
   nextRefreshAt: Date.now() + DEFAULT_LIVE_REFRESH_SECONDS * 1000,
   refreshInProgress: false,
   lastRefreshSucceededAt: null,
@@ -754,6 +756,75 @@ function downloadVisibleFixturesCsv() {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+
+function fixtureGroupStats(matches) {
+  return {
+    earliest: Math.min(...matches.map((fixture) => fixture.timestamp)),
+    hasLive: matches.some((fixture) => fixture.status === "live"),
+    priority: Math.min(...matches.map((fixture) => leaguePriority(fixture.league))),
+    favourite: matches.some(isFavourite),
+    country: matches[0]?.country || "International",
+    league: matches[0]?.league || "",
+  };
+}
+
+function compareFixtureGroups(a, b) {
+  const A = fixtureGroupStats(a.matches);
+  const B = fixtureGroupStats(b.matches);
+  switch (state.fixtureOrder) {
+    case "alphabetical":
+      return A.league.localeCompare(B.league) || A.country.localeCompare(B.country);
+    case "popularity":
+      return A.priority - B.priority || A.league.localeCompare(B.league) || A.country.localeCompare(B.country);
+    case "country":
+      return A.country.localeCompare(B.country) || A.league.localeCompare(B.league);
+    case "kickoff":
+      return A.earliest - B.earliest || A.country.localeCompare(B.country) || A.league.localeCompare(B.league);
+    case "live":
+      return Number(B.hasLive) - Number(A.hasLive) || A.earliest - B.earliest || A.priority - B.priority;
+    default:
+      return regionRank(A.country) - regionRank(B.country) || Number(B.favourite) - Number(A.favourite) || A.priority - B.priority || A.country.localeCompare(B.country) || A.league.localeCompare(B.league);
+  }
+}
+
+function renderOrderingSettings() {
+  document.querySelectorAll("#fixtureOrderControl button[data-order]").forEach((button) => button.classList.toggle("active", button.dataset.order === state.fixtureOrder));
+  document.querySelectorAll("#favouriteOrderControl button[data-order]").forEach((button) => button.classList.toggle("active", button.dataset.order === state.favouriteOrder));
+}
+
+function favouriteSelectionRank(key) {
+  const index = state.favouriteLeagues.indexOf(key);
+  return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+}
+
+function compareFavouriteCountries([countryA, leaguesA], [countryB, leaguesB]) {
+  const selectedA = leaguesA.filter((league) => state.favouriteLeagues.includes(league.key)).length;
+  const selectedB = leaguesB.filter((league) => state.favouriteLeagues.includes(league.key)).length;
+  const bestA = Math.min(...leaguesA.map((league) => leaguePriority(league.league)));
+  const bestB = Math.min(...leaguesB.map((league) => leaguePriority(league.league)));
+  const recentA = Math.min(...leaguesA.map((league) => favouriteSelectionRank(league.key)));
+  const recentB = Math.min(...leaguesB.map((league) => favouriteSelectionRank(league.key)));
+  switch (state.favouriteOrder) {
+    case "alphabetical": return countryA.localeCompare(countryB);
+    case "popularity": return bestA - bestB || countryA.localeCompare(countryB);
+    case "country": return countryA.localeCompare(countryB);
+    case "recent": return recentA - recentB || countryA.localeCompare(countryB);
+    default: return selectedB - selectedA || bestA - bestB || countryA.localeCompare(countryB);
+  }
+}
+
+function compareFavouriteLeagues(a, b) {
+  const selectedA = state.favouriteLeagues.includes(a.key);
+  const selectedB = state.favouriteLeagues.includes(b.key);
+  switch (state.favouriteOrder) {
+    case "alphabetical":
+    case "country": return a.league.localeCompare(b.league);
+    case "popularity": return leaguePriority(a.league) - leaguePriority(b.league) || a.league.localeCompare(b.league);
+    case "recent": return favouriteSelectionRank(a.key) - favouriteSelectionRank(b.key) || a.league.localeCompare(b.league);
+    default: return Number(selectedB) - Number(selectedA) || leaguePriority(a.league) - leaguePriority(b.league) || a.league.localeCompare(b.league);
+  }
+}
+
 function renderFixtures() {
   updateCsvButtonState();
   const list = document.getElementById("fixtureList");
@@ -777,18 +848,7 @@ function renderFixtures() {
     }
   }
 
-  filtered.sort((a, b) => {
-    const regionDifference = regionRank(a.country) - regionRank(b.country);
-    if (regionDifference) return regionDifference;
-    const favouriteDifference = Number(isFavourite(b)) - Number(isFavourite(a));
-    if (favouriteDifference) return favouriteDifference;
-    const priorityDifference = leaguePriority(a.league) - leaguePriority(b.league);
-    if (priorityDifference) return priorityDifference;
-    const countryDifference = a.country.localeCompare(b.country);
-    if (countryDifference) return countryDifference;
-    const leagueDifference = a.league.localeCompare(b.league);
-    return leagueDifference || a.timestamp - b.timestamp;
-  });
+  filtered.sort((a, b) => a.timestamp - b.timestamp);
 
   if (!filtered.length) {
     if (state.loadingDate === state.selectedDate) {
@@ -812,22 +872,38 @@ function renderFixtures() {
     leagues.get(key).push(fixture);
   });
 
-  list.innerHTML = REGION_ORDER.filter((region) => regions.has(region)).map((region) => {
-    const countries = regions.get(region);
-    const matchCount = [...countries.values()].reduce((regionTotal, leagues) => regionTotal + [...leagues.values()].reduce((countryTotal, matches) => countryTotal + matches.length, 0), 0);
-    const leagueHtml = [...countries.entries()].map(([country, leagues]) =>
-      [...leagues.entries()].map(([key, matches]) => {
+  const groups = [];
+  regions.forEach((countries, region) => countries.forEach((leagues, country) => leagues.forEach((matches, key) => groups.push({ region, country, key, matches }))));
+  groups.sort(compareFixtureGroups);
+
+  if (["alphabetical", "popularity", "country", "kickoff", "live"].includes(state.fixtureOrder)) {
+    list.innerHTML = groups.map(({ country, key, matches }) => {
+      const first = matches[0];
+      const star = state.favouriteLeagues.includes(key) ? "★ " : "";
+      return `<section class="league-group">
+        <div class="league-heading"><span><em>${escapeHtml(country)}</em><i>·</i>${star}${escapeHtml(first.league)}</span><b>${matches.length} ${matches.length === 1 ? "match" : "matches"}</b></div>
+        ${matches.sort((a, b) => a.timestamp - b.timestamp).map(fixtureCardHtml).join("")}
+      </section>`;
+    }).join("");
+  } else {
+    const orderedRegions = new Map();
+    groups.forEach((group) => {
+      if (!orderedRegions.has(group.region)) orderedRegions.set(group.region, []);
+      orderedRegions.get(group.region).push(group);
+    });
+    list.innerHTML = [...orderedRegions.entries()].map(([region, regionGroups]) => {
+      const matchCount = regionGroups.reduce((total, group) => total + group.matches.length, 0);
+      const leagueHtml = regionGroups.map(({ country, key, matches }) => {
         const first = matches[0];
         const star = state.favouriteLeagues.includes(key) ? "★ " : "";
-        return `
-          <section class="league-group">
-            <div class="league-heading"><span><em>${escapeHtml(country)}</em><i>·</i>${star}${escapeHtml(first.league)}</span><b>${matches.length} ${matches.length === 1 ? "match" : "matches"}</b></div>
-            ${matches.map(fixtureCardHtml).join("")}
-          </section>`;
-      }).join("")
-    ).join("");
-    return `<section class="region-group"><div class="region-heading"><h3>${escapeHtml(region)}</h3><span>${matchCount} ${matchCount === 1 ? "match" : "matches"}</span></div>${leagueHtml}</section>`;
-  }).join("");
+        return `<section class="league-group">
+          <div class="league-heading"><span><em>${escapeHtml(country)}</em><i>·</i>${star}${escapeHtml(first.league)}</span><b>${matches.length} ${matches.length === 1 ? "match" : "matches"}</b></div>
+          ${matches.sort((a, b) => a.timestamp - b.timestamp).map(fixtureCardHtml).join("")}
+        </section>`;
+      }).join("");
+      return `<section class="region-group"><div class="region-heading"><h3>${escapeHtml(region)}</h3><span>${matchCount} ${matchCount === 1 ? "match" : "matches"}</span></div>${leagueHtml}</section>`;
+    }).join("");
+  }
 
   list.querySelectorAll("[data-fixture-id]").forEach((button) => {
     button.addEventListener("click", (event) => { event.stopPropagation(); openConditionDialog(button.dataset.fixtureId); });
@@ -1236,12 +1312,8 @@ function renderFavouriteLeagues() {
   container.innerHTML = REGION_ORDER.filter((region) => regions.has(region)).map((region, index) => {
     const countries = regions.get(region);
     const favouriteCount = [...countries.values()].flat().filter((league) => state.favouriteLeagues.includes(league.key)).length;
-    const countryHtml = [...countries.entries()].sort(([countryA, leaguesA], [countryB, leaguesB]) => {
-      const bestA = Math.min(...leaguesA.map((league) => leaguePriority(league.league)));
-      const bestB = Math.min(...leaguesB.map((league) => leaguePriority(league.league)));
-      return bestA - bestB || countryA.localeCompare(countryB);
-    }).map(([country, leagues]) => {
-      const orderedLeagues = leagues.sort((a, b) => leaguePriority(a.league) - leaguePriority(b.league) || a.league.localeCompare(b.league));
+    const countryHtml = [...countries.entries()].sort(compareFavouriteCountries).map(([country, leagues]) => {
+      const orderedLeagues = leagues.sort(compareFavouriteLeagues);
       const selectedCount = orderedLeagues.filter((league) => state.favouriteLeagues.includes(league.key)).length;
       const countryKey = encodeURIComponent(country);
       return `
@@ -1610,6 +1682,7 @@ function chooseTimeZone(zone) {
   state.timeZone = zone;
   localStorage.setItem(`${STORAGE_PREFIX}time-zone`, zone);
   renderTimeZoneSetting();
+  renderOrderingSettings();
   renderAll();
   document.getElementById("timezoneDialog").close();
 }
@@ -1667,6 +1740,31 @@ function bindEvents() {
     autoClearIfDue();
     renderCleanupSetting();
     renderAll();
+  });
+  document.getElementById("fixtureOrderControl").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-order]");
+    if (!button) return;
+    state.fixtureOrder = button.dataset.order;
+    localStorage.setItem(`${STORAGE_PREFIX}fixture-order`, state.fixtureOrder);
+    renderOrderingSettings();
+    renderFixtures();
+  });
+  document.getElementById("favouriteOrderControl").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-order]");
+    if (!button) return;
+    state.favouriteOrder = button.dataset.order;
+    localStorage.setItem(`${STORAGE_PREFIX}favourite-order`, state.favouriteOrder);
+    renderOrderingSettings();
+    renderFavouriteLeagues();
+  });
+  document.getElementById("resetOrdering").addEventListener("click", () => {
+    state.fixtureOrder = "smart";
+    state.favouriteOrder = "selected";
+    localStorage.setItem(`${STORAGE_PREFIX}fixture-order`, state.fixtureOrder);
+    localStorage.setItem(`${STORAGE_PREFIX}favourite-order`, state.favouriteOrder);
+    renderOrderingSettings();
+    renderFixtures();
+    renderFavouriteLeagues();
   });
   document.getElementById("timezonePickerButton").addEventListener("click", () => {
     document.getElementById("timezoneSearch").value = "";
@@ -1801,7 +1899,7 @@ async function start() {
   renderRefreshSettings();
   setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.9").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.13").catch(() => {});
 }
 
 start();

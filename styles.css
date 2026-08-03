@@ -1006,3 +1006,19 @@ body.tracker-active .app-version {
   cursor: not-allowed;
   filter: saturate(0.35);
 }
+
+/* YorAkka V3.13 — user-selectable ordering */
+.ordering-setting { align-items: flex-start; }
+.ordering-controls { display: grid; gap: 14px; min-width: min(100%, 620px); }
+.ordering-control { display: grid; gap: 7px; }
+.ordering-control > span { font-size: .78rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.order-button-group { display: flex; flex-wrap: wrap; gap: 7px; }
+.order-button-group button { appearance: none; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); border-radius: 999px; padding: 8px 11px; font: inherit; font-size: .82rem; font-weight: 750; cursor: pointer; }
+.order-button-group button.active { background: var(--accent); border-color: var(--accent); color: #071018; box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent); }
+.reset-ordering { justify-self: start; }
+@media (max-width: 700px) {
+  .ordering-setting { display: block; }
+  .ordering-setting > div:first-child { margin-bottom: 13px; }
+  .order-button-group { gap: 6px; }
+  .order-button-group button { padding: 8px 10px; font-size: .78rem; }
+}

@@ -1033,3 +1033,18 @@ body.tracker-active .app-version {
   .tracker-reorder button { width: 27px; height: 24px; }
   #trackerView .tracker-card:has(.tracker-reorder) .tracker-meta { padding-right: 62px; }
 }
+
+/* V3.15: live-data health and list sharing */
+.update-readout { display:flex; align-items:center; gap:7px; min-width:0; }
+.update-health { font-size:.64rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:280px; }
+.update-health.healthy { color:var(--success, #58d68d); }
+.update-health.warning { color:var(--warning, #f4c95d); }
+.update-health.working { color:var(--accent); }
+.share-dialog-card { width:min(92vw, 440px); }
+.share-actions { display:grid; gap:9px; margin-top:12px; }
+.share-feedback { min-height:1.2em; color:var(--accent); font-size:.82rem; }
+@media (max-width: 640px) {
+  .update-readout { width:100%; justify-content:space-between; }
+  .update-health { max-width:52vw; font-size:.58rem; }
+  #trackerView .list-actions .mini-action { padding-inline:7px; }
+}

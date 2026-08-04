@@ -8,13 +8,13 @@
   <title>YorAkka</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=3.14" />
+  <link rel="stylesheet" href="styles.css?v=3.15" />
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div class="brand-lockup">
-        <h1>YorAkka <span class="app-version">V3.14</span> <span class="brand-tagline">YOUR FOOTBALL. YOUR PICKS. YOUR WAY.</span></h1>
+        <h1>YorAkka <span class="app-version">V3.15</span> <span class="brand-tagline">YOUR FOOTBALL. YOUR PICKS. YOUR WAY.</span></h1>
       </div>
       <button id="themeToggle" class="icon-button" aria-label="Toggle theme" title="Toggle theme">☼</button>
     </header>
@@ -51,6 +51,7 @@
             <div class="list-actions" aria-label="List actions">
               <button id="renameList" class="mini-action" type="button" title="Rename list" aria-label="Rename list">✎</button>
               <button id="deleteList" class="mini-action danger" type="button" title="Delete list" aria-label="Delete list">🗑</button>
+              <button id="shareList" class="mini-action" type="button" title="Share list" aria-label="Share list">Share</button>
               <button id="clearTracker" class="mini-action danger" type="button" title="Clear list" aria-label="Clear list">Clear</button>
             </div>
           </div>
@@ -66,7 +67,7 @@
           </div>
           <div class="tracker-update-group">
             <div id="overallListStatus" class="overall-list-status" aria-live="polite"></div>
-            <button id="refreshCountdown" class="refresh-countdown" type="button" title="Refresh now">Next update in 30s</button>
+            <div class="update-readout"><span id="updateHealth" class="update-health" aria-live="polite">Waiting for live data</span><button id="refreshCountdown" class="refresh-countdown" type="button" title="Refresh now">Next update in 30s</button></div>
           </div>
         </div>
 
@@ -269,6 +270,19 @@
   </dialog>
 
 
+  <dialog id="shareDialog">
+    <div class="dialog-card compact share-dialog-card">
+      <div class="dialog-header"><div><p class="section-kicker">SHARE LIST</p><h3 id="shareDialogTitle">Share current list</h3></div><button id="closeShareDialog" class="dialog-close" type="button" aria-label="Close">×</button></div>
+      <p>Share the current list with its selections, scores and overall status.</p>
+      <div class="share-actions">
+        <button id="shareNative" class="secondary-button" type="button">Share to apps</button>
+        <button id="copyListText" class="secondary-button" type="button">Copy as text</button>
+        <button id="saveListImage" class="secondary-button" type="button">Save as image</button>
+      </div>
+      <p id="shareFeedback" class="share-feedback" aria-live="polite"></p>
+    </div>
+  </dialog>
+
   <dialog id="timezoneDialog">
     <div class="dialog-card timezone-dialog-card">
       <div class="dialog-header">
@@ -280,6 +294,6 @@
     </div>
   </dialog>
 
-  <script src="app.js?v=3.14" defer></script>
+  <script src="app.js?v=3.15" defer></script>
 </body>
 </html>

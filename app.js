@@ -173,6 +173,10 @@ const state = {
   nextRefreshAt: Date.now() + DEFAULT_LIVE_REFRESH_SECONDS * 1000,
   refreshInProgress: false,
   lastRefreshSucceededAt: null,
+  lastRefreshAttemptAt: null,
+  lastRefreshFailedAt: null,
+  lastSignalSucceededAt: null,
+  lastSignalFailedAt: null,
   audioContext: null,
 };
 
@@ -412,9 +416,14 @@ async function refreshMatchSignals(fixtures) {
       };
     });
     saveSignals();
+    state.lastSignalSucceededAt = Date.now();
+    state.lastSignalFailedAt = null;
     renderFixtures();
     renderTracker();
+    renderUpdateHealth();
   } catch {
+    state.lastSignalFailedAt = Date.now();
+    renderUpdateHealth();
     // Signal icons are supplementary; keep scores working if this request fails.
   } finally {
     state.signalRefreshInProgress = false;
@@ -471,7 +480,9 @@ function friendlyError(error) {
 async function refreshLive({ manual = false } = {}) {
   if (document.hidden || state.refreshInProgress || state.detailsRequestInProgress) return;
   state.refreshInProgress = true;
+  state.lastRefreshAttemptAt = Date.now();
   renderRefreshCountdown();
+  renderUpdateHealth();
   const selectedFixtures = allListEntries().map(({ entry }) => entry.fixture);
   const selectedLive = selectedFixtures.some((fixture) => fixture.status === "live");
   const viewingToday = state.activeView === "scoresView" && state.selectedDate === isoDate(today);
@@ -508,9 +519,12 @@ async function refreshLive({ manual = false } = {}) {
     });
     saveSelected();
     state.lastRefreshSucceededAt = Date.now();
+    state.lastRefreshFailedAt = null;
     renderAll();
     refreshMatchSignals(liveFixtures);
   } catch {
+    state.lastRefreshFailedAt = Date.now();
+    renderUpdateHealth();
     // Keep the last known scores visible if a background refresh fails.
   } finally {
     state.refreshInProgress = false;
@@ -545,8 +559,44 @@ function renderRefreshCountdown() {
   button.textContent = seconds <= 0 ? "Updating…" : `Next update in ${seconds}s`;
 }
 
+function relativeSeconds(stamp) {
+  if (!stamp) return null;
+  return Math.max(0, Math.floor((Date.now() - stamp) / 1000));
+}
+
+function renderUpdateHealth() {
+  const target = document.getElementById("updateHealth");
+  if (!target) return;
+  target.className = "update-health";
+  if (!navigator.onLine) {
+    target.textContent = "Offline · showing saved data";
+    target.classList.add("warning");
+    return;
+  }
+  if (state.refreshInProgress) {
+    target.textContent = "Updating live scores…";
+    target.classList.add("working");
+    return;
+  }
+  const scoreAge = relativeSeconds(state.lastRefreshSucceededAt);
+  const signalAge = relativeSeconds(state.lastSignalSucceededAt);
+  const recentScoreFailure = state.lastRefreshFailedAt && (!state.lastRefreshSucceededAt || state.lastRefreshFailedAt > state.lastRefreshSucceededAt);
+  const recentSignalFailure = state.lastSignalFailedAt && (!state.lastSignalSucceededAt || state.lastSignalFailedAt > state.lastSignalSucceededAt);
+  if (recentScoreFailure) {
+    target.textContent = "Live scores delayed · showing last update";
+    target.classList.add("warning");
+  } else if (scoreAge != null) {
+    target.textContent = `Scores updated ${scoreAge < 2 ? "just now" : `${scoreAge}s ago`}${recentSignalFailure ? " · events delayed" : signalAge != null ? ` · events ${signalAge < 2 ? "just now" : `${signalAge}s ago`}` : ""}`;
+    if (recentSignalFailure) target.classList.add("warning");
+    else target.classList.add("healthy");
+  } else {
+    target.textContent = "Waiting for first live update";
+  }
+}
+
 function countdownTick() {
   renderRefreshCountdown();
+  renderUpdateHealth();
   if (document.hidden) return;
 
   const liveFixtures = [
@@ -604,10 +654,30 @@ function formatFixtureLocalDateTime(fixture) {
 }
 
 function statusLabel(fixture) {
-  if (fixture.status === "live") return fixture.statusShort === "HT" ? "HALF-TIME" : "LIVE";
-  if (fixture.status === "finished") return "FINISHED";
+  if (["INT", "SUSP"].includes(fixture.statusShort)) return fixture.statusShort === "INT" ? "INTERRUPTED" : "SUSPENDED";
+  if (fixture.status === "live") {
+    if (fixture.statusShort === "HT") return "HALF-TIME";
+    if (fixture.statusShort === "ET") return "EXTRA TIME";
+    if (fixture.statusShort === "P") return "PENALTIES";
+    return "LIVE";
+  }
+  if (fixture.status === "finished") {
+    if (fixture.statusShort === "AET") return "AFTER EXTRA TIME";
+    if (fixture.statusShort === "PEN") return "AFTER PENALTIES";
+    return "FINISHED";
+  }
   if (fixture.status === "cancelled") return fixture.statusLong.toUpperCase();
   return "KICK-OFF";
+}
+
+function unusualOutcomeCopy(fixture) {
+  const code = String(fixture.statusShort || "").toUpperCase();
+  if (code === "PST") return "Postponed";
+  if (code === "CANC") return "Cancelled";
+  if (code === "ABD") return "Abandoned · check rules";
+  if (["AWD", "WO"].includes(code)) return "Awarded · check rules";
+  if (["INT", "SUSP"].includes(code)) return code === "INT" ? "Interrupted" : "Suspended";
+  return fixture.statusLong || "Check match status";
 }
 
 function scoreText(fixture) {
@@ -815,15 +885,39 @@ function compareFavouriteCountries([countryA, leaguesA], [countryB, leaguesB]) {
   }
 }
 
+
+function leagueHierarchyRank(league) {
+  const name = String(league?.league || league || "").toLowerCase();
+  const type = String(league?.type || "").toLowerCase();
+  const youth = /u[- ]?\d{2}|under[- ]?\d{2}|youth|junior|reserve|academy|primavera/.test(name);
+  const women = /women|woman|femin|frauen|femen|ladies|wsl|nadeshiko/.test(name);
+  const cup = type === "cup" || /cup|pokal|copa|trophy|shield|super cup|fa cup|league cup/.test(name);
+  if (youth) return 900;
+  if (women) return 800;
+  if (cup) return 700;
+  const tiers = [
+    [/premier league|bundesliga$|la liga$|serie a$|ligue 1$|eredivisie$|primeira liga$|premiership$/, 1],
+    [/championship|2\.? bundesliga|segunda|serie b|ligue 2|eerste divisie|liga portugal 2/, 2],
+    [/league one|3\.? liga|tercera|national 1|serie c/, 3],
+    [/league two|regionalliga|national league/, 4],
+    [/oberliga|national league north|national league south|regional/, 5],
+  ];
+  for (const [pattern, rank] of tiers) if (pattern.test(name)) return rank;
+  const number = name.match(/(?:division|league|liga|serie)\s*(\d+)/)?.[1];
+  if (number) return Math.min(50, Number(number));
+  return 100;
+}
+
 function compareFavouriteLeagues(a, b) {
   const selectedA = state.favouriteLeagues.includes(a.key);
   const selectedB = state.favouriteLeagues.includes(b.key);
+  const hierarchy = leagueHierarchyRank(a) - leagueHierarchyRank(b);
   switch (state.favouriteOrder) {
-    case "alphabetical":
-    case "country": return a.league.localeCompare(b.league);
-    case "popularity": return leaguePriority(a.league) - leaguePriority(b.league) || a.league.localeCompare(b.league);
-    case "recent": return favouriteSelectionRank(a.key) - favouriteSelectionRank(b.key) || a.league.localeCompare(b.league);
-    default: return Number(selectedB) - Number(selectedA) || leaguePriority(a.league) - leaguePriority(b.league) || a.league.localeCompare(b.league);
+    case "alphabetical": return hierarchy || a.league.localeCompare(b.league);
+    case "country": return hierarchy || a.league.localeCompare(b.league);
+    case "popularity": return leaguePriority(a.league) - leaguePriority(b.league) || hierarchy || a.league.localeCompare(b.league);
+    case "recent": return favouriteSelectionRank(a.key) - favouriteSelectionRank(b.key) || hierarchy || a.league.localeCompare(b.league);
+    default: return Number(selectedB) - Number(selectedA) || hierarchy || leaguePriority(a.league) - leaguePriority(b.league) || a.league.localeCompare(b.league);
   }
 }
 
@@ -991,7 +1085,8 @@ function conditionLabel(id) { return CONDITIONS.find((condition) => condition.id
 
 function trafficState(fixture, condition) {
   if (fixture.status === "scheduled") return { colour: "grey", copy: "Not started" };
-  if (fixture.status === "cancelled") return { colour: "grey", copy: fixture.statusLong };
+  if (fixture.status === "cancelled") return { colour: "grey", copy: unusualOutcomeCopy(fixture) };
+  if (["INT", "SUSP"].includes(fixture.statusShort)) return { colour: "grey", copy: unusualOutcomeCopy(fixture) };
   if (condition === "none") return { colour: "grey", copy: fixture.status === "finished" ? "Finished" : "Tracking only" };
 
   const h = Number(fixture.homeScore) || 0;
@@ -1647,6 +1742,70 @@ function applyDensity() {
   });
 }
 
+
+function currentListShareData() {
+  const list = state.lists[state.currentListId];
+  const entries = Object.values(list?.selected || {}).map((entry) => ({ ...entry, fixture: getFixtureById(entry.fixture?.id) || entry.fixture })).filter((entry) => entry.fixture);
+  const overall = document.getElementById("overallListStatus")?.textContent?.trim() || "";
+  const lines = entries.map((entry) => {
+    const fixture = entry.fixture;
+    const score = fixture.status === "scheduled" ? formatFixtureTime(fixture) : `${fixture.homeScore}–${fixture.awayScore}`;
+    return `${fixture.home} ${score} ${fixture.away} — ${conditionLabel(entry.condition)} (${trafficState(fixture, entry.condition).copy})`;
+  });
+  return { title: `YorAkka · ${list?.name || "My Matches"}`, overall, lines };
+}
+
+function currentListShareText() {
+  const data = currentListShareData();
+  return [data.title, "Your football. Your picks. Your way.", data.overall, "", ...data.lines].filter((line, index, items) => line || (index > 0 && items[index - 1])).join("\n");
+}
+
+async function copyCurrentListText() {
+  const text = currentListShareText();
+  await navigator.clipboard.writeText(text);
+  const feedback = document.getElementById("shareFeedback");
+  if (feedback) feedback.textContent = "List copied.";
+}
+
+async function shareCurrentList() {
+  const data = currentListShareData();
+  const text = currentListShareText();
+  if (navigator.share) await navigator.share({ title: data.title, text });
+  else await copyCurrentListText();
+}
+
+function saveCurrentListImage() {
+  const data = currentListShareData();
+  const width = 1080;
+  const rowHeight = 92;
+  const height = Math.max(560, 330 + data.lines.length * rowHeight);
+  const canvas = document.createElement("canvas");
+  canvas.width = width; canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "#080b10";
+  const panel = getComputedStyle(document.documentElement).getPropertyValue("--panel").trim() || "#121722";
+  const text = getComputedStyle(document.documentElement).getPropertyValue("--text").trim() || "#f5f7fb";
+  const muted = getComputedStyle(document.documentElement).getPropertyValue("--muted").trim() || "#9aa4b4";
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = text; ctx.font = "700 64px system-ui"; ctx.fillText("YorAkka", 70, 95);
+  ctx.font = "700 25px system-ui"; ctx.fillStyle = muted; ctx.fillText("YOUR FOOTBALL. YOUR PICKS. YOUR WAY.", 70, 140);
+  ctx.font = "700 38px system-ui"; ctx.fillStyle = text; ctx.fillText(data.title.replace("YorAkka · ", ""), 70, 220);
+  if (data.overall) { ctx.font = "700 28px system-ui"; ctx.fillStyle = "#f4c95d"; ctx.fillText(data.overall, 70, 267); }
+  data.lines.forEach((line, index) => {
+    const y = 305 + index * rowHeight;
+    ctx.fillStyle = panel; ctx.fillRect(55, y, width - 110, rowHeight - 12);
+    ctx.fillStyle = text; ctx.font = "600 25px system-ui";
+    const words = line.split(" "); let current = ""; let lineY = y + 34;
+    words.forEach((word) => { const test = `${current}${word} `; if (ctx.measureText(test).width > width - 175 && current) { ctx.fillText(current, 82, lineY); current = `${word} `; lineY += 30; } else current = test; });
+    if (current) ctx.fillText(current, 82, lineY);
+  });
+  const link = document.createElement("a");
+  link.download = `YorAkka-${(state.lists[state.currentListId]?.name || "list").replace(/[^a-z0-9]+/gi, "-")}.png`;
+  link.href = canvas.toDataURL("image/png"); link.click();
+  const feedback = document.getElementById("shareFeedback");
+  if (feedback) feedback.textContent = "Image saved.";
+}
+
 function renderAll() {
   renderDateStrip();
   renderDataStatus();
@@ -1656,6 +1815,7 @@ function renderAll() {
   renderSoundSetting();
   renderRefreshSettings();
   renderCleanupSetting();
+  renderUpdateHealth();
   const count = allListEntries().length;
   const badge = document.getElementById("trackerBadge");
   badge.hidden = count === 0;
@@ -1787,6 +1947,7 @@ function bindEvents() {
     localStorage.setItem(`${STORAGE_PREFIX}completed-cleanup-hours`, String(state.completedCleanupHours));
     autoClearIfDue();
     renderCleanupSetting();
+  renderUpdateHealth();
     renderAll();
   });
   document.getElementById("fixtureOrderControl").addEventListener("click", (event) => {
@@ -1932,6 +2093,15 @@ function bindEvents() {
     saveSignals();
     renderAll();
   });
+  document.getElementById("shareList").addEventListener("click", () => {
+    if (!Object.keys(state.selected).length) { alert("Add a match to this list before sharing it."); return; }
+    document.getElementById("shareFeedback").textContent = "";
+    document.getElementById("shareDialog").showModal();
+  });
+  document.getElementById("closeShareDialog").addEventListener("click", () => document.getElementById("shareDialog").close());
+  document.getElementById("copyListText").addEventListener("click", () => copyCurrentListText().catch(() => { document.getElementById("shareFeedback").textContent = "Could not copy this list."; }));
+  document.getElementById("shareNative").addEventListener("click", () => shareCurrentList().catch(() => {}));
+  document.getElementById("saveListImage").addEventListener("click", saveCurrentListImage);
   document.getElementById("clearTracker").addEventListener("click", () => document.getElementById("confirmDialog").showModal());
   document.getElementById("confirmDialog").addEventListener("close", (event) => {
     if (event.target.returnValue === "confirm") {
@@ -1941,6 +2111,8 @@ function bindEvents() {
     }
   });
   document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshLive({ manual: true }); });
+  window.addEventListener("online", renderUpdateHealth);
+  window.addEventListener("offline", renderUpdateHealth);
 }
 
 async function start() {
@@ -1958,7 +2130,7 @@ async function start() {
   renderRefreshSettings();
   setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.13").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.15").catch(() => {});
 }
 
 start();

@@ -1,32 +1,16 @@
-# YorAkka V3.16
+# YorAkka V3.17
 
-## V3.16 changes
+## V3.17 changes
 
-- Adds a new Ordering section in Settings.
-- Fixtures can be ordered by Smart, Alphabetical, League popularity, Country, Kick-off time, or Live first.
-- Favourite Leagues can be ordered by Selected first, Alphabetical, League popularity, Country, or Recently selected.
-- Ordering choices are stored on the device and remain after closing YorAkka.
-- Includes a Reset order button to restore YorAkka defaults.
-- Keeps all V3.12 CSV restrictions and field order.
-- Updates the visible version and service-worker cache to V3.16.
+- Adds selectable alert sound packs: Cheer / Boo, Chimes, Minimal and Whistle.
+- Makes Cheer / Boo the default for new users.
+- Adds short original crowd-style cheer and boo samples created for YorAkka.
+- Raises and rebalances audio output so phone alerts are easier to hear.
+- Keeps Mute, 25%, 50%, 75% and 100% volume controls; changing volume now previews the positive alert.
+- Keeps Sound, Vibration, Both and Off modes.
+- Positive vibration remains two short buzzes; negative remains one long buzz.
+- Updates the visible version and service-worker cache to V3.17.
 
-## Installation
+## Install
 
-Replace all existing GitHub Pages files with this package. The Cloudflare Worker is unchanged from V3.12 and does not need redeploying.
-
-
-## V3.16
-Adds user-selectable My Matches ordering: Live first, List order, Kick-off, Status, Goals needed, League popularity, Alphabetical, and Custom. Custom order provides touch-friendly up/down controls and is saved separately for each list.
-
-
-## V3.16
-- Live update health shows score/event freshness, delays and offline state.
-- Current list can be shared as text, through device share apps, or saved as an image.
-- Postponed, abandoned, interrupted, extra-time and penalty states are handled explicitly.
-- Favourite competitions are ordered within each country using their football hierarchy.
-
-
-## V3.16
-- Sound, vibration, both or off alert modes.
-- Stadium double-tone alerts with adjustable audio volume.
-- Tappable overall list status with a per-selection explanation.
+Replace all files in the GitHub Pages repository. The Cloudflare Worker is unchanged and does not need redeploying.

@@ -1,5 +1,5 @@
-const CACHE_NAME = "yorakka-v3.16";
-const APP_FILES = ["./", "./index.html", "./styles.css?v=3.16", "./app.js?v=3.16", "./manifest.json", "./icon.svg"];
+const CACHE_NAME = "yorakka-v3.17";
+const APP_FILES = ["./", "./index.html", "./styles.css?v=3.17", "./app.js?v=3.17", "./manifest.json", "./icon.svg", "./alert-stadium-positive.wav", "./alert-stadium-negative.wav"];
 self.addEventListener("install", (event) => { event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_FILES))); self.skipWaiting(); });
 self.addEventListener("activate", (event) => { event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))); self.clients.claim(); });
 self.addEventListener("fetch", (event) => {

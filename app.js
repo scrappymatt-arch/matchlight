@@ -163,6 +163,7 @@ const state = {
   pendingScrollView: null,
   alertMode: localStorage.getItem(`${STORAGE_PREFIX}alert-mode`) || (localStorage.getItem(`${STORAGE_PREFIX}goal-sounds`) === "true" ? "sound" : "off"),
   alertVolume: Number(localStorage.getItem(`${STORAGE_PREFIX}alert-volume`) ?? 0.75),
+  alertSoundPack: localStorage.getItem(`${STORAGE_PREFIX}alert-sound-pack`) || "stadium",
   liveRefreshSeconds: Number(localStorage.getItem(`${STORAGE_PREFIX}live-refresh-seconds`) ?? DEFAULT_LIVE_REFRESH_SECONDS),
   signalRefreshSeconds: Number(localStorage.getItem(`${STORAGE_PREFIX}signal-refresh-seconds`) ?? DEFAULT_SIGNAL_REFRESH_SECONDS),
   completedCleanupHours: Number(localStorage.getItem(`${STORAGE_PREFIX}completed-cleanup-hours`) ?? DEFAULT_COMPLETED_CLEANUP_HOURS),
@@ -289,27 +290,53 @@ function playGoalVibration(kind) {
   navigator.vibrate(kind === "positive" ? [120, 90, 120] : [460]);
 }
 
-function playGoalTone(kind) {
-  if (!alertUsesSound() || state.alertVolume <= 0) return;
+function playAudioFileAlert(kind) {
+  const source = kind === "positive" ? "alert-stadium-positive.wav" : "alert-stadium-negative.wav";
+  const audio = new Audio(source);
+  // The samples are normalised close to their clean maximum. Keep the user setting linear and audible.
+  audio.volume = Math.max(0, Math.min(1, state.alertVolume));
+  audio.play().catch(() => {});
+}
+
+function playSynthAlert(kind, pack) {
   const context = ensureAudioContext();
   if (!context) return;
   const now = context.currentTime;
-  const notes = kind === "positive"
-    ? [{ frequency: 660, delay: 0, duration: 0.12, type: "triangle" }, { frequency: 990, delay: 0.17, duration: 0.18, type: "triangle" }]
-    : [{ frequency: 240, delay: 0, duration: 0.14, type: "sine" }, { frequency: 150, delay: 0.20, duration: 0.22, type: "sine" }];
-  const peak = 0.18 * Math.max(0, Math.min(1, state.alertVolume));
-  notes.forEach(({ frequency, delay, duration, type }) => {
+  let notes;
+  if (pack === "minimal") {
+    notes = kind === "positive"
+      ? [{ frequency: 1400, delay: 0, duration: 0.055, type: "square" }, { frequency: 1800, delay: 0.12, duration: 0.065, type: "square" }]
+      : [{ frequency: 430, delay: 0, duration: 0.08, type: "square" }, { frequency: 300, delay: 0.13, duration: 0.12, type: "square" }];
+  } else if (pack === "whistle") {
+    notes = kind === "positive"
+      ? [{ frequency: 1700, endFrequency: 2250, delay: 0, duration: 0.10, type: "sine" }, { frequency: 1800, endFrequency: 2450, delay: 0.17, duration: 0.12, type: "sine" }]
+      : [{ frequency: 950, endFrequency: 700, delay: 0, duration: 0.16, type: "sine" }, { frequency: 750, endFrequency: 500, delay: 0.22, duration: 0.20, type: "sine" }];
+  } else {
+    notes = kind === "positive"
+      ? [{ frequency: 660, delay: 0, duration: 0.12, type: "triangle" }, { frequency: 990, delay: 0.17, duration: 0.18, type: "triangle" }]
+      : [{ frequency: 240, delay: 0, duration: 0.14, type: "sine" }, { frequency: 150, delay: 0.20, duration: 0.22, type: "sine" }];
+  }
+  // Raised from V3.16 and slightly compressed so 75% is clearly audible on phone speakers.
+  const peak = 0.42 * Math.max(0, Math.min(1, state.alertVolume));
+  notes.forEach(({ frequency, endFrequency, delay, duration, type }) => {
     const oscillator = context.createOscillator();
     const gain = context.createGain();
     oscillator.type = type;
     oscillator.frequency.setValueAtTime(frequency, now + delay);
+    if (endFrequency) oscillator.frequency.linearRampToValueAtTime(endFrequency, now + delay + duration);
     gain.gain.setValueAtTime(0.0001, now + delay);
-    gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), now + delay + 0.015);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), now + delay + 0.012);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + duration);
     oscillator.connect(gain).connect(context.destination);
     oscillator.start(now + delay);
-    oscillator.stop(now + delay + duration + 0.02);
+    oscillator.stop(now + delay + duration + 0.025);
   });
+}
+
+function playGoalTone(kind) {
+  if (!alertUsesSound() || state.alertVolume <= 0) return;
+  if (state.alertSoundPack === "stadium") playAudioFileAlert(kind);
+  else playSynthAlert(kind, state.alertSoundPack);
 }
 
 function triggerGoalAlert(kind) {
@@ -1911,8 +1938,13 @@ function renderSoundSetting() {
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", String(active));
   });
+  document.querySelectorAll("#alertSoundPackControl button[data-sound-pack]").forEach((button) => {
+    const active = button.dataset.soundPack === state.alertSoundPack;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
   const disabled = !alertUsesSound();
-  document.querySelectorAll("#alertVolumeControl button").forEach((button) => { button.disabled = disabled; });
+  document.querySelectorAll("#alertVolumeControl button, #alertSoundPackControl button").forEach((button) => { button.disabled = disabled; });
 }
 
 const COMMON_TIME_ZONES = [
@@ -1986,12 +2018,22 @@ function bindEvents() {
     if (alertUsesSound()) ensureAudioContext();
     renderSoundSetting();
   });
+  document.getElementById("alertSoundPackControl").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-sound-pack]");
+    if (!button || button.disabled) return;
+    state.alertSoundPack = button.dataset.soundPack;
+    localStorage.setItem(`${STORAGE_PREFIX}alert-sound-pack`, state.alertSoundPack);
+    renderSoundSetting();
+    ensureAudioContext();
+    playGoalTone("positive");
+  });
   document.getElementById("alertVolumeControl").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-volume]");
     if (!button || button.disabled) return;
     state.alertVolume = Number(button.dataset.volume);
     localStorage.setItem(`${STORAGE_PREFIX}alert-volume`, String(state.alertVolume));
     renderSoundSetting();
+    if (state.alertVolume > 0) { ensureAudioContext(); playGoalTone("positive"); }
   });
   document.getElementById("testPositiveSound").addEventListener("click", () => { ensureAudioContext(); triggerGoalAlert("positive"); });
   document.getElementById("testNegativeSound").addEventListener("click", () => { ensureAudioContext(); triggerGoalAlert("negative"); });
@@ -2201,7 +2243,7 @@ async function start() {
   renderRefreshSettings();
   setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.16").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.17").catch(() => {});
 }
 
 start();

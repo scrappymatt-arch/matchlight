@@ -8,13 +8,13 @@
   <title>YorAkka</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=3.16" />
+  <link rel="stylesheet" href="styles.css?v=3.17" />
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div class="brand-lockup">
-        <h1>YorAkka <span class="app-version">V3.16</span> <span class="brand-tagline">YOUR FOOTBALL. YOUR PICKS. YOUR WAY.</span></h1>
+        <h1>YorAkka <span class="app-version">V3.17</span> <span class="brand-tagline">YOUR FOOTBALL. YOUR PICKS. YOUR WAY.</span></h1>
       </div>
       <button id="themeToggle" class="icon-button" aria-label="Toggle theme" title="Toggle theme">☼</button>
     </header>
@@ -129,7 +129,7 @@
         </div>
 
         <div class="settings-card alert-setting">
-          <div><h3>Goal alerts</h3><p>Choose sound, vibration, both or off. Positive goals use two bright tones or two short buzzes; negative goals use two low tones or one long buzz.</p></div>
+          <div><h3>Goal alerts</h3><p>Choose sound, vibration, both or off. Cheer / Boo is the default sound pack. Positive vibration uses two short buzzes; negative vibration uses one long buzz.</p></div>
           <div class="alert-controls">
             <div id="alertModeControl" class="refresh-button-group" role="group" aria-label="Goal alert type">
               <button type="button" data-alert-mode="sound">Sound</button>
@@ -137,6 +137,12 @@
               <button type="button" data-alert-mode="both">Both</button>
               <button type="button" data-alert-mode="off">Off</button>
             </div>
+            <div class="volume-row"><span>Sound pack</span><div id="alertSoundPackControl" class="refresh-button-group sound-pack-button-group" role="group" aria-label="Audio alert sound pack">
+              <button type="button" data-sound-pack="stadium">Cheer / Boo</button>
+              <button type="button" data-sound-pack="chimes">Chimes</button>
+              <button type="button" data-sound-pack="minimal">Minimal</button>
+              <button type="button" data-sound-pack="whistle">Whistle</button>
+            </div></div>
             <div class="volume-row"><span>Audio volume</span><div id="alertVolumeControl" class="refresh-button-group volume-button-group" role="group" aria-label="Audio alert volume">
               <button type="button" data-volume="0">Mute</button>
               <button type="button" data-volume="0.25">25%</button>
@@ -316,6 +322,6 @@
     </div>
   </dialog>
 
-  <script src="app.js?v=3.16" defer></script>
+  <script src="app.js?v=3.17" defer></script>
 </body>
 </html>

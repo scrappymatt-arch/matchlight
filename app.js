@@ -291,7 +291,7 @@ function playGoalVibration(kind) {
 }
 
 function playAudioFileAlert(kind) {
-  const source = kind === "positive" ? "alert-stadium-positive.wav" : "alert-stadium-negative.wav";
+  const source = kind === "positive" ? "alert-crowd-positive.mp3" : "alert-crowd-negative.mp3";
   const audio = new Audio(source);
   // The samples are normalised close to their clean maximum. Keep the user setting linear and audible.
   audio.volume = Math.max(0, Math.min(1, state.alertVolume));
@@ -2243,7 +2243,7 @@ async function start() {
   renderRefreshSettings();
   setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.17").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.19").catch(() => {});
 }
 
 start();

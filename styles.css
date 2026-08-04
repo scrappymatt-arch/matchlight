@@ -1086,3 +1086,19 @@ body.tracker-active .app-version {
   .sound-pack-button-group { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
   .sound-pack-button-group button { min-width: 0; }
 }
+
+
+/* V3.18: balanced goal-alert layout */
+.alert-setting { align-items:start; }
+.alert-intro { display:grid; gap:16px; min-width:0; }
+.alert-mode-button-group { width:100%; justify-content:flex-start; }
+.alert-controls { align-self:start; }
+@media (min-width: 761px) {
+  .alert-setting { grid-template-columns:minmax(280px, 1fr) minmax(320px, 1fr); }
+  .alert-mode-button-group { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); }
+}
+@media (max-width: 760px) {
+  .alert-intro { gap:12px; }
+  .alert-mode-button-group { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); }
+  .alert-mode-button-group button { padding-inline:6px; }
+}

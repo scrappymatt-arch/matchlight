@@ -1,15 +1,13 @@
-# YorAkka V3.17
+# YorAkka V3.19
 
-## V3.17 changes
+## V3.19 changes
 
-- Adds selectable alert sound packs: Cheer / Boo, Chimes, Minimal and Whistle.
-- Makes Cheer / Boo the default for new users.
-- Adds short original crowd-style cheer and boo samples created for YorAkka.
-- Raises and rebalances audio output so phone alerts are easier to hear.
-- Keeps Mute, 25%, 50%, 75% and 100% volume controls; changing volume now previews the positive alert.
-- Keeps Sound, Vibration, Both and Off modes.
-- Positive vibration remains two short buzzes; negative remains one long buzz.
-- Updates the visible version and service-worker cache to V3.17.
+- Corrects the Cheer / Boo crowd-alert assignments.
+- Uses crowd clip 2 for positive goal alerts.
+- Uses crowd clip 1 for negative goal alerts.
+- Corrects both live alerts and the positive/negative test buttons.
+- Keeps the Goal alerts layout, volume controls, vibration options and other sound packs unchanged.
+- Updates the visible version and service-worker cache to V3.19.
 
 ## Install
 

@@ -8,13 +8,13 @@
   <title>YorAkka</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=3.15" />
+  <link rel="stylesheet" href="styles.css?v=3.16" />
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div class="brand-lockup">
-        <h1>YorAkka <span class="app-version">V3.15</span> <span class="brand-tagline">YOUR FOOTBALL. YOUR PICKS. YOUR WAY.</span></h1>
+        <h1>YorAkka <span class="app-version">V3.16</span> <span class="brand-tagline">YOUR FOOTBALL. YOUR PICKS. YOUR WAY.</span></h1>
       </div>
       <button id="themeToggle" class="icon-button" aria-label="Toggle theme" title="Toggle theme">☼</button>
     </header>
@@ -128,12 +128,26 @@
           </div>
         </div>
 
-        <div class="settings-card">
-          <div><h3>Goal sounds</h3><p>Plays a rising tone when a goal helps the active list and a descending tone when it hurts it. Works while YorAkka is open.</p></div>
-          <div class="settings-test-actions">
-            <button id="goalSoundsToggle" class="secondary-button" type="button">Off</button>
-            <button id="testPositiveSound" class="text-button" type="button">Test +</button>
-            <button id="testNegativeSound" class="text-button" type="button">Test −</button>
+        <div class="settings-card alert-setting">
+          <div><h3>Goal alerts</h3><p>Choose sound, vibration, both or off. Positive goals use two bright tones or two short buzzes; negative goals use two low tones or one long buzz.</p></div>
+          <div class="alert-controls">
+            <div id="alertModeControl" class="refresh-button-group" role="group" aria-label="Goal alert type">
+              <button type="button" data-alert-mode="sound">Sound</button>
+              <button type="button" data-alert-mode="vibration">Vibration</button>
+              <button type="button" data-alert-mode="both">Both</button>
+              <button type="button" data-alert-mode="off">Off</button>
+            </div>
+            <div class="volume-row"><span>Audio volume</span><div id="alertVolumeControl" class="refresh-button-group volume-button-group" role="group" aria-label="Audio alert volume">
+              <button type="button" data-volume="0">Mute</button>
+              <button type="button" data-volume="0.25">25%</button>
+              <button type="button" data-volume="0.5">50%</button>
+              <button type="button" data-volume="0.75">75%</button>
+              <button type="button" data-volume="1">100%</button>
+            </div></div>
+            <div class="settings-test-actions">
+              <button id="testPositiveSound" class="secondary-button" type="button">Test positive</button>
+              <button id="testNegativeSound" class="secondary-button" type="button">Test negative</button>
+            </div>
           </div>
         </div>
 
@@ -283,6 +297,14 @@
     </div>
   </dialog>
 
+  <dialog id="goalsBreakdownDialog">
+    <div class="dialog-card compact goals-breakdown-card">
+      <div class="dialog-header"><div><p class="section-kicker">MY MATCHES</p><h3 id="goalsBreakdownTitle">Why this status?</h3></div><button id="closeGoalsBreakdown" class="dialog-close" type="button" aria-label="Close">×</button></div>
+      <p id="goalsBreakdownSummary" class="goals-breakdown-summary"></p>
+      <div id="goalsBreakdownList" class="goals-breakdown-list"></div>
+    </div>
+  </dialog>
+
   <dialog id="timezoneDialog">
     <div class="dialog-card timezone-dialog-card">
       <div class="dialog-header">
@@ -294,6 +316,6 @@
     </div>
   </dialog>
 
-  <script src="app.js?v=3.15" defer></script>
+  <script src="app.js?v=3.16" defer></script>
 </body>
 </html>

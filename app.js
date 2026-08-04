@@ -161,7 +161,8 @@ const state = {
   scoresScrollY: 0,
   trackerScrollY: 0,
   pendingScrollView: null,
-  goalSoundsEnabled: localStorage.getItem(`${STORAGE_PREFIX}goal-sounds`) === "true",
+  alertMode: localStorage.getItem(`${STORAGE_PREFIX}alert-mode`) || (localStorage.getItem(`${STORAGE_PREFIX}goal-sounds`) === "true" ? "sound" : "off"),
+  alertVolume: Number(localStorage.getItem(`${STORAGE_PREFIX}alert-volume`) ?? 0.75),
   liveRefreshSeconds: Number(localStorage.getItem(`${STORAGE_PREFIX}live-refresh-seconds`) ?? DEFAULT_LIVE_REFRESH_SECONDS),
   signalRefreshSeconds: Number(localStorage.getItem(`${STORAGE_PREFIX}signal-refresh-seconds`) ?? DEFAULT_SIGNAL_REFRESH_SECONDS),
   completedCleanupHours: Number(localStorage.getItem(`${STORAGE_PREFIX}completed-cleanup-hours`) ?? DEFAULT_COMPLETED_CLEANUP_HOURS),
@@ -280,24 +281,40 @@ function ensureAudioContext() {
   return state.audioContext;
 }
 
+function alertUsesSound() { return state.alertMode === "sound" || state.alertMode === "both"; }
+function alertUsesVibration() { return state.alertMode === "vibration" || state.alertMode === "both"; }
+
+function playGoalVibration(kind) {
+  if (!alertUsesVibration() || !navigator.vibrate) return;
+  navigator.vibrate(kind === "positive" ? [120, 90, 120] : [460]);
+}
+
 function playGoalTone(kind) {
-  if (!state.goalSoundsEnabled) return;
+  if (!alertUsesSound() || state.alertVolume <= 0) return;
   const context = ensureAudioContext();
   if (!context) return;
   const now = context.currentTime;
-  const notes = kind === "positive" ? [523.25, 659.25, 783.99] : [220, 174.61, 130.81];
-  notes.forEach((frequency, index) => {
+  const notes = kind === "positive"
+    ? [{ frequency: 660, delay: 0, duration: 0.12, type: "triangle" }, { frequency: 990, delay: 0.17, duration: 0.18, type: "triangle" }]
+    : [{ frequency: 240, delay: 0, duration: 0.14, type: "sine" }, { frequency: 150, delay: 0.20, duration: 0.22, type: "sine" }];
+  const peak = 0.18 * Math.max(0, Math.min(1, state.alertVolume));
+  notes.forEach(({ frequency, delay, duration, type }) => {
     const oscillator = context.createOscillator();
     const gain = context.createGain();
-    oscillator.type = kind === "positive" ? "sine" : "triangle";
-    oscillator.frequency.setValueAtTime(frequency, now + index * 0.09);
-    gain.gain.setValueAtTime(0.0001, now + index * 0.09);
-    gain.gain.exponentialRampToValueAtTime(0.14, now + index * 0.09 + 0.015);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + index * 0.09 + 0.16);
+    oscillator.type = type;
+    oscillator.frequency.setValueAtTime(frequency, now + delay);
+    gain.gain.setValueAtTime(0.0001, now + delay);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), now + delay + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + duration);
     oscillator.connect(gain).connect(context.destination);
-    oscillator.start(now + index * 0.09);
-    oscillator.stop(now + index * 0.09 + 0.18);
+    oscillator.start(now + delay);
+    oscillator.stop(now + delay + duration + 0.02);
   });
+}
+
+function triggerGoalAlert(kind) {
+  playGoalTone(kind);
+  playGoalVibration(kind);
 }
 
 function goalEffect(previous, next, condition) {
@@ -338,7 +355,7 @@ function playTrackedGoalEffect(previous, next) {
   const condition = activeList?.selected?.[String(next.id)]?.condition;
   if (!condition || condition === "none") return;
   const effect = goalEffect(previous, next, condition);
-  if (effect === "positive" || effect === "negative") playGoalTone(effect);
+  if (effect === "positive" || effect === "negative") triggerGoalAlert(effect);
 }
 
 function recordScoreChange(previous, next) {
@@ -1323,6 +1340,32 @@ function goalsNeededForSelection(fixture, condition) {
   return 0;
 }
 
+function overallBreakdown(values) {
+  const entries = values.map((entry) => {
+    const status = trafficState(entry.fixture, entry.condition);
+    const goals = goalsNeededForSelection(entry.fixture, entry.condition);
+    return { ...entry, status, goals };
+  });
+  if (!entries.length) return { title: "No matches selected", summary: "Add matches to this list to see an explanation.", entries };
+  if (entries.some((entry) => entry.status.colour === "lost")) return { title: "LOST", summary: "At least one selection can no longer be achieved.", entries };
+  const total = entries.reduce((sum, entry) => sum + entry.goals, 0);
+  if (total > 0) return { title: `${total} ${total === 1 ? "GOAL" : "GOALS"} NEEDED`, summary: "This total adds the remaining goals required by each recoverable selection.", entries };
+  return { title: "ALL CORRECT", summary: "Every active selection is currently satisfied.", entries };
+}
+
+function showGoalsBreakdown() {
+  const values = Object.values(state.selected);
+  if (!values.length) return;
+  const data = overallBreakdown(values);
+  document.getElementById("goalsBreakdownTitle").textContent = data.title;
+  document.getElementById("goalsBreakdownSummary").textContent = data.summary;
+  document.getElementById("goalsBreakdownList").innerHTML = data.entries.map(({ fixture, condition, status, goals }) => {
+    const reason = status.colour === "lost" ? "Cannot recover" : goals > 0 ? `${goals} ${goals === 1 ? "goal" : "goals"} needed` : status.copy;
+    return `<div class="goals-breakdown-item"><div><strong>${escapeHtml(fixture.home)} v ${escapeHtml(fixture.away)}</strong><small>${escapeHtml(conditionLabel(condition))}</small></div><span class="breakdown-${escapeHtml(status.colour)}">${escapeHtml(reason)}</span></div>`;
+  }).join("");
+  document.getElementById("goalsBreakdownDialog").showModal();
+}
+
 function renderOverallListStatus(values) {
   const target = document.getElementById("overallListStatus");
   if (!target) return;
@@ -1331,10 +1374,16 @@ function renderOverallListStatus(values) {
     target.hidden = true;
     target.className = "overall-list-status";
     target.textContent = "";
+    target.removeAttribute("role");
+    target.removeAttribute("tabindex");
     return;
   }
 
   target.hidden = false;
+  target.setAttribute("role", "button");
+  target.setAttribute("tabindex", "0");
+  target.setAttribute("title", "Tap to see why this status is shown");
+  target.setAttribute("aria-label", "List status. Tap for explanation");
   const statuses = values.map((entry) => trafficState(entry.fixture, entry.condition));
   if (statuses.some((status) => status.colour === "lost")) {
     target.className = "overall-list-status lost";
@@ -1852,10 +1901,18 @@ function renderCleanupSetting() {
 }
 
 function renderSoundSetting() {
-  const button = document.getElementById("goalSoundsToggle");
-  if (!button) return;
-  button.textContent = state.goalSoundsEnabled ? "On" : "Off";
-  button.classList.toggle("active", state.goalSoundsEnabled);
+  document.querySelectorAll("#alertModeControl button[data-alert-mode]").forEach((button) => {
+    const active = button.dataset.alertMode === state.alertMode;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  document.querySelectorAll("#alertVolumeControl button[data-volume]").forEach((button) => {
+    const active = Math.abs(Number(button.dataset.volume) - state.alertVolume) < 0.001;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  const disabled = !alertUsesSound();
+  document.querySelectorAll("#alertVolumeControl button").forEach((button) => { button.disabled = disabled; });
 }
 
 const COMMON_TIME_ZONES = [
@@ -1906,6 +1963,11 @@ function bindEvents() {
   document.getElementById("fixtureSearch").addEventListener("input", (event) => { state.search = event.target.value; renderFixtures(); });
   document.getElementById("showSelectedOnly").addEventListener("click", () => { state.selectedOnly = !state.selectedOnly; renderAll(); });
   document.getElementById("downloadFixturesCsv").addEventListener("click", downloadVisibleFixturesCsv);
+  const overallStatusButton = document.getElementById("overallListStatus");
+  overallStatusButton.addEventListener("click", showGoalsBreakdown);
+  overallStatusButton.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); showGoalsBreakdown(); } });
+  document.getElementById("closeGoalsBreakdown").addEventListener("click", () => document.getElementById("goalsBreakdownDialog").close());
+  document.getElementById("goalsBreakdownDialog").addEventListener("click", (event) => { if (event.target.id === "goalsBreakdownDialog") event.currentTarget.close(); });
   document.getElementById("trackerFilters").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-filter]");
     if (!button) return;
@@ -1916,14 +1978,23 @@ function bindEvents() {
   const toggleTheme = () => { state.theme = state.theme === "dark" ? "light" : "dark"; applyTheme(); };
   document.getElementById("themeToggle").addEventListener("click", toggleTheme);
   document.getElementById("settingsThemeToggle").addEventListener("click", toggleTheme);
-  document.getElementById("goalSoundsToggle").addEventListener("click", () => {
-    state.goalSoundsEnabled = !state.goalSoundsEnabled;
-    localStorage.setItem(`${STORAGE_PREFIX}goal-sounds`, String(state.goalSoundsEnabled));
-    if (state.goalSoundsEnabled) ensureAudioContext();
+  document.getElementById("alertModeControl").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-alert-mode]");
+    if (!button) return;
+    state.alertMode = button.dataset.alertMode;
+    localStorage.setItem(`${STORAGE_PREFIX}alert-mode`, state.alertMode);
+    if (alertUsesSound()) ensureAudioContext();
     renderSoundSetting();
   });
-  document.getElementById("testPositiveSound").addEventListener("click", () => { ensureAudioContext(); playGoalTone("positive"); });
-  document.getElementById("testNegativeSound").addEventListener("click", () => { ensureAudioContext(); playGoalTone("negative"); });
+  document.getElementById("alertVolumeControl").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-volume]");
+    if (!button || button.disabled) return;
+    state.alertVolume = Number(button.dataset.volume);
+    localStorage.setItem(`${STORAGE_PREFIX}alert-volume`, String(state.alertVolume));
+    renderSoundSetting();
+  });
+  document.getElementById("testPositiveSound").addEventListener("click", () => { ensureAudioContext(); triggerGoalAlert("positive"); });
+  document.getElementById("testNegativeSound").addEventListener("click", () => { ensureAudioContext(); triggerGoalAlert("negative"); });
   document.getElementById("liveRefreshControl").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-seconds]");
     if (!button) return;
@@ -2130,7 +2201,7 @@ async function start() {
   renderRefreshSettings();
   setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.15").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.16").catch(() => {});
 }
 
 start();

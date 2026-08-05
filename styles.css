@@ -1102,3 +1102,28 @@ body.tracker-active .app-version {
   .alert-mode-button-group { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); }
   .alert-mode-button-group button { padding-inline:6px; }
 }
+
+
+/* V3.20: compact Fixtures banner, mobile alert layout, clearer sharing */
+.visually-hidden { position:absolute !important; width:1px !important; height:1px !important; padding:0 !important; margin:-1px !important; overflow:hidden !important; clip:rect(0,0,0,0) !important; white-space:nowrap !important; border:0 !important; }
+body.scores-active .topbar { display:none; }
+.fixtures-brand-banner { position:relative; width:100%; overflow:hidden; border:1px solid var(--border); border-radius:18px; margin:0 0 12px; background:var(--surface); aspect-ratio:3/1; max-height:210px; }
+.fixtures-brand-banner img { display:block; width:100%; height:100%; object-fit:cover; }
+.banner-today-button { position:absolute; right:10px; bottom:10px; z-index:1; box-shadow:0 4px 18px rgba(0,0,0,.35); }
+@media (max-width:760px) {
+  .settings-card.alert-setting { display:block; }
+  .alert-setting .alert-intro { display:flex; flex-direction:column; gap:12px; width:100%; }
+  .alert-setting .alert-mode-button-group { order:0; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); width:100%; gap:6px; }
+  .alert-setting .alert-mode-button-group button { min-width:0; width:100%; padding:10px 4px; font-size:.72rem; }
+  .alert-setting .alert-intro > div:last-child { order:1; }
+  .alert-setting .alert-intro p { max-width:none; margin-bottom:0; }
+  .alert-setting .alert-controls { width:100%; margin-top:16px; gap:16px; }
+  .alert-setting .sound-pack-button-group { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .alert-setting .volume-button-group { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); width:100%; gap:7px; }
+  .alert-setting .volume-button-group button { min-width:0; width:100%; padding:11px 4px; }
+  .alert-setting .volume-button-group button:last-child { grid-column:span 2; }
+  .alert-setting .settings-test-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); width:100%; gap:8px; }
+  .alert-setting .settings-test-actions button { width:100%; min-width:0; }
+  .fixtures-brand-banner { border-radius:13px; margin-bottom:9px; max-height:124px; }
+  .banner-today-button { right:7px; bottom:7px; padding:7px 10px; font-size:.72rem; }
+}

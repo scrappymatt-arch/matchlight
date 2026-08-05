@@ -1802,6 +1802,7 @@ function setView(viewId) {
   document.querySelectorAll(".bottom-nav button").forEach((button) => button.classList.toggle("active", button.dataset.view === viewId));
   document.querySelector(".bottom-nav").classList.toggle("details-hidden", viewId === "detailsView");
   document.body.classList.toggle("tracker-active", viewId === "trackerView");
+  document.body.classList.toggle("scores-active", viewId === "scoresView");
   if (viewId === "trackerView") renderTracker();
 }
 
@@ -1825,15 +1826,25 @@ function currentListShareData() {
   const overall = document.getElementById("overallListStatus")?.textContent?.trim() || "";
   const lines = entries.map((entry) => {
     const fixture = entry.fixture;
-    const score = fixture.status === "scheduled" ? formatFixtureTime(fixture) : `${fixture.homeScore}–${fixture.awayScore}`;
-    return `${fixture.home} ${score} ${fixture.away} — ${conditionLabel(entry.condition)} (${trafficState(fixture, entry.condition).copy})`;
+    const status = trafficState(fixture, entry.condition).copy;
+    let matchLine;
+    if (fixture.status === "scheduled") {
+      matchLine = `${formatFixtureTime(fixture)}  ${fixture.home} v ${fixture.away}`;
+    } else if (fixture.status === "finished") {
+      matchLine = `FT  ${fixture.home} ${fixture.homeScore}–${fixture.awayScore} ${fixture.away}`;
+    } else {
+      const clock = fixture.minute ? `${fixture.minute}'` : (fixture.shortStatus || "LIVE");
+      matchLine = `${clock}  ${fixture.home} ${fixture.homeScore}–${fixture.awayScore} ${fixture.away}`;
+    }
+    return `${matchLine}\n${conditionLabel(entry.condition)} — ${status}`;
   });
   return { title: `YorAkka · ${list?.name || "My Matches"}`, overall, lines };
 }
 
 function currentListShareText() {
   const data = currentListShareData();
-  return [data.title, "Your football. Your picks. Your way.", data.overall, "", ...data.lines].filter((line, index, items) => line || (index > 0 && items[index - 1])).join("\n");
+  const header = [data.title, data.overall].filter(Boolean).join("\n");
+  return [header, ...data.lines].filter(Boolean).join("\n\n");
 }
 
 async function copyCurrentListText() {

@@ -8,25 +8,24 @@
   <title>YorAkka</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=3.19" />
+  <link rel="stylesheet" href="styles.css?v=3.20" />
 </head>
-<body>
+<body class="scores-active">
   <div class="app-shell">
     <header class="topbar">
       <div class="brand-lockup">
-        <h1>YorAkka <span class="app-version">V3.19</span> <span class="brand-tagline">YOUR FOOTBALL. YOUR PICKS. YOUR WAY.</span></h1>
+        <h1>YorAkka <span class="app-version">V3.20</span> <span class="brand-tagline">YOUR FOOTBALL. YOUR PICKS. YOUR WAY.</span></h1>
       </div>
       <button id="themeToggle" class="icon-button" aria-label="Toggle theme" title="Toggle theme">☼</button>
     </header>
 
     <main>
       <section id="scoresView" class="view active" aria-labelledby="scoresTitle">
-        <div class="section-heading">
-          <div>
-            <h2 id="scoresTitle">Fixtures</h2>
-          </div>
-          <button id="jumpToday" class="secondary-button">Today</button>
+        <div class="fixtures-brand-banner" aria-label="YorAkka">
+          <img src="yorakka-banner.webp" alt="YorAkka" />
+          <button id="jumpToday" class="secondary-button banner-today-button">Today</button>
         </div>
+        <h2 id="scoresTitle" class="visually-hidden">Fixtures</h2>
 
         <div id="dateStrip" class="date-strip" aria-label="Fixture dates"></div>
 
@@ -324,6 +323,6 @@
     </div>
   </dialog>
 
-  <script src="app.js?v=3.19" defer></script>
+  <script src="app.js?v=3.20" defer></script>
 </body>
 </html>

@@ -1,13 +1,14 @@
-# YorAkka V3.19
+# YorAkka V3.20
 
-## V3.19 changes
+## V3.20 changes
 
-- Corrects the Cheer / Boo crowd-alert assignments.
-- Uses crowd clip 2 for positive goal alerts.
-- Uses crowd clip 1 for negative goal alerts.
-- Corrects both live alerts and the positive/negative test buttons.
-- Keeps the Goal alerts layout, volume controls, vibration options and other sound packs unchanged.
-- Updates the visible version and service-worker cache to V3.19.
+- Replaces the Fixtures page header with the new compact YorAkka brand banner.
+- Keeps the banner short on phones so more fixtures remain visible.
+- Rebuilds Goal alerts as a true single-column mobile layout.
+- Gives alert type, sound pack, volume and test controls full usable width on phones.
+- Reformats shared lists as time/status, home v away, then selection and state.
+- Removes the marketing tagline from shared list text.
+- Updates the visible version and service-worker cache to V3.20.
 
 ## Install
 

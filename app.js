@@ -25,6 +25,9 @@ const CONDITIONS = [
   { id: "home", label: "Home win", group: "Result" },
   { id: "draw", label: "Draw", group: "Result" },
   { id: "away", label: "Away win", group: "Result" },
+  { id: "homeDraw", label: "Home or draw", group: "Double chance" },
+  { id: "homeAway", label: "Home or away", group: "Double chance" },
+  { id: "drawAway", label: "Draw or away", group: "Double chance" },
   { id: "over15", label: "Over 1.5", group: "Over / Under" },
   { id: "over25", label: "Over 2.5", group: "Over / Under" },
   { id: "over35", label: "Over 3.5", group: "Over / Under" },
@@ -373,6 +376,16 @@ function goalEffect(previous, next, condition) {
     const wasLost = oldH > 0 && oldA > 0;
     const nowLost = newH > 0 && newA > 0;
     return !wasLost && nowLost ? "negative" : "neutral";
+  }
+  if (["homeDraw", "homeAway", "drawAway"].includes(condition) || parseCorrectScore(condition)) {
+    const before = trafficState(previous, condition);
+    const after = trafficState(next, condition);
+    if (after.colour === "lost" && before.colour !== "lost") return "negative";
+    const beforeGoals = goalsNeededForSelection(previous, condition);
+    const afterGoals = goalsNeededForSelection(next, condition);
+    if (afterGoals < beforeGoals) return "positive";
+    if (afterGoals > beforeGoals) return "negative";
+    return "neutral";
   }
   return "neutral";
 }
@@ -1090,15 +1103,47 @@ function openConditionDialog(id) {
   document.getElementById("dialogMatchTitle").textContent = `${fixture.home} v ${fixture.away}`;
   renderDialogListSelect();
   const current = state.lists[state.editingListId]?.selected?.[id]?.condition || "none";
-  const groups = ["Result", "Over / Under", "BTTS", "No option"];
+  const groups = ["Result", "Double chance", "Over / Under", "BTTS"];
+  const scoreParts = parseCorrectScore(current) || { home: 1, away: 0 };
+  const scoreOptions = Array.from({ length: 10 }, (_, score) => `<option value="${score}">${score}</option>`).join("");
   document.getElementById("conditionOptions").innerHTML = groups.map((group) => `
     <section class="condition-group">
       <h4>${group}</h4>
       <div class="condition-row ${group === "Over / Under" ? "goal-options" : ""}">
         ${CONDITIONS.filter((condition) => condition.group === group).map((condition) => `<button type="button" class="condition-option ${current === condition.id ? "active" : ""}" data-condition="${condition.id}">${condition.label}</button>`).join("")}
       </div>
-    </section>`).join("");
-  document.querySelectorAll(".condition-option").forEach((button) => button.addEventListener("click", () => selectCondition(button.dataset.condition)));
+    </section>`).join("") + `
+    <section class="condition-group correct-score-group">
+      <h4>Correct score</h4>
+      <div class="correct-score-picker ${parseCorrectScore(current) ? "active" : ""}">
+        <label><span>Home</span><select id="correctScoreHome">${scoreOptions}</select></label>
+        <strong aria-hidden="true">–</strong>
+        <label><span>Away</span><select id="correctScoreAway">${scoreOptions}</select></label>
+        <button type="button" id="useCorrectScore" class="condition-option correct-score-use">Use score</button>
+      </div>
+      <div class="correct-score-shortcuts" aria-label="Common correct scores">
+        ${[[0,0],[1,0],[0,1],[1,1],[2,0],[0,2],[2,1],[1,2],[2,2],[3,1],[1,3]].map(([home, away]) => `<button type="button" class="score-shortcut" data-home="${home}" data-away="${away}">${home}–${away}</button>`).join("")}
+      </div>
+    </section>
+    <section class="condition-group">
+      <h4>Just track</h4>
+      <div class="condition-row">
+        ${CONDITIONS.filter((condition) => condition.group === "No option").map((condition) => `<button type="button" class="condition-option ${current === condition.id ? "active" : ""}" data-condition="${condition.id}">${condition.label}</button>`).join("")}
+      </div>
+    </section>`;
+  document.getElementById("correctScoreHome").value = String(scoreParts.home);
+  document.getElementById("correctScoreAway").value = String(scoreParts.away);
+  document.querySelectorAll(".condition-option[data-condition]").forEach((button) => button.addEventListener("click", () => selectCondition(button.dataset.condition)));
+  document.querySelectorAll(".score-shortcut").forEach((button) => button.addEventListener("click", () => {
+    document.getElementById("correctScoreHome").value = button.dataset.home;
+    document.getElementById("correctScoreAway").value = button.dataset.away;
+    selectCondition(`score:${button.dataset.home}:${button.dataset.away}`);
+  }));
+  document.getElementById("useCorrectScore").addEventListener("click", () => {
+    const home = Number(document.getElementById("correctScoreHome").value);
+    const away = Number(document.getElementById("correctScoreAway").value);
+    selectCondition(`score:${home}:${away}`);
+  });
   const dialog = document.getElementById("conditionDialog");
   if (!dialog.open) dialog.showModal();
 }
@@ -1125,7 +1170,16 @@ function selectCondition(condition) {
   restoreScrollFor(returnView);
 }
 
-function conditionLabel(id) { return CONDITIONS.find((condition) => condition.id === id)?.label || "Just track match"; }
+function parseCorrectScore(condition) {
+  const match = /^score:(\d+):(\d+)$/.exec(String(condition || ""));
+  return match ? { home: Number(match[1]), away: Number(match[2]) } : null;
+}
+
+function conditionLabel(id) {
+  const score = parseCorrectScore(id);
+  if (score) return `Correct score ${score.home}–${score.away}`;
+  return CONDITIONS.find((condition) => condition.id === id)?.label || "Just track match";
+}
 
 function trafficState(fixture, condition) {
   if (fixture.status === "scheduled") return { colour: "grey", copy: "Not started" };
@@ -1150,6 +1204,26 @@ function trafficState(fixture, condition) {
   if (condition === "away") {
     winning = a > h;
     if (!winning) goalsNeeded = h - a + 1;
+  }
+  if (condition === "homeDraw") {
+    winning = h >= a;
+    if (!winning) goalsNeeded = a - h;
+  }
+  if (condition === "homeAway") {
+    winning = h !== a;
+    if (!winning) goalsNeeded = 1;
+  }
+  if (condition === "drawAway") {
+    winning = a >= h;
+    if (!winning) goalsNeeded = h - a;
+  }
+  const correctScore = parseCorrectScore(condition);
+  if (correctScore) {
+    if (h > correctScore.home || a > correctScore.away) return { colour: "lost", copy: "Lost" };
+    winning = h === correctScore.home && a === correctScore.away;
+    goalsNeeded = Math.max(0, correctScore.home - h) + Math.max(0, correctScore.away - a);
+    if (fixture.status === "finished") return winning ? { colour: "won", copy: "Won" } : { colour: "lost", copy: "Lost" };
+    if (winning) return { colour: "green", copy: "On target" };
   }
   if (condition === "over15") {
     winning = total >= 2;
@@ -1360,6 +1434,14 @@ function goalsNeededForSelection(fixture, condition) {
   if (condition === "home") return Math.max(0, a - h + 1);
   if (condition === "draw") return Math.abs(h - a);
   if (condition === "away") return Math.max(0, h - a + 1);
+  if (condition === "homeDraw") return Math.max(0, a - h);
+  if (condition === "homeAway") return h === a ? 1 : 0;
+  if (condition === "drawAway") return Math.max(0, h - a);
+  const correctScore = parseCorrectScore(condition);
+  if (correctScore) {
+    if (h > correctScore.home || a > correctScore.away) return 0;
+    return Math.max(0, correctScore.home - h) + Math.max(0, correctScore.away - a);
+  }
   if (condition === "over15") return Math.max(0, 2 - total);
   if (condition === "over25") return Math.max(0, 3 - total);
   if (condition === "over35") return Math.max(0, 4 - total);

@@ -152,6 +152,7 @@ const state = {
   currentLeaguesOnly: true,
   editingFixtureId: null,
   editingListId: null,
+  editingListIds: [],
   activeView: "scoresView",
   loadingDate: null,
   lastError: "",
@@ -1088,24 +1089,76 @@ function getFixtureById(id) {
   return allListEntries().find((item) => item.id === id)?.entry.fixture || null;
 }
 
+function scoreWheelMarkup(id, label, selected) {
+  return `<div class="score-wheel-wrap">
+    <span>${label}</span>
+    <div id="${id}" class="score-wheel" role="listbox" aria-label="${label} score" data-value="${selected}">
+      ${Array.from({ length: 10 }, (_, score) => `<button type="button" class="score-wheel-item ${score === selected ? "selected" : ""}" role="option" aria-selected="${score === selected ? "true" : "false"}" data-score="${score}">${score}</button>`).join("")}
+    </div>
+  </div>`;
+}
+
+function setScoreWheelValue(wheel, value, smooth = false) {
+  if (!wheel) return;
+  const numeric = Math.max(0, Math.min(9, Number(value) || 0));
+  wheel.dataset.value = String(numeric);
+  wheel.querySelectorAll(".score-wheel-item").forEach((item) => {
+    const selected = Number(item.dataset.score) === numeric;
+    item.classList.toggle("selected", selected);
+    item.setAttribute("aria-selected", selected ? "true" : "false");
+  });
+  const target = wheel.querySelector(`[data-score="${numeric}"]`);
+  if (target) target.scrollIntoView({ block: "center", behavior: smooth ? "smooth" : "auto" });
+}
+
+function bindScoreWheel(wheel) {
+  if (!wheel) return;
+  let settleTimer = null;
+  const settle = () => {
+    const rect = wheel.getBoundingClientRect();
+    const centre = rect.top + rect.height / 2;
+    let best = null;
+    let distance = Infinity;
+    wheel.querySelectorAll(".score-wheel-item").forEach((item) => {
+      const itemRect = item.getBoundingClientRect();
+      const itemCentre = itemRect.top + itemRect.height / 2;
+      const nextDistance = Math.abs(itemCentre - centre);
+      if (nextDistance < distance) { best = item; distance = nextDistance; }
+    });
+    if (best) setScoreWheelValue(wheel, Number(best.dataset.score));
+  };
+  wheel.addEventListener("click", (event) => {
+    const item = event.target.closest(".score-wheel-item");
+    if (item) setScoreWheelValue(wheel, Number(item.dataset.score), true);
+  });
+  wheel.addEventListener("scroll", () => {
+    clearTimeout(settleTimer);
+    settleTimer = setTimeout(settle, 90);
+  }, { passive: true });
+}
+
 function openConditionDialog(id) {
   rememberActiveScroll();
   const fixture = getFixtureById(id);
   if (!fixture) return;
-  const existingList = Object.values(state.lists).find((list) => Boolean(list.selected?.[id]));
+  const existingLists = Object.values(state.lists).filter((list) => Boolean(list.selected?.[id]));
   const listOneIsEmpty = Boolean(state.lists.list1) && Object.keys(state.lists.list1.selected || {}).length === 0;
-  if (existingList) {
-    state.editingListId = existingList.id;
-  } else if (state.editingFixtureId !== id || !state.editingListId) {
-    state.editingListId = listOneIsEmpty ? "list1" : state.currentListId;
+  if (state.editingFixtureId !== id) {
+    state.editingListIds = existingLists.length
+      ? existingLists.map((list) => list.id)
+      : [listOneIsEmpty ? "list1" : state.currentListId];
+  } else if (!state.editingListIds?.length) {
+    state.editingListIds = [state.editingListId || state.currentListId];
   }
+  state.editingListIds = state.editingListIds.filter((listId) => state.lists[listId]);
+  if (!state.editingListIds.length) state.editingListIds = [state.currentListId];
+  state.editingListId = state.editingListIds[0];
   state.editingFixtureId = id;
   document.getElementById("dialogMatchTitle").textContent = `${fixture.home} v ${fixture.away}`;
   renderDialogListSelect();
   const current = state.lists[state.editingListId]?.selected?.[id]?.condition || "none";
   const groups = ["Result", "Double chance", "Over / Under", "BTTS"];
   const scoreParts = parseCorrectScore(current) || { home: 1, away: 0 };
-  const scoreOptions = Array.from({ length: 10 }, (_, score) => `<option value="${score}">${score}</option>`).join("");
   document.getElementById("conditionOptions").innerHTML = groups.map((group) => `
     <section class="condition-group">
       <h4>${group}</h4>
@@ -1116,9 +1169,9 @@ function openConditionDialog(id) {
     <section class="condition-group correct-score-group">
       <h4>Correct score</h4>
       <div class="correct-score-picker ${parseCorrectScore(current) ? "active" : ""}">
-        <label><span>Home</span><select id="correctScoreHome">${scoreOptions}</select></label>
+        ${scoreWheelMarkup("correctScoreHome", "Home", scoreParts.home)}
         <strong aria-hidden="true">–</strong>
-        <label><span>Away</span><select id="correctScoreAway">${scoreOptions}</select></label>
+        ${scoreWheelMarkup("correctScoreAway", "Away", scoreParts.away)}
         <button type="button" id="useCorrectScore" class="condition-option correct-score-use">Use score</button>
       </div>
       <div class="correct-score-shortcuts" aria-label="Common correct scores">
@@ -1131,43 +1184,52 @@ function openConditionDialog(id) {
         ${CONDITIONS.filter((condition) => condition.group === "No option").map((condition) => `<button type="button" class="condition-option ${current === condition.id ? "active" : ""}" data-condition="${condition.id}">${condition.label}</button>`).join("")}
       </div>
     </section>`;
-  document.getElementById("correctScoreHome").value = String(scoreParts.home);
-  document.getElementById("correctScoreAway").value = String(scoreParts.away);
   document.querySelectorAll(".condition-option[data-condition]").forEach((button) => button.addEventListener("click", () => selectCondition(button.dataset.condition)));
+  const homeWheel = document.getElementById("correctScoreHome");
+  const awayWheel = document.getElementById("correctScoreAway");
+  bindScoreWheel(homeWheel);
+  bindScoreWheel(awayWheel);
   document.querySelectorAll(".score-shortcut").forEach((button) => button.addEventListener("click", () => {
-    document.getElementById("correctScoreHome").value = button.dataset.home;
-    document.getElementById("correctScoreAway").value = button.dataset.away;
+    setScoreWheelValue(homeWheel, button.dataset.home);
+    setScoreWheelValue(awayWheel, button.dataset.away);
     selectCondition(`score:${button.dataset.home}:${button.dataset.away}`);
   }));
   document.getElementById("useCorrectScore").addEventListener("click", () => {
-    const home = Number(document.getElementById("correctScoreHome").value);
-    const away = Number(document.getElementById("correctScoreAway").value);
+    const home = Number(homeWheel?.dataset.value || 0);
+    const away = Number(awayWheel?.dataset.value || 0);
     selectCondition(`score:${home}:${away}`);
   });
   const dialog = document.getElementById("conditionDialog");
   if (!dialog.open) dialog.showModal();
+  requestAnimationFrame(() => {
+    setScoreWheelValue(homeWheel, scoreParts.home);
+    setScoreWheelValue(awayWheel, scoreParts.away);
+  });
 }
 
 function renderDialogListSelect() {
-  const select = document.getElementById("targetListSelect");
-  if (!select) return;
-  select.innerHTML = Object.values(state.lists).map((list) => `<option value="${escapeHtml(list.id)}" ${list.id === state.editingListId ? "selected" : ""}>${escapeHtml(list.name)}</option>`).join("");
+  const container = document.getElementById("targetListButtons");
+  if (!container) return;
+  const selected = new Set(state.editingListIds || []);
+  container.innerHTML = Object.values(state.lists).map((list) => `<button type="button" class="dialog-list-button ${selected.has(list.id) ? "active" : ""}" data-dialog-list-id="${escapeHtml(list.id)}" aria-pressed="${selected.has(list.id) ? "true" : "false"}">${escapeHtml(list.name)}</button>`).join("") + `<button type="button" id="newListFromDialog" class="dialog-list-button new-list-tab">+ New</button>`;
 }
 
 function selectCondition(condition) {
   const id = state.editingFixtureId;
   const fixture = getFixtureById(id);
-  const list = state.lists[state.editingListId];
-  if (!fixture || !list) return;
-  list.selected[id] = { condition, fixture, addedAt: list.selected[id]?.addedAt || Date.now() };
-  state.currentListId = list.id;
+  const listIds = (state.editingListIds || []).filter((listId) => state.lists[listId]);
+  if (!fixture || !listIds.length) return;
+  listIds.forEach((listId) => {
+    const list = state.lists[listId];
+    list.selected[id] = { condition, fixture, addedAt: list.selected[id]?.addedAt || Date.now() };
+  });
+  state.currentListId = listIds[0];
   saveSelected();
   document.getElementById("conditionDialog").close();
-  const returnView = state.activeView;
   state.editingFixtureId = null;
   state.editingListId = null;
+  state.editingListIds = [];
   renderAll();
-  restoreScrollFor(returnView);
 }
 
 function parseCorrectScore(condition) {
@@ -2267,15 +2329,31 @@ function bindEvents() {
     state.currentListId = Object.keys(state.lists)[0];
     saveSelected(); renderAll();
   });
-  document.getElementById("targetListSelect").addEventListener("change", (event) => {
-    state.editingListId = event.target.value;
-    openConditionDialog(state.editingFixtureId);
-  });
-  document.getElementById("newListFromDialog").addEventListener("click", () => {
-    const proposed = prompt("Name this list", nextListName());
-    if (proposed === null) return;
-    state.editingListId = createList(proposed.trim() || nextListName());
-    renderDialogListSelect();
+  document.getElementById("targetListButtons").addEventListener("click", (event) => {
+    const listButton = event.target.closest("button[data-dialog-list-id]");
+    if (listButton) {
+      const listId = listButton.dataset.dialogListId;
+      const selected = new Set(state.editingListIds || []);
+      if (selected.has(listId)) {
+        if (selected.size > 1) selected.delete(listId);
+      } else {
+        selected.add(listId);
+      }
+      state.editingListIds = [...selected];
+      state.editingListId = state.editingListIds[0];
+      renderDialogListSelect();
+      document.querySelector(`[data-dialog-list-id="${CSS.escape(listId)}"]`)?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+      return;
+    }
+    if (event.target.closest("#newListFromDialog")) {
+      const proposed = prompt("Name this list", nextListName());
+      if (proposed === null) return;
+      const newId = createList(proposed.trim() || nextListName());
+      state.editingListIds = [...new Set([...(state.editingListIds || []), newId])];
+      state.editingListId = state.editingListIds[0];
+      renderDialogListSelect();
+      document.querySelector(`[data-dialog-list-id="${CSS.escape(newId)}"]`)?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    }
   });
   document.getElementById("testRedCard").addEventListener("click", () => {
     const first = Object.entries(state.selected)[0];

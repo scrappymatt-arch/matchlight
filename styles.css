@@ -395,9 +395,9 @@ body.tracker-active .app-version { padding: 2px 5px; font-size: .52rem; }
 .summary-mini.red strong { color: var(--red); }
 .summary-mini.grey strong { color: var(--grey); }
 .tracker-compact-bar.actions-only { justify-content: flex-end; min-height: 29px; margin-top: 1px; }
-#trackerView .tracker-meta { display: grid; grid-template-columns: minmax(0,1fr) 78px 90px; align-items: center; gap: 7px; }
+#trackerView .tracker-meta { display: grid; grid-template-columns: minmax(0,1fr) minmax(118px,max-content) 90px; align-items: center; gap: 7px; }
 #trackerView .tracker-league { min-width: 0; overflow: hidden; color: var(--muted); font-size: .57rem; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
-#trackerView .tracker-condition { width: 78px; min-width: 0; overflow: hidden; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+#trackerView .tracker-condition { width: auto; min-width: 118px; max-width: 190px; overflow: hidden; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
 #trackerView .tracker-status { width: 90px; min-width: 0; overflow: hidden; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
 .settings-test-actions { display: flex; align-items: center; gap: 8px; }
 @media (max-width: 560px) {
@@ -408,8 +408,8 @@ body.tracker-active .app-version { padding: 2px 5px; font-size: .52rem; }
   .summary-mini span { font-size: .46rem; }
   .list-tabs { padding-bottom: 4px; }
   #trackerView .tracker-league { font-size: .52rem; }
-  #trackerView .tracker-meta { grid-template-columns: minmax(0,1fr) 70px 82px; gap: 5px; }
-  #trackerView .tracker-condition { width: 70px; }
+  #trackerView .tracker-meta { grid-template-columns: minmax(0,1fr) minmax(108px,max-content) 82px; gap: 5px; }
+  #trackerView .tracker-condition { width:auto; min-width:108px; max-width:165px; }
   #trackerView .tracker-status { width: 82px; }
 }
 @media (max-width: 380px) {
@@ -1179,4 +1179,16 @@ body.scores-active .topbar { display:none; }
   .score-wheel-item { height:38px; }
   .score-wheel-wrap::after { height:38px; }
   .correct-score-use { grid-column:1 / -1; min-height:43px; }
+}
+
+
+/* YorAkka V3.23 — tracker condition width and balanced correct-score shortcuts */
+.correct-score-shortcuts { display:grid; grid-template-columns:repeat(9,minmax(0,1fr)); gap:7px; }
+.score-shortcut { min-width:0; width:100%; padding-inline:5px; }
+@media (max-width:560px) {
+  .correct-score-shortcuts { grid-template-columns:repeat(6,minmax(0,1fr)); gap:6px; }
+  .score-shortcut { min-height:36px; padding-inline:3px; font-size:.78rem; }
+}
+@media (max-width:390px) {
+  .correct-score-shortcuts { grid-template-columns:repeat(5,minmax(0,1fr)); }
 }

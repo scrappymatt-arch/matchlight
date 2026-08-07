@@ -1175,7 +1175,7 @@ function openConditionDialog(id) {
         <button type="button" id="useCorrectScore" class="condition-option correct-score-use">Use score</button>
       </div>
       <div class="correct-score-shortcuts" aria-label="Common correct scores">
-        ${[[0,0],[1,0],[0,1],[1,1],[2,0],[0,2],[2,1],[1,2],[2,2],[3,1],[1,3]].map(([home, away]) => `<button type="button" class="score-shortcut" data-home="${home}" data-away="${away}">${home}–${away}</button>`).join("")}
+        ${[[0,0],[1,0],[0,1],[1,1],[2,0],[0,2],[2,1],[1,2],[2,2],[3,1],[1,3],[3,0],[0,3],[3,2],[2,3],[3,3],[4,0],[0,4]].map(([home, away]) => `<button type="button" class="score-shortcut" data-home="${home}" data-away="${away}">${home}–${away}</button>`).join("")}
       </div>
     </section>
     <section class="condition-group">
@@ -2354,28 +2354,6 @@ function bindEvents() {
       renderDialogListSelect();
       document.querySelector(`[data-dialog-list-id="${CSS.escape(newId)}"]`)?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
     }
-  });
-  document.getElementById("testRedCard").addEventListener("click", () => {
-    const first = Object.entries(state.selected)[0];
-    if (!first) { alert("Add a match to the active list first."); return; }
-    const [id] = first;
-    const current = signalForFixture(id);
-    state.matchSignals[id] = { ...current, redCards: Math.max(1, Number(current.redCards) || 0), homeRedCards: Math.max(1, Number(current.homeRedCards) || 0), testRedCard: true, testRedCardBase: Number(current.redCards) || 0, testHomeRedCardBase: Number(current.homeRedCards) || 0 };
-    saveSignals();
-    renderAll();
-    alert("A test red-card icon has been added to the first match in this list.");
-  });
-  document.getElementById("clearTestSignals").addEventListener("click", () => {
-    Object.keys(state.matchSignals).forEach((id) => {
-      if (state.matchSignals[id]?.testRedCard) {
-        const signal = state.matchSignals[id];
-        const base = Number(signal.testRedCardBase) || 0;
-        const currentCount = Number(signal.redCards) || 0;
-        state.matchSignals[id] = { ...signal, redCards: currentCount > 1 ? currentCount : base, homeRedCards: Number(signal.testHomeRedCardBase) || 0, testRedCard: false, testRedCardBase: undefined, testHomeRedCardBase: undefined };
-      }
-    });
-    saveSignals();
-    renderAll();
   });
   document.getElementById("shareList").addEventListener("click", () => {
     if (!Object.keys(state.selected).length) { alert("Add a match to this list before sharing it."); return; }

@@ -1,13 +1,12 @@
-# YorAkka V3.24
+# YorAkka V3.25
 
-## V3.24 changes
+## V3.25 changes
 
-- Makes the Track This Match panel much cleaner on phones with a horizontal market picker; only the selected market controls are shown.
-- Keeps Add to list as the scrollable multi-select button row and moves Just track into the compact market picker.
-- Returns Fixtures to the same match after a selection is added instead of jumping back to the top.
-- Improves phone goal-alert reliability by unlocking and preloading alert audio after the first interaction.
-- Fixes BTTS Yes progress alerts so the first team scoring is treated as a positive change.
-- De-duplicates goal alerts so one score update cannot play the same alert twice.
-- Updates the visible version and service-worker cache to V3.24.
+- Adds proper live injury-time display using API-Football's `fixture.status.extra` field.
+- Live clocks can now show values such as `45+2′` and `90+4′` instead of stopping at `45′` or `90′`.
+- The improved injury-time clock is shown anywhere YorAkka uses the shared live match clock, including Fixtures, My Matches and Match Details.
+- Shared live-list text also uses the injury-time-aware clock.
+- YorAkka does **not** invent a "minutes remaining" figure: API-Football exposes additional time already played, but not a reliable announced stoppage-time total in the live fixture status.
+- Updates the visible version and service-worker cache to V3.25.
 
 Cloudflare Worker: unchanged.

@@ -270,6 +270,7 @@ function normaliseFixture(item) {
     statusShort,
     statusLong: item.fixture?.status?.long || "Not Started",
     minute: Number.isFinite(elapsed) ? elapsed : null,
+    injuryMinute: Number.isFinite(item.fixture?.status?.extra) ? item.fixture.status.extra : null,
   };
 }
 
@@ -728,7 +729,12 @@ function isFavourite(fixture) { return state.favouriteLeagues.includes(fixtureLe
 function clockText(fixture) {
   if (fixture.status === "live") {
     if (fixture.statusShort === "HT") return "HT";
-    return fixture.minute ? `${fixture.minute}′` : "LIVE";
+    const minute = Number(fixture.minute);
+    const injuryMinute = Number(fixture.injuryMinute);
+    if (Number.isFinite(minute) && Number.isFinite(injuryMinute) && injuryMinute > 0) {
+      return `${minute}+${injuryMinute}′`;
+    }
+    return Number.isFinite(minute) && minute > 0 ? `${minute}′` : "LIVE";
   }
   if (fixture.status === "finished") return "FT";
   if (fixture.status === "cancelled") return fixture.statusShort;
@@ -2068,7 +2074,7 @@ function currentListShareData() {
     } else if (fixture.status === "finished") {
       matchLine = `FT  ${fixture.home} ${fixture.homeScore}–${fixture.awayScore} ${fixture.away}`;
     } else {
-      const clock = fixture.minute ? `${fixture.minute}'` : (fixture.shortStatus || "LIVE");
+      const clock = clockText(fixture).replace("′", "'");
       matchLine = `${clock}  ${fixture.home} ${fixture.homeScore}–${fixture.awayScore} ${fixture.away}`;
     }
     return `${matchLine}\n${conditionLabel(entry.condition)} — ${status}`;

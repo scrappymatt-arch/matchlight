@@ -1194,10 +1194,18 @@ function marketForCondition(condition) {
   return "result";
 }
 
-function updateConditionMarketUI(market) {
+function updateConditionMarketUI(market, ensureVisible = true) {
   state.editingMarket = market;
-  document.querySelectorAll(".market-tab[data-market]").forEach((button) => button.classList.toggle("active", button.dataset.market === market));
+  let activeButton = null;
+  document.querySelectorAll(".market-tab[data-market]").forEach((button) => {
+    const active = button.dataset.market === market;
+    button.classList.toggle("active", active);
+    if (active) activeButton = button;
+  });
   document.querySelectorAll(".condition-group[data-market]").forEach((group) => group.classList.toggle("market-active", group.dataset.market === market));
+  if (ensureVisible && activeButton && window.matchMedia("(max-width:560px)").matches) {
+    requestAnimationFrame(() => activeButton.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" }));
+  }
 }
 
 function openConditionDialog(id) {
@@ -1233,14 +1241,15 @@ function openConditionDialog(id) {
   const scoreParts = parseCorrectScore(current) || { home: 1, away: 0 };
   state.editingMarket = marketForCondition(current);
   document.getElementById("conditionOptions").innerHTML = `
-    <div class="market-picker" aria-label="Choose market">
+    <div class="market-picker" aria-label="Choose market" tabindex="0">
       <button type="button" class="market-tab" data-market="result">Result</button>
       <button type="button" class="market-tab" data-market="double">Double chance</button>
       <button type="button" class="market-tab" data-market="goals">Goals</button>
       <button type="button" class="market-tab" data-market="btts">BTTS</button>
       <button type="button" class="market-tab" data-market="score">Correct score</button>
       <button type="button" class="market-tab just-track-tab" data-condition="none">Just track</button>
-    </div>` + groups.map(({ label, market }) => `
+    </div>
+    <div class="market-picker-hint" aria-hidden="true">Swipe for more markets →</div>` + groups.map(({ label, market }) => `
     <section class="condition-group" data-market="${market}">
       <h4>${label}</h4>
       <div class="condition-row ${label === "Over / Under" ? "goal-options" : ""}">
@@ -1280,12 +1289,13 @@ function openConditionDialog(id) {
     const away = Number(awayWheel?.dataset.value || 0);
     selectCondition(`score:${home}:${away}`);
   });
-  updateConditionMarketUI(state.editingMarket);
+  updateConditionMarketUI(state.editingMarket, false);
   const dialog = document.getElementById("conditionDialog");
   if (!dialog.open) dialog.showModal();
   requestAnimationFrame(() => {
     setScoreWheelValue(homeWheel, scoreParts.home);
     setScoreWheelValue(awayWheel, scoreParts.away);
+    updateConditionMarketUI(state.editingMarket, true);
   });
 }
 

@@ -1208,3 +1208,23 @@ body.scores-active .topbar { display:none; }
   #conditionDialog menu { margin-top:12px; }
 }
 @media (max-width:560px) { .desktop-just-track { display:none !important; } }
+
+
+/* YorAkka V3.26 — make every mobile market, including Correct score, clearly reachable */
+.market-picker-hint { display:none; }
+@media (max-width:560px) {
+  .market-picker {
+    width:100%;
+    max-width:100%;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior-inline:contain;
+    touch-action:pan-x;
+    scrollbar-width:thin;
+    scrollbar-color:var(--accent) transparent;
+  }
+  .market-picker::-webkit-scrollbar { display:block; height:3px; }
+  .market-picker::-webkit-scrollbar-thumb { background:var(--accent); border-radius:999px; }
+  .market-picker::-webkit-scrollbar-track { background:transparent; }
+  .market-picker-hint { display:block; margin:-3px 2px 5px; color:var(--muted); font-size:.63rem; font-weight:800; text-align:right; }
+  .market-tab[data-market="score"] { border-color:color-mix(in srgb,var(--accent) 55%,var(--border)); }
+}

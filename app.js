@@ -153,6 +153,12 @@ const state = {
   editingFixtureId: null,
   editingListId: null,
   editingListIds: [],
+  editingMarket: "result",
+  fixtureReturnId: null,
+  fixtureReturnTop: null,
+  audioBuffers: {},
+  audioPreloadStarted: false,
+  goalAlertSignatures: {},
   activeView: "scoresView",
   loadingDate: null,
   lastError: "",
@@ -294,10 +300,42 @@ function playGoalVibration(kind) {
   navigator.vibrate(kind === "positive" ? [120, 90, 120] : [460]);
 }
 
+async function preloadAlertAudio() {
+  if (state.audioPreloadStarted) return;
+  state.audioPreloadStarted = true;
+  const context = ensureAudioContext();
+  if (!context) return;
+  const files = { positive: "alert-crowd-positive.mp3", negative: "alert-crowd-negative.mp3" };
+  await Promise.all(Object.entries(files).map(async ([kind, source]) => {
+    try {
+      const response = await fetch(source, { cache: "force-cache" });
+      const buffer = await response.arrayBuffer();
+      state.audioBuffers[kind] = await context.decodeAudioData(buffer.slice(0));
+    } catch { /* HTMLAudio fallback remains available. */ }
+  }));
+}
+
+function unlockAlertAudio() {
+  const context = ensureAudioContext();
+  if (context?.state === "suspended") context.resume().catch(() => {});
+  preloadAlertAudio().catch(() => {});
+}
+
 function playAudioFileAlert(kind) {
+  const context = ensureAudioContext();
+  const buffer = state.audioBuffers[kind];
+  if (context && buffer) {
+    const sourceNode = context.createBufferSource();
+    const gain = context.createGain();
+    sourceNode.buffer = buffer;
+    gain.gain.value = Math.max(0, Math.min(1, state.alertVolume));
+    sourceNode.connect(gain).connect(context.destination);
+    sourceNode.start();
+    return;
+  }
   const source = kind === "positive" ? "alert-crowd-positive.mp3" : "alert-crowd-negative.mp3";
   const audio = new Audio(source);
-  // The samples are normalised close to their clean maximum. Keep the user setting linear and audible.
+  audio.preload = "auto";
   audio.volume = Math.max(0, Math.min(1, state.alertVolume));
   audio.play().catch(() => {});
 }
@@ -369,9 +407,9 @@ function goalEffect(previous, next, condition) {
     return newGap < oldGap ? "positive" : newGap > oldGap ? "negative" : "neutral";
   }
   if (condition === "bttsYes") {
-    const wasWon = oldH > 0 && oldA > 0;
-    const nowWon = newH > 0 && newA > 0;
-    return !wasWon && nowWon ? "positive" : "neutral";
+    const oldTeamsScored = Number(oldH > 0) + Number(oldA > 0);
+    const newTeamsScored = Number(newH > 0) + Number(newA > 0);
+    return newTeamsScored > oldTeamsScored ? "positive" : "neutral";
   }
   if (condition === "bttsNo") {
     const wasLost = oldH > 0 && oldA > 0;
@@ -404,7 +442,11 @@ function recordScoreChange(previous, next) {
   const oldTotal = (Number(previous.homeScore) || 0) + (Number(previous.awayScore) || 0);
   const newTotal = (Number(next.homeScore) || 0) + (Number(next.awayScore) || 0);
   if (newTotal > oldTotal) {
-    playTrackedGoalEffect(previous, next);
+    const signature = `${next.homeScore}:${next.awayScore}`;
+    if (state.goalAlertSignatures[String(next.id)] !== signature) {
+      state.goalAlertSignatures[String(next.id)] = signature;
+      playTrackedGoalEffect(previous, next);
+    }
     const current = signalForFixture(next.id);
     state.matchSignals[next.id] = { ...current, goalUntil: Date.now() + GOAL_PULSE_MS };
     saveSignals();
@@ -1137,8 +1179,27 @@ function bindScoreWheel(wheel) {
   }, { passive: true });
 }
 
+function marketForCondition(condition) {
+  if (["home", "draw", "away"].includes(condition)) return "result";
+  if (["homeDraw", "homeAway", "drawAway"].includes(condition)) return "double";
+  if (["over15", "over25", "over35", "under15", "under25", "under35"].includes(condition)) return "goals";
+  if (["bttsYes", "bttsNo"].includes(condition)) return "btts";
+  if (parseCorrectScore(condition)) return "score";
+  return "result";
+}
+
+function updateConditionMarketUI(market) {
+  state.editingMarket = market;
+  document.querySelectorAll(".market-tab[data-market]").forEach((button) => button.classList.toggle("active", button.dataset.market === market));
+  document.querySelectorAll(".condition-group[data-market]").forEach((group) => group.classList.toggle("market-active", group.dataset.market === market));
+}
+
 function openConditionDialog(id) {
   rememberActiveScroll();
+  if (state.activeView === "scoresView") {
+    state.fixtureReturnId = String(id);
+    state.fixtureReturnTop = document.querySelector(`[data-open-fixture="${CSS.escape(String(id))}"]`)?.getBoundingClientRect().top ?? null;
+  }
   const fixture = getFixtureById(id);
   if (!fixture) return;
   const existingLists = Object.values(state.lists).filter((list) => Boolean(list.selected?.[id]));
@@ -1157,16 +1218,30 @@ function openConditionDialog(id) {
   document.getElementById("dialogMatchTitle").textContent = `${fixture.home} v ${fixture.away}`;
   renderDialogListSelect();
   const current = state.lists[state.editingListId]?.selected?.[id]?.condition || "none";
-  const groups = ["Result", "Double chance", "Over / Under", "BTTS"];
+  const groups = [
+    { label: "Result", market: "result" },
+    { label: "Double chance", market: "double" },
+    { label: "Over / Under", market: "goals" },
+    { label: "BTTS", market: "btts" },
+  ];
   const scoreParts = parseCorrectScore(current) || { home: 1, away: 0 };
-  document.getElementById("conditionOptions").innerHTML = groups.map((group) => `
-    <section class="condition-group">
-      <h4>${group}</h4>
-      <div class="condition-row ${group === "Over / Under" ? "goal-options" : ""}">
-        ${CONDITIONS.filter((condition) => condition.group === group).map((condition) => `<button type="button" class="condition-option ${current === condition.id ? "active" : ""}" data-condition="${condition.id}">${condition.label}</button>`).join("")}
+  state.editingMarket = marketForCondition(current);
+  document.getElementById("conditionOptions").innerHTML = `
+    <div class="market-picker" aria-label="Choose market">
+      <button type="button" class="market-tab" data-market="result">Result</button>
+      <button type="button" class="market-tab" data-market="double">Double chance</button>
+      <button type="button" class="market-tab" data-market="goals">Goals</button>
+      <button type="button" class="market-tab" data-market="btts">BTTS</button>
+      <button type="button" class="market-tab" data-market="score">Correct score</button>
+      <button type="button" class="market-tab just-track-tab" data-condition="none">Just track</button>
+    </div>` + groups.map(({ label, market }) => `
+    <section class="condition-group" data-market="${market}">
+      <h4>${label}</h4>
+      <div class="condition-row ${label === "Over / Under" ? "goal-options" : ""}">
+        ${CONDITIONS.filter((condition) => condition.group === label).map((condition) => `<button type="button" class="condition-option ${current === condition.id ? "active" : ""}" data-condition="${condition.id}">${condition.label}</button>`).join("")}
       </div>
     </section>`).join("") + `
-    <section class="condition-group correct-score-group">
+    <section class="condition-group correct-score-group" data-market="score">
       <h4>Correct score</h4>
       <div class="correct-score-picker ${parseCorrectScore(current) ? "active" : ""}">
         ${scoreWheelMarkup("correctScoreHome", "Home", scoreParts.home)}
@@ -1178,12 +1253,12 @@ function openConditionDialog(id) {
         ${[[0,0],[1,0],[0,1],[1,1],[2,0],[0,2],[2,1],[1,2],[2,2],[3,1],[1,3],[3,0],[0,3],[3,2],[2,3],[3,3],[4,0],[0,4]].map(([home, away]) => `<button type="button" class="score-shortcut" data-home="${home}" data-away="${away}">${home}–${away}</button>`).join("")}
       </div>
     </section>
-    <section class="condition-group">
+    <section class="condition-group desktop-just-track">
       <h4>Just track</h4>
-      <div class="condition-row">
-        ${CONDITIONS.filter((condition) => condition.group === "No option").map((condition) => `<button type="button" class="condition-option ${current === condition.id ? "active" : ""}" data-condition="${condition.id}">${condition.label}</button>`).join("")}
-      </div>
+      <div class="condition-row"><button type="button" class="condition-option ${current === "none" ? "active" : ""}" data-condition="none">Just track match</button></div>
     </section>`;
+  document.querySelectorAll(".market-tab[data-market]").forEach((button) => button.addEventListener("click", () => updateConditionMarketUI(button.dataset.market)));
+  document.querySelector(".market-tab[data-condition=\"none\"]")?.addEventListener("click", () => selectCondition("none"));
   document.querySelectorAll(".condition-option[data-condition]").forEach((button) => button.addEventListener("click", () => selectCondition(button.dataset.condition)));
   const homeWheel = document.getElementById("correctScoreHome");
   const awayWheel = document.getElementById("correctScoreAway");
@@ -1199,6 +1274,7 @@ function openConditionDialog(id) {
     const away = Number(awayWheel?.dataset.value || 0);
     selectCondition(`score:${home}:${away}`);
   });
+  updateConditionMarketUI(state.editingMarket);
   const dialog = document.getElementById("conditionDialog");
   if (!dialog.open) dialog.showModal();
   requestAnimationFrame(() => {
@@ -1230,6 +1306,21 @@ function selectCondition(condition) {
   state.editingListId = null;
   state.editingListIds = [];
   renderAll();
+  if (state.activeView === "scoresView" && state.fixtureReturnId) {
+    const returnId = state.fixtureReturnId;
+    state.fixtureReturnId = null;
+    const returnTop = state.fixtureReturnTop;
+    state.fixtureReturnTop = null;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const card = document.querySelector(`[data-open-fixture="${CSS.escape(returnId)}"]`);
+      if (card && Number.isFinite(returnTop)) {
+        const delta = card.getBoundingClientRect().top - returnTop;
+        window.scrollBy({ top: delta, left: 0, behavior: "auto" });
+      } else if (card) {
+        card.scrollIntoView({ block: "nearest", behavior: "auto" });
+      } else restoreScrollFor("scoresView");
+    }));
+  }
 }
 
 function parseCorrectScore(condition) {
@@ -2141,6 +2232,8 @@ function chooseTimeZone(zone) {
 }
 
 function bindEvents() {
+  document.addEventListener("pointerdown", unlockAlertAudio, { once: true, passive: true });
+  document.addEventListener("keydown", unlockAlertAudio, { once: true });
   document.querySelectorAll(".bottom-nav button").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
   document.getElementById("detailsBack").addEventListener("click", closeMatchDetails);
   document.getElementById("jumpToday").addEventListener("click", () => {

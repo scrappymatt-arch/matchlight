@@ -1192,3 +1192,19 @@ body.scores-active .topbar { display:none; }
 @media (max-width:390px) {
   .correct-score-shortcuts { grid-template-columns:repeat(5,minmax(0,1fr)); }
 }
+
+/* YorAkka V3.24 — compact mobile market picker */
+.market-picker { display:none; }
+@media (max-width:560px) {
+  #conditionDialog .dialog-card { padding:16px; }
+  .market-picker { display:flex; gap:7px; overflow-x:auto; margin-top:14px; padding:2px 1px 7px; scrollbar-width:none; scroll-snap-type:x proximity; }
+  .market-picker::-webkit-scrollbar { display:none; }
+  .market-tab { flex:0 0 auto; min-height:40px; padding:0 12px; border:1px solid var(--border); border-radius:12px; background:var(--surface); color:var(--text); font:inherit; font-size:.78rem; font-weight:900; white-space:nowrap; cursor:pointer; scroll-snap-align:center; }
+  .market-tab.active { background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+  .market-tab.just-track-tab { color:var(--accent); border-style:dashed; }
+  .condition-groups > .condition-group[data-market] { display:none; margin-top:10px; }
+  .condition-groups > .condition-group[data-market].market-active { display:block; }
+  .condition-groups > .condition-group[data-market] h4 { display:none; }
+  #conditionDialog menu { margin-top:12px; }
+}
+@media (max-width:560px) { .desktop-just-track { display:none !important; } }

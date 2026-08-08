@@ -8,13 +8,13 @@
   <title>YorAkka</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=3.27" />
+  <link rel="stylesheet" href="styles.css?v=3.28" />
 </head>
 <body class="scores-active">
   <div class="app-shell">
     <header class="topbar">
       <div class="brand-lockup">
-        <h1>YorAkka <span class="app-version">V3.27</span> <span class="brand-tagline">YOUR FOOTBALL. YOUR PICKS. YOUR WAY.</span></h1>
+        <h1>YorAkka <span class="app-version">V3.28</span> <span class="brand-tagline">YOUR FOOTBALL. YOUR PICKS. YOUR WAY.</span></h1>
       </div>
       <button id="themeToggle" class="icon-button" aria-label="Toggle theme" title="Toggle theme">☼</button>
     </header>
@@ -36,6 +36,9 @@
           </label>
           <button id="showSelectedOnly" class="filter-button" aria-pressed="false">Selected</button>
           <button id="downloadFixturesCsv" class="filter-button export-button" type="button" title="Select at least one favourite league to enable CSV download" disabled aria-disabled="true">↓ CSV</button>
+        </div>
+        <div class="fixture-tools-row">
+          <button id="openResultsExport" class="filter-button results-export-button" type="button">↓ Historical results CSV</button>
         </div>
 
         <div id="dataStatus" class="data-status" aria-live="polite"></div>
@@ -304,6 +307,27 @@
     </div>
   </dialog>
 
+
+  <dialog id="resultsExportDialog">
+    <div class="dialog-card compact results-export-dialog-card">
+      <div class="dialog-header">
+        <div><p class="section-kicker">RESULTS EXPORT</p><h3>Download historical results</h3></div>
+        <button id="closeResultsExport" class="dialog-close" type="button" aria-label="Close">×</button>
+      </div>
+      <p class="results-export-copy">Downloads completed results from your selected Favourite Leagues.</p>
+      <div class="results-date-grid">
+        <label><span>From</span><input id="resultsFromDate" type="date"></label>
+        <label><span>To</span><input id="resultsToDate" type="date"></label>
+      </div>
+      <p id="resultsLeagueCount" class="results-league-count"></p>
+      <button id="downloadResultsCsv" class="primary-button results-download-button" type="button">Download CSV</button>
+      <div id="resultsExportProgress" class="results-export-progress" hidden>
+        <progress id="resultsProgressBar" max="1" value="0"></progress>
+        <p id="resultsProgressText" aria-live="polite"></p>
+      </div>
+    </div>
+  </dialog>
+
   <dialog id="timezoneDialog">
     <div class="dialog-card timezone-dialog-card">
       <div class="dialog-header">
@@ -315,6 +339,6 @@
     </div>
   </dialog>
 
-  <script src="app.js?v=3.27" defer></script>
+  <script src="app.js?v=3.28" defer></script>
 </body>
 </html>

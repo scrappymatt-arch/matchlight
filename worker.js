@@ -96,13 +96,14 @@ export default {
       return jsonResponse({
         service: "YorAkka API",
         status: "online",
-        version: "3.7",
+        version: "3.28",
         endpoints: {
           fixtures: "/fixtures?from=2026-08-01&to=2026-08-01",
           live: "/live",
           fixture: "/fixture?id=123456",
           signals: "/signals?ids=123456,123457",
           leagues: "/leagues",
+          results: "/results?league=39&season=2025&from=2025-08-01&to=2026-05-31",
         },
       }, 200, request);
     }
@@ -126,12 +127,49 @@ export default {
             flag: item.country?.flag || "",
             current: Boolean(currentSeason),
             season: currentSeason?.year || latestSeason?.year || null,
+            seasons: seasons.map((season) => ({
+              year: season.year || null,
+              start: season.start || null,
+              end: season.end || null,
+              current: Boolean(season.current),
+            })).filter((season) => season.year),
           };
         }).filter((item) => item.id && item.name);
         competitions.sort((a, b) => `${a.country} ${a.name}`.localeCompare(`${b.country} ${b.name}`));
         return jsonResponse({ results: competitions.length, response: competitions }, 200, request, { "Cache-Control": "public, max-age=86400" });
       } catch (error) {
         return jsonResponse({ error: "Unable to retrieve the league catalogue.", details: error.message || String(error) }, 502, request);
+      }
+    }
+
+    if (url.pathname === "/results") {
+      const league = url.searchParams.get("league");
+      const season = url.searchParams.get("season");
+      const from = url.searchParams.get("from");
+      const to = url.searchParams.get("to");
+      if (!/^\d+$/.test(league || "") || !/^\d{4}$/.test(season || "") || !from || !to || !validDate(from) || !validDate(to)) {
+        return jsonResponse({ error: "Provide numeric league, four-digit season, and YYYY-MM-DD from/to dates." }, 400, request);
+      }
+      const start = new Date(`${from}T00:00:00Z`);
+      const end = new Date(`${to}T00:00:00Z`);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
+        return jsonResponse({ error: "The results date range is invalid." }, 400, request);
+      }
+      try {
+        const path = `/fixtures?league=${encodeURIComponent(league)}&season=${encodeURIComponent(season)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&timezone=${encodeURIComponent("Europe/London")}`;
+        const data = await requestApiFootball(path, env, 3600, 3);
+        const finishedCodes = new Set(["FT", "AET", "PEN"]);
+        const results = (Array.isArray(data.response) ? data.response : []).filter((item) => finishedCodes.has(item.fixture?.status?.short));
+        results.sort((a, b) => new Date(a.fixture?.date || 0) - new Date(b.fixture?.date || 0));
+        return jsonResponse({
+          get: "results",
+          parameters: { league: Number(league), season: Number(season), from, to, timezone: "Europe/London" },
+          errors: [],
+          results: results.length,
+          response: results,
+        }, 200, request, { "Cache-Control": "public, max-age=3600" });
+      } catch (error) {
+        return jsonResponse({ error: "Unable to retrieve historical results.", details: error.message || String(error) }, 502, request);
       }
     }
 

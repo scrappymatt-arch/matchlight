@@ -934,6 +934,170 @@ function downloadVisibleFixturesCsv() {
 }
 
 
+
+function selectedFavouriteLeagueRecords() {
+  const byKey = new Map(state.knownLeagues.map((league) => [league.key, league]));
+  return state.favouriteLeagues.map((key) => byKey.get(key)).filter(Boolean);
+}
+
+function setResultsExportDefaults() {
+  const toInput = document.getElementById("resultsToDate");
+  const fromInput = document.getElementById("resultsFromDate");
+  if (!toInput || !fromInput) return;
+  const end = new Date();
+  const start = new Date(end);
+  start.setDate(start.getDate() - 30);
+  const localIso = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  if (!toInput.value) toInput.value = localIso(end);
+  if (!fromInput.value) fromInput.value = localIso(start);
+}
+
+function updateResultsExportDialog() {
+  const count = document.getElementById("resultsLeagueCount");
+  const button = document.getElementById("downloadResultsCsv");
+  if (!count || !button) return;
+  const selected = selectedFavouriteLeagueRecords();
+  const usable = selected.filter((league) => league.leagueId && Array.isArray(league.seasons) && league.seasons.length);
+  if (!state.favouriteLeagues.length) {
+    count.textContent = "No Favourite Leagues selected. Choose leagues in Settings first.";
+    button.disabled = true;
+    return;
+  }
+  if (usable.length !== state.favouriteLeagues.length) {
+    count.textContent = `${state.favouriteLeagues.length} selected leagues. Refreshing league history before export…`;
+  } else {
+    count.textContent = `${usable.length} selected ${usable.length === 1 ? "league" : "leagues"}. Only completed results will be exported.`;
+  }
+  button.disabled = usable.length === 0;
+}
+
+function seasonJobsForRange(leagues, from, to) {
+  const jobs = [];
+  leagues.forEach((league) => {
+    (league.seasons || []).forEach((season) => {
+      if (!season.start || !season.end || !season.year) return;
+      const segmentFrom = season.start > from ? season.start : from;
+      const segmentTo = season.end < to ? season.end : to;
+      if (segmentFrom > segmentTo) return;
+      jobs.push({ league, season: season.year, from: segmentFrom, to: segmentTo });
+    });
+  });
+  return jobs;
+}
+
+function downloadCsvBlob(filename, columns, rows) {
+  const csv = [columns, ...rows].map((row) => row.map(csvEscape).join(",")).join("\r\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function openResultsExportDialog() {
+  setResultsExportDefaults();
+  updateResultsExportDialog();
+  document.getElementById("resultsExportProgress").hidden = true;
+  document.getElementById("resultsExportDialog").showModal();
+  const selected = selectedFavouriteLeagueRecords();
+  if (state.favouriteLeagues.length && selected.some((league) => !league?.leagueId || !Array.isArray(league?.seasons) || !league.seasons.length)) {
+    await loadLeagueCatalogue({ force: true });
+    updateResultsExportDialog();
+  }
+}
+
+async function downloadHistoricalResultsCsv() {
+  const from = document.getElementById("resultsFromDate").value;
+  const to = document.getElementById("resultsToDate").value;
+  const progressWrap = document.getElementById("resultsExportProgress");
+  const progressBar = document.getElementById("resultsProgressBar");
+  const progressText = document.getElementById("resultsProgressText");
+  const button = document.getElementById("downloadResultsCsv");
+
+  if (!state.favouriteLeagues.length) {
+    alert("Select at least one Favourite League in Settings first.");
+    return;
+  }
+  if (!from || !to || from > to) {
+    alert("Choose a valid From and To date.");
+    return;
+  }
+
+  let leagues = selectedFavouriteLeagueRecords();
+  if (leagues.some((league) => !league?.leagueId || !Array.isArray(league?.seasons) || !league.seasons.length)) {
+    progressWrap.hidden = false;
+    progressText.textContent = "Refreshing league history…";
+    await loadLeagueCatalogue({ force: true });
+    leagues = selectedFavouriteLeagueRecords();
+  }
+  const unavailable = leagues.filter((league) => !league.leagueId || !Array.isArray(league.seasons) || !league.seasons.length);
+  if (unavailable.length) {
+    alert(`Historical season information is unavailable for ${unavailable.length} selected ${unavailable.length === 1 ? "league" : "leagues"}. Try refreshing again later.`);
+    return;
+  }
+
+  const jobs = seasonJobsForRange(leagues, from, to);
+  if (!jobs.length) {
+    alert("None of the selected leagues has a season covering that date range.");
+    return;
+  }
+
+  button.disabled = true;
+  progressWrap.hidden = false;
+  progressBar.max = jobs.length;
+  progressBar.value = 0;
+  const fixtures = new Map();
+  const failures = [];
+
+  try {
+    for (let index = 0; index < jobs.length; index += 1) {
+      const job = jobs[index];
+      progressText.textContent = `${index + 1}/${jobs.length}: ${job.league.country} — ${job.league.league} (${job.season})`;
+      try {
+        const params = new URLSearchParams({ league: String(job.league.leagueId), season: String(job.season), from: job.from, to: job.to });
+        const response = await fetch(`${API_BASE}/results?${params.toString()}`, { cache: "no-store" });
+        const data = await response.json();
+        if (!response.ok || data.error) throw new Error(data.details || data.error || "Unable to load results");
+        (data.response || []).forEach((item) => {
+          const fixture = normaliseFixture(item);
+          if (fixture.status === "finished") fixtures.set(fixture.id, fixture);
+        });
+      } catch (error) {
+        failures.push(`${job.league.country} — ${job.league.league} (${job.season})`);
+      }
+      progressBar.value = index + 1;
+      if (index < jobs.length - 1) await new Promise((resolve) => setTimeout(resolve, 400));
+    }
+
+    const rows = [...fixtures.values()]
+      .filter((fixture) => {
+        const parts = fixtureLocalDateParts(fixture);
+        return parts.date >= from && parts.date <= to;
+      })
+      .sort((a, b) => a.timestamp - b.timestamp || a.home.localeCompare(b.home))
+      .map((fixture) => {
+        const local = fixtureLocalDateParts(fixture);
+        return [local.date, local.time, fixture.home, fixture.homeScore, fixture.awayScore, fixture.away];
+      });
+
+    if (!rows.length) {
+      progressText.textContent = failures.length ? "No results downloaded; some league requests failed." : "No completed results were found for those dates.";
+      if (failures.length) alert(`No results were downloaded. ${failures.length} league-season request${failures.length === 1 ? "" : "s"} failed.`);
+      return;
+    }
+
+    downloadCsvBlob(`YorAkka-results-${from}-to-${to}.csv`, ["date", "time", "home team", "home goals", "away goals", "away team"], rows);
+    progressText.textContent = `${rows.length} results downloaded${failures.length ? ` · ${failures.length} request${failures.length === 1 ? "" : "s"} failed` : ""}.`;
+    if (failures.length) alert(`The CSV was created, but ${failures.length} league-season request${failures.length === 1 ? "" : "s"} failed, so the export may be incomplete.`);
+  } finally {
+    button.disabled = false;
+  }
+}
+
 function fixtureGroupStats(matches) {
   return {
     earliest: Math.min(...matches.map((fixture) => fixture.timestamp)),
@@ -1742,6 +1906,12 @@ async function loadLeagueCatalogue({ force = false } = {}) {
       type: item.type || "League",
       current: Boolean(item.current),
       season: item.season || null,
+      seasons: Array.isArray(item.seasons) ? item.seasons.map((season) => ({
+        year: Number(season.year),
+        start: season.start || null,
+        end: season.end || null,
+        current: Boolean(season.current),
+      })).filter((season) => Number.isFinite(season.year)) : [],
     }));
     const merged = new Map(catalogue.map((league) => [league.key, league]));
     state.knownLeagues.forEach((league) => {
@@ -2274,6 +2444,14 @@ function bindEvents() {
   document.getElementById("fixtureSearch").addEventListener("input", (event) => { state.search = event.target.value; renderFixtures(); });
   document.getElementById("showSelectedOnly").addEventListener("click", () => { state.selectedOnly = !state.selectedOnly; renderAll(); });
   document.getElementById("downloadFixturesCsv").addEventListener("click", downloadVisibleFixturesCsv);
+  document.getElementById("openResultsExport").addEventListener("click", openResultsExportDialog);
+  document.getElementById("closeResultsExport").addEventListener("click", () => document.getElementById("resultsExportDialog").close());
+  document.getElementById("downloadResultsCsv").addEventListener("click", () => downloadHistoricalResultsCsv().catch((error) => {
+    document.getElementById("resultsExportProgress").hidden = false;
+    document.getElementById("resultsProgressText").textContent = error.message || "Historical results export failed.";
+    document.getElementById("downloadResultsCsv").disabled = false;
+  }));
+  document.getElementById("resultsExportDialog").addEventListener("click", (event) => { if (event.target.id === "resultsExportDialog") event.currentTarget.close(); });
   const overallStatusButton = document.getElementById("overallListStatus");
   overallStatusButton.addEventListener("click", showGoalsBreakdown);
   overallStatusButton.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); showGoalsBreakdown(); } });
@@ -2516,7 +2694,7 @@ async function start() {
   renderRefreshSettings();
   setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.19").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.28").catch(() => {});
 }
 
 start();

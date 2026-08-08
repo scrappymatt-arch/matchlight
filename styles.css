@@ -1262,3 +1262,25 @@ body.scores-active .topbar { display:none; }
   .condition-type-button small { font-size:.64rem; }
   .score-shortcut-column { padding:5px; }
 }
+
+
+/* V3.28 historical results export */
+.fixture-tools-row { display:flex; justify-content:flex-end; margin:-2px 0 10px; }
+.results-export-button { min-height:38px; padding:0 13px; font-weight:850; white-space:nowrap; }
+.results-export-dialog-card { width:min(92vw, 440px); }
+.results-export-copy { margin:10px 0 15px; color:var(--muted); line-height:1.45; }
+.results-date-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.results-date-grid label { display:grid; gap:6px; color:var(--muted); font-size:.72rem; font-weight:900; letter-spacing:.06em; text-transform:uppercase; }
+.results-date-grid input { width:100%; min-height:44px; padding:0 10px; border:1px solid var(--border); border-radius:12px; background:var(--surface); color:var(--text); font:inherit; color-scheme:dark; }
+body.light .results-date-grid input { color-scheme:light; }
+.results-league-count { margin:12px 0; color:var(--muted); font-size:.82rem; font-weight:750; }
+.results-download-button { width:100%; min-height:46px; }
+.results-download-button:disabled { opacity:.55; cursor:not-allowed; }
+.results-export-progress { margin-top:14px; }
+.results-export-progress progress { width:100%; height:10px; accent-color:var(--accent); }
+.results-export-progress p { margin:7px 0 0; min-height:1.3em; color:var(--muted); font-size:.78rem; line-height:1.35; }
+@media (max-width: 560px) {
+  .fixture-tools-row { justify-content:stretch; }
+  .results-export-button { width:100%; }
+  .results-date-grid { grid-template-columns:1fr; }
+}

@@ -1264,7 +1264,7 @@ body.scores-active .topbar { display:none; }
 }
 
 
-/* V3.28 historical results export */
+/* V3.29 historical results export */
 .fixture-tools-row { display:flex; justify-content:flex-end; margin:-2px 0 10px; }
 .results-export-button { min-height:38px; padding:0 13px; font-weight:850; white-space:nowrap; }
 .results-export-dialog-card { width:min(92vw, 440px); }

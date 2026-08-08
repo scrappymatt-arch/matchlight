@@ -96,13 +96,14 @@ export default {
       return jsonResponse({
         service: "YorAkka API",
         status: "online",
-        version: "3.28",
+        version: "3.29",
         endpoints: {
           fixtures: "/fixtures?from=2026-08-01&to=2026-08-01",
           live: "/live",
           fixture: "/fixture?id=123456",
           signals: "/signals?ids=123456,123457",
           leagues: "/leagues",
+          leagueHistory: "/league-history?league=39",
           results: "/results?league=39&season=2025&from=2025-08-01&to=2026-05-31",
         },
       }, 200, request);
@@ -139,6 +140,28 @@ export default {
         return jsonResponse({ results: competitions.length, response: competitions }, 200, request, { "Cache-Control": "public, max-age=86400" });
       } catch (error) {
         return jsonResponse({ error: "Unable to retrieve the league catalogue.", details: error.message || String(error) }, 502, request);
+      }
+    }
+
+
+    if (url.pathname === "/league-history") {
+      const league = url.searchParams.get("league");
+      if (!/^\d+$/.test(league || "")) {
+        return jsonResponse({ error: "Provide a numeric league ID." }, 400, request);
+      }
+      try {
+        const data = await requestApiFootball(`/leagues?id=${encodeURIComponent(league)}`, env, 86400, 2);
+        const item = Array.isArray(data.response) ? data.response[0] : null;
+        if (!item) return jsonResponse({ error: "League history was not found." }, 404, request);
+        const seasons = (Array.isArray(item.seasons) ? item.seasons : []).map((season) => ({
+          year: season.year || null,
+          start: season.start || null,
+          end: season.end || null,
+          current: Boolean(season.current),
+        })).filter((season) => season.year);
+        return jsonResponse({ league: Number(league), seasons }, 200, request, { "Cache-Control": "public, max-age=86400" });
+      } catch (error) {
+        return jsonResponse({ error: "Unable to retrieve league history.", details: error.message || String(error) }, 502, request);
       }
     }
 

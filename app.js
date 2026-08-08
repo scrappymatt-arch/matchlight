@@ -957,18 +957,19 @@ function updateResultsExportDialog() {
   const button = document.getElementById("downloadResultsCsv");
   if (!count || !button) return;
   const selected = selectedFavouriteLeagueRecords();
-  const usable = selected.filter((league) => league.leagueId && Array.isArray(league.seasons) && league.seasons.length);
+  const withIds = selected.filter((league) => league?.leagueId);
   if (!state.favouriteLeagues.length) {
     count.textContent = "No Favourite Leagues selected. Choose leagues in Settings first.";
     button.disabled = true;
     return;
   }
-  if (usable.length !== state.favouriteLeagues.length) {
-    count.textContent = `${state.favouriteLeagues.length} selected leagues. Refreshing league history before export…`;
-  } else {
-    count.textContent = `${usable.length} selected ${usable.length === 1 ? "league" : "leagues"}. Only completed results will be exported.`;
+  if (!withIds.length) {
+    count.textContent = `${state.favouriteLeagues.length} selected leagues, but their API IDs are unavailable. Refresh Favourite Leagues in Settings first.`;
+    button.disabled = true;
+    return;
   }
-  button.disabled = usable.length === 0;
+  count.textContent = `${state.favouriteLeagues.length} selected ${state.favouriteLeagues.length === 1 ? "league" : "leagues"}. League history will be checked when you download.`;
+  button.disabled = false;
 }
 
 function seasonJobsForRange(leagues, from, to) {
@@ -998,16 +999,55 @@ function downloadCsvBlob(filename, columns, rows) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 20000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    const data = await response.json();
+    if (!response.ok || data?.error) throw new Error(data?.details || data?.error || `Request failed (${response.status})`);
+    return data;
+  } catch (error) {
+    if (error?.name === "AbortError") throw new Error("The request timed out. Please try again.");
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function mergeLeagueHistory(leagueId, seasons) {
+  const id = Number(leagueId);
+  state.knownLeagues = state.knownLeagues.map((league) => Number(league.leagueId) === id
+    ? { ...league, seasons: Array.isArray(seasons) ? seasons : league.seasons }
+    : league);
+  localStorage.setItem(`${STORAGE_PREFIX}known-leagues`, JSON.stringify(state.knownLeagues));
+}
+
+async function refreshSelectedLeagueHistory(leagues, progressBar, progressText) {
+  const needingHistory = leagues.filter((league) => league?.leagueId && (!Array.isArray(league.seasons) || !league.seasons.length));
+  if (!needingHistory.length) return leagues;
+
+  progressBar.max = needingHistory.length;
+  progressBar.value = 0;
+  for (let index = 0; index < needingHistory.length; index += 1) {
+    const league = needingHistory[index];
+    progressText.textContent = `Checking league history ${index + 1}/${needingHistory.length}: ${league.country} — ${league.league}`;
+    const data = await fetchJsonWithTimeout(`${API_BASE}/league-history?league=${encodeURIComponent(league.leagueId)}`, { cache: "no-store" }, 20000);
+    mergeLeagueHistory(league.leagueId, data.seasons || []);
+    progressBar.value = index + 1;
+    if (index < needingHistory.length - 1) await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  return selectedFavouriteLeagueRecords();
+}
+
 async function openResultsExportDialog() {
   setResultsExportDefaults();
   updateResultsExportDialog();
-  document.getElementById("resultsExportProgress").hidden = true;
+  const progress = document.getElementById("resultsExportProgress");
+  progress.hidden = true;
+  document.getElementById("resultsProgressBar").value = 0;
+  document.getElementById("resultsProgressText").textContent = "";
   document.getElementById("resultsExportDialog").showModal();
-  const selected = selectedFavouriteLeagueRecords();
-  if (state.favouriteLeagues.length && selected.some((league) => !league?.leagueId || !Array.isArray(league?.seasons) || !league.seasons.length)) {
-    await loadLeagueCatalogue({ force: true });
-    updateResultsExportDialog();
-  }
 }
 
 async function downloadHistoricalResultsCsv() {
@@ -1028,40 +1068,49 @@ async function downloadHistoricalResultsCsv() {
   }
 
   let leagues = selectedFavouriteLeagueRecords();
-  if (leagues.some((league) => !league?.leagueId || !Array.isArray(league?.seasons) || !league.seasons.length)) {
-    progressWrap.hidden = false;
-    progressText.textContent = "Refreshing league history…";
-    await loadLeagueCatalogue({ force: true });
-    leagues = selectedFavouriteLeagueRecords();
-  }
-  const unavailable = leagues.filter((league) => !league.leagueId || !Array.isArray(league.seasons) || !league.seasons.length);
-  if (unavailable.length) {
-    alert(`Historical season information is unavailable for ${unavailable.length} selected ${unavailable.length === 1 ? "league" : "leagues"}. Try refreshing again later.`);
-    return;
-  }
-
-  const jobs = seasonJobsForRange(leagues, from, to);
-  if (!jobs.length) {
-    alert("None of the selected leagues has a season covering that date range.");
+  if (!leagues.length || leagues.some((league) => !league?.leagueId)) {
+    alert("One or more selected leagues is missing its API ID. Open Favourite Leagues in Settings and refresh the catalogue, then try again.");
     return;
   }
 
   button.disabled = true;
   progressWrap.hidden = false;
-  progressBar.max = jobs.length;
-  progressBar.value = 0;
-  const fixtures = new Map();
+  progressText.textContent = "Preparing export…";
   const failures = [];
 
   try {
+    try {
+      leagues = await refreshSelectedLeagueHistory(leagues, progressBar, progressText);
+    } catch (error) {
+      progressText.textContent = error.message || "League history check failed.";
+      alert(`Could not refresh league history. ${error.message || "Please try again."}`);
+      return;
+    }
+
+    const unavailable = leagues.filter((league) => !league.leagueId || !Array.isArray(league.seasons) || !league.seasons.length);
+    if (unavailable.length) {
+      progressText.textContent = `League history unavailable for ${unavailable.length} selected ${unavailable.length === 1 ? "league" : "leagues"}.`;
+      alert(`Historical season information is unavailable for ${unavailable.length} selected ${unavailable.length === 1 ? "league" : "leagues"}.`);
+      return;
+    }
+
+    const jobs = seasonJobsForRange(leagues, from, to);
+    if (!jobs.length) {
+      progressText.textContent = "No selected league has a season covering that date range.";
+      alert("None of the selected leagues has a season covering that date range.");
+      return;
+    }
+
+    progressBar.max = jobs.length;
+    progressBar.value = 0;
+    const fixtures = new Map();
+
     for (let index = 0; index < jobs.length; index += 1) {
       const job = jobs[index];
-      progressText.textContent = `${index + 1}/${jobs.length}: ${job.league.country} — ${job.league.league} (${job.season})`;
+      progressText.textContent = `Downloading results ${index + 1}/${jobs.length}: ${job.league.country} — ${job.league.league} (${job.season})`;
       try {
         const params = new URLSearchParams({ league: String(job.league.leagueId), season: String(job.season), from: job.from, to: job.to });
-        const response = await fetch(`${API_BASE}/results?${params.toString()}`, { cache: "no-store" });
-        const data = await response.json();
-        if (!response.ok || data.error) throw new Error(data.details || data.error || "Unable to load results");
+        const data = await fetchJsonWithTimeout(`${API_BASE}/results?${params.toString()}`, { cache: "no-store" }, 25000);
         (data.response || []).forEach((item) => {
           const fixture = normaliseFixture(item);
           if (fixture.status === "finished") fixtures.set(fixture.id, fixture);
@@ -1073,6 +1122,7 @@ async function downloadHistoricalResultsCsv() {
       if (index < jobs.length - 1) await new Promise((resolve) => setTimeout(resolve, 400));
     }
 
+    progressText.textContent = "Creating CSV…";
     const rows = [...fixtures.values()]
       .filter((fixture) => {
         const parts = fixtureLocalDateParts(fixture);
@@ -1085,7 +1135,7 @@ async function downloadHistoricalResultsCsv() {
       });
 
     if (!rows.length) {
-      progressText.textContent = failures.length ? "No results downloaded; some league requests failed." : "No completed results were found for those dates.";
+      progressText.textContent = failures.length ? "No results downloaded; some requests failed." : "No completed results were found for those dates.";
       if (failures.length) alert(`No results were downloaded. ${failures.length} league-season request${failures.length === 1 ? "" : "s"} failed.`);
       return;
     }
@@ -2694,7 +2744,7 @@ async function start() {
   renderRefreshSettings();
   setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.28").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.29").catch(() => {});
 }
 
 start();

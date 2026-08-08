@@ -1,13 +1,12 @@
-# YorAkka V3.33
+# YorAkka V3.34
 
-## V3.33 changes
+## V3.34 changes
 
-- Keeps fixture scores on a fixed centre line so live scores align vertically regardless of team-name length.
-- Excludes Just track selections from the My Matches Upcoming filter and Upcoming summary count.
-- Adds persistent crossed-out football markers for disallowed/cancelled goals when the API event feed explicitly reports them. Home markers appear to the left of the home team; away markers appear to the right of the away team.
-- Keeps existing red-card indicators and all V3.32 fixture filters/export features.
-- Updates the visible app version, frontend asset versions and service-worker cache to V3.33.
+- Fixes disallowed-goal detection to explicitly recognise API-Football VAR `Goal cancelled` events and common cancelled/disallowed/overturned goal wording.
+- Adds a fallback that links a teamless VAR cancellation to the nearby goal event for the same player/minute, so the crossed-out football can still be placed beside the correct team.
+- Keeps the V3.33 centred fixture-score layout and Just Track/Upcoming behaviour.
+- Updates the visible app version, frontend asset versions and service-worker cache to V3.34.
 
-## Deploy
+## Deployment
 
-Replace the GitHub Pages files with this release and redeploy worker.js to Cloudflare. The Worker signal endpoint changed in V3.33 to return disallowed-goal counts. Keep the existing API_FOOTBALL_KEY secret unchanged.
+Replace the GitHub Pages files with this release and redeploy `worker.js` to Cloudflare. The Worker signal parser changed in V3.34. Keep the existing `API_FOOTBALL_KEY` secret unchanged.

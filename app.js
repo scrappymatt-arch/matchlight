@@ -2389,7 +2389,9 @@ function updateRedCardsFromEvents(fixture, events, match = {}) {
       else if (isAway) awayRedCards += 1;
     }
 
-    const disallowed = text.includes("goal cancelled") || text.includes("goal canceled") || text.includes("cancelled goal") || text.includes("canceled goal") || text.includes("goal disallowed") || text.includes("disallowed goal") || text.includes("goal overturned") || text.includes("no goal");
+    const eventType = String(event.type || "").trim().toLowerCase();
+    const disallowed = /goal\s+(?:cancel+ed|canceled|disallowed|overturned)|(?:cancel+ed|canceled|disallowed|overturned)\s+goal|no\s+goal/.test(text.replace(/\s+/g, " "))
+      && (eventType === "var" || eventType === "goal" || text.includes("var"));
     if (disallowed && !seenDisallowed.has(key)) {
       seenDisallowed.add(key);
       if (isHome) homeDisallowedGoals += 1;
@@ -3007,7 +3009,7 @@ async function start() {
   renderRefreshSettings();
   setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.33").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.34").catch(() => {});
 }
 
 start();

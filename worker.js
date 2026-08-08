@@ -96,7 +96,7 @@ export default {
       return jsonResponse({
         service: "YorAkka API",
         status: "online",
-        version: "3.33",
+        version: "3.34",
         endpoints: {
           fixtures: "/fixtures?from=2026-08-01&to=2026-08-01",
           live: "/live",
@@ -298,13 +298,18 @@ export default {
               if (awayId && idKey === awayId) awayRedCards += 1;
             });
 
-            const disallowedEvents = events.filter((event) => {
+            // API-Football documents VAR goal reversals as type "Var" with details such as
+            // "Goal cancelled". Some competitions use small wording variants, so match the
+            // documented value plus the common cancelled/disallowed/overturned forms.
+            const isDisallowedGoalEvent = (event) => {
               const type = String(event.type || "").trim().toLowerCase();
               const detail = String(event.detail || "").trim().toLowerCase();
               const comments = String(event.comments || "").trim().toLowerCase();
-              const text = `${type} ${detail} ${comments}`;
-              return text.includes("goal cancelled") || text.includes("goal canceled") || text.includes("cancelled goal") || text.includes("canceled goal") || text.includes("goal disallowed") || text.includes("disallowed goal") || text.includes("goal overturned") || text.includes("no goal");
-            });
+              const text = `${type} ${detail} ${comments}`.replace(/\s+/g, " ");
+              const goalReversal = /goal\s+(?:cancel+ed|canceled|disallowed|overturned)|(?:cancel+ed|canceled|disallowed|overturned)\s+goal|no\s+goal/.test(text);
+              return goalReversal && (type === "var" || type === "goal" || text.includes("var"));
+            };
+            const disallowedEvents = events.filter(isDisallowedGoalEvent);
             const uniqueDisallowed = new Map();
             disallowedEvents.forEach((event) => {
               const key = [
@@ -316,12 +321,38 @@ export default {
               ].join("|");
               if (!uniqueDisallowed.has(key)) uniqueDisallowed.set(key, event);
             });
+            const normaliseName = (value) => String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+            const eventSide = (event) => {
+              const idKey = event.team?.id != null ? String(event.team.id) : "";
+              if (homeId && idKey === homeId) return "home";
+              if (awayId && idKey === awayId) return "away";
+
+              // Rarely a VAR row can omit the team. In that case, associate it with the
+              // nearby goal event for the same player/minute instead of losing the marker.
+              const minute = Number(event.time?.elapsed || 0) + Number(event.time?.extra || 0);
+              const playerId = event.player?.id != null ? String(event.player.id) : "";
+              const playerName = normaliseName(event.player?.name);
+              const candidates = events.filter((candidate) => String(candidate.type || "").trim().toLowerCase() === "goal");
+              const linked = candidates
+                .map((candidate) => ({ candidate, distance: Math.abs((Number(candidate.time?.elapsed || 0) + Number(candidate.time?.extra || 0)) - minute) }))
+                .filter(({ candidate, distance }) => {
+                  if (distance > 2) return false;
+                  const candidatePlayerId = candidate.player?.id != null ? String(candidate.player.id) : "";
+                  const candidatePlayerName = normaliseName(candidate.player?.name);
+                  return (playerId && candidatePlayerId === playerId) || (playerName && candidatePlayerName === playerName) || distance === 0;
+                })
+                .sort((a, b) => a.distance - b.distance)[0]?.candidate;
+              const linkedId = linked?.team?.id != null ? String(linked.team.id) : "";
+              if (homeId && linkedId === homeId) return "home";
+              if (awayId && linkedId === awayId) return "away";
+              return "";
+            };
             let homeDisallowedGoals = 0;
             let awayDisallowedGoals = 0;
             uniqueDisallowed.forEach((event) => {
-              const idKey = event.team?.id != null ? String(event.team.id) : "";
-              if (homeId && idKey === homeId) homeDisallowedGoals += 1;
-              if (awayId && idKey === awayId) awayDisallowedGoals += 1;
+              const side = eventSide(event);
+              if (side === "home") homeDisallowedGoals += 1;
+              if (side === "away") awayDisallowedGoals += 1;
             });
             results.push({
               fixtureId: id,

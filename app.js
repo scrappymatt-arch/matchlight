@@ -119,6 +119,22 @@ function regionForCountry(country) {
   return "International";
 }
 
+function isUefaClubCompetition(league) {
+  const name = String(league?.league || league?.name || "").trim();
+  return /^(UEFA\s+)?Champions League$/i.test(name)
+    || /^(UEFA\s+)?Europa League$/i.test(name)
+    || /^(UEFA\s+)?Europa Conference League$/i.test(name)
+    || /^(UEFA\s+)?Conference League$/i.test(name);
+}
+
+function regionForLeague(league) {
+  return isUefaClubCompetition(league) ? "Europe" : regionForCountry(league?.country);
+}
+
+function displayCountryForLeague(league) {
+  return isUefaClubCompetition(league) ? "UEFA" : (league?.country || "International");
+}
+
 function regionRank(country) {
   return REGION_ORDER.indexOf(regionForCountry(country));
 }
@@ -2146,6 +2162,7 @@ function renderSummaryLine() {
 function leagueCategoryFor(league) {
   const name = String(league.league || "").toLowerCase();
   const type = String(league.type || "").toLowerCase();
+  if (isUefaClubCompetition(league)) return "cups";
   if (/women|woman|femin|frauen|femen|ladies|wsl|nadeshiko/.test(name)) return "women";
   if (/u[- ]?\d{2}|under[- ]?\d{2}|youth|junior|reserve|academy|primavera/.test(name)) return "youth";
   if (type === "cup" || /cup|pokal|copa|trophy|shield|super cup/.test(name)) return "cups";
@@ -2212,7 +2229,10 @@ function renderFavouriteLeagues() {
 
   const query = state.leagueSearch.trim().toLowerCase();
   const filteredLeagues = state.knownLeagues.filter((league) => {
-    if (state.currentLeaguesOnly && league.current === false) return false;
+    // UEFA club competitions can be returned by API-Football with a non-current flag
+    // between stages/season transitions even while qualifiers are taking place.
+    // Keep them visible so they can always be selected as favourites.
+    if (state.currentLeaguesOnly && league.current === false && !isUefaClubCompetition(league)) return false;
     const category = leagueCategoryFor(league);
     if (state.leagueCategory !== "all" && category !== state.leagueCategory) return false;
     return !query || `${league.country} ${league.league}`.toLowerCase().includes(query);
@@ -2220,10 +2240,10 @@ function renderFavouriteLeagues() {
 
   const regions = new Map();
   filteredLeagues.forEach((league) => {
-    const region = regionForCountry(league.country);
+    const region = regionForLeague(league);
     if (!regions.has(region)) regions.set(region, new Map());
     const countries = regions.get(region);
-    const country = league.country || "International";
+    const country = displayCountryForLeague(league);
     if (!countries.has(country)) countries.set(country, []);
     countries.get(country).push(league);
   });
@@ -2970,7 +2990,7 @@ async function start() {
   renderRefreshSettings();
   setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=4.02").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=4.03").catch(() => {});
 }
 
 start();

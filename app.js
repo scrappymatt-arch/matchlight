@@ -2353,10 +2353,15 @@ function updateRedCardsFromEvents(fixture, events, match = {}) {
   const normalise = (value) => String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
   const seenDismissals = new Set();
   const seenDisallowed = new Set();
+  const seenHomeGoals = new Set();
+  const seenAwayGoals = new Set();
   let homeRedCards = 0;
   let awayRedCards = 0;
   let homeDisallowedGoals = 0;
   let awayDisallowedGoals = 0;
+  let homeGoalEvents = 0;
+  let awayGoalEvents = 0;
+  const currentMinute = Number(fixture.minute);
   (Array.isArray(events) ? events : []).forEach((event) => {
     const text = `${event.type || ""} ${event.detail || ""} ${event.comments || ""}`.toLowerCase();
     const eventTeamId = String(event.team?.id ?? "");
@@ -2373,6 +2378,7 @@ function updateRedCardsFromEvents(fixture, events, match = {}) {
     }
 
     const eventType = String(event.type || "").trim().toLowerCase();
+    const eventDetail = String(event.detail || "").trim().toLowerCase();
     const disallowed = /goal\s+(?:cancel+ed|canceled|disallowed|overturned)|(?:cancel+ed|canceled|disallowed|overturned)\s+goal|no\s+goal/.test(text.replace(/\s+/g, " "))
       && (eventType === "var" || eventType === "goal" || text.includes("var"));
     if (disallowed && !seenDisallowed.has(key)) {
@@ -2380,7 +2386,30 @@ function updateRedCardsFromEvents(fixture, events, match = {}) {
       if (isHome) homeDisallowedGoals += 1;
       else if (isAway) awayDisallowedGoals += 1;
     }
+
+    // V4.01 fallback: some feeds retain the original goal as a normal Goal event but
+    // omit the separate VAR cancellation. If the number of established goal events is
+    // greater than the current official score, the surplus goal(s) must have been ruled
+    // out. Wait until the event is at least two match-minutes old so a newly scored goal
+    // is not briefly marked as disallowed while the score field catches up.
+    const isGoalEvent = eventType === "goal" && !eventDetail.includes("missed penalty") && !disallowed;
+    const eventMinute = Number(event.time?.elapsed);
+    const established = !Number.isFinite(currentMinute) || !Number.isFinite(eventMinute) || currentMinute - eventMinute >= 2;
+    if (isGoalEvent && established) {
+      const goalKey = [event.team?.id || event.team?.name || "", event.player?.id || event.player?.name || "", event.time?.elapsed || "", event.time?.extra || "", event.detail || ""].join("|");
+      if (isHome && !seenHomeGoals.has(goalKey)) { seenHomeGoals.add(goalKey); homeGoalEvents += 1; }
+      else if (isAway && !seenAwayGoals.has(goalKey)) { seenAwayGoals.add(goalKey); awayGoalEvents += 1; }
+    }
   });
+
+  // Compare established goal events with the official score. Use max(), rather than
+  // adding, because a feed that *does* include an explicit VAR cancellation may also
+  // retain the original goal event.
+  if (fixture.statusShort !== "P") {
+    homeDisallowedGoals = Math.max(homeDisallowedGoals, Math.max(0, homeGoalEvents - (Number(fixture.homeScore) || 0)));
+    awayDisallowedGoals = Math.max(awayDisallowedGoals, Math.max(0, awayGoalEvents - (Number(fixture.awayScore) || 0)));
+  }
+
   const current = signalForFixture(fixture.id);
   state.matchSignals[String(fixture.id)] = {
     ...current,
@@ -2992,7 +3021,7 @@ async function start() {
   renderRefreshSettings();
   setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=4.0").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=4.01").catch(() => {});
 }
 
 start();

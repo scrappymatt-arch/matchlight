@@ -135,6 +135,7 @@ const state = {
   fixturesByDate: {},
   cacheTimes: {},
   selectedOnly: false,
+  fixtureStatusFilters: new Set(["all"]),
   search: "",
   trackerFilter: "all",
   lists: initialLists,
@@ -846,6 +847,7 @@ function visibleFixtures() {
   return fixtures.filter((fixture) => {
     if (favouritesActive && !isFavourite(fixture)) return false;
     if (state.selectedOnly && !fixtureIsSelectedAnywhere(fixture.id)) return false;
+    if (!state.fixtureStatusFilters.has("all") && !state.fixtureStatusFilters.has(fixture.status)) return false;
     if (!query) return true;
     return `${fixture.home} ${fixture.away} ${fixture.league} ${fixture.country}`.toLowerCase().includes(query);
   });
@@ -884,6 +886,7 @@ function favouriteFixturesForCsv() {
   return [...(state.fixturesByDate[state.selectedDate] || [])].filter((fixture) => {
     if (!isFavourite(fixture)) return false;
     if (state.selectedOnly && !fixtureIsSelectedAnywhere(fixture.id)) return false;
+    if (!state.fixtureStatusFilters.has("all") && !state.fixtureStatusFilters.has(fixture.status)) return false;
     if (!query) return true;
     return `${fixture.home} ${fixture.away} ${fixture.league} ${fixture.country}`.toLowerCase().includes(query);
   });
@@ -1437,8 +1440,31 @@ function compareFavouriteLeagues(a, b) {
   }
 }
 
+function renderFixtureStatusFilters() {
+  document.querySelectorAll("#fixtureStatusFilters [data-fixture-status]").forEach((button) => {
+    const active = state.fixtureStatusFilters.has(button.dataset.fixtureStatus);
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+}
+
+function toggleFixtureStatusFilter(value) {
+  if (value === "all") {
+    state.fixtureStatusFilters = new Set(["all"]);
+  } else {
+    const next = new Set(state.fixtureStatusFilters);
+    next.delete("all");
+    if (next.has(value)) next.delete(value); else next.add(value);
+    const specific = ["scheduled", "live", "finished"];
+    if (!next.size || specific.every((status) => next.has(status))) state.fixtureStatusFilters = new Set(["all"]);
+    else state.fixtureStatusFilters = next;
+  }
+  renderFixtures();
+}
+
 function renderFixtures() {
   updateCsvButtonState();
+  renderFixtureStatusFilters();
   const list = document.getElementById("fixtureList");
   const fixtures = [...(state.fixturesByDate[state.selectedDate] || [])];
   const filtered = visibleFixtures();
@@ -1447,9 +1473,10 @@ function renderFixtures() {
   if (notice) {
     if (state.favouriteLeagues.length > 0) {
       notice.hidden = false;
+      const gameCountLabel = `${filtered.length} ${filtered.length === 1 ? "game" : "games"}`;
       notice.innerHTML = state.showAllLeagues
-        ? `<span>Showing all leagues.</span><button id="applyFavouriteFilter" type="button">Show favourites only</button>`
-        : `<span>Showing ${state.favouriteLeagues.length} favourite ${state.favouriteLeagues.length === 1 ? "league" : "leagues"} only.</span><button id="showAllLeagues" type="button">Show all leagues</button>`;
+        ? `<span>Showing all leagues. · ${gameCountLabel}</span><button id="applyFavouriteFilter" type="button">Show favourites only</button>`
+        : `<span>Showing ${state.favouriteLeagues.length} favourite ${state.favouriteLeagues.length === 1 ? "league" : "leagues"} only. · ${gameCountLabel}</span><button id="showAllLeagues" type="button">Show all leagues</button>`;
       document.getElementById(state.showAllLeagues ? "applyFavouriteFilter" : "showAllLeagues")?.addEventListener("click", () => {
         state.showAllLeagues = !state.showAllLeagues;
         renderFixtures();
@@ -2689,6 +2716,7 @@ function bindEvents() {
   });
   document.getElementById("fixtureSearch").addEventListener("input", (event) => { state.search = event.target.value; renderFixtures(); });
   document.getElementById("showSelectedOnly").addEventListener("click", () => { state.selectedOnly = !state.selectedOnly; renderAll(); });
+  document.querySelectorAll("#fixtureStatusFilters [data-fixture-status]").forEach((button) => button.addEventListener("click", () => toggleFixtureStatusFilter(button.dataset.fixtureStatus)));
   document.getElementById("downloadFixturesCsv").addEventListener("click", downloadVisibleFixturesCsv);
   document.getElementById("openResultsExport").addEventListener("click", openResultsExportDialog);
   document.getElementById("closeResultsExport").addEventListener("click", () => document.getElementById("resultsExportDialog").close());
@@ -2947,7 +2975,7 @@ async function start() {
   renderRefreshSettings();
   setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.31").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.32").catch(() => {});
 }
 
 start();

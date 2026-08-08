@@ -8,13 +8,13 @@
   <title>YorAkka</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=3.31" />
+  <link rel="stylesheet" href="styles.css?v=3.32" />
 </head>
 <body class="scores-active">
   <div class="app-shell">
     <header class="topbar">
       <div class="brand-lockup">
-        <h1>YorAkka <span class="app-version">V3.31</span> <span class="brand-tagline">YOUR FOOTBALL. YOUR PICKS. YOUR WAY.</span></h1>
+        <h1>YorAkka <span class="app-version">V3.32</span> <span class="brand-tagline">YOUR FOOTBALL. YOUR PICKS. YOUR WAY.</span></h1>
       </div>
       <button id="themeToggle" class="icon-button" aria-label="Toggle theme" title="Toggle theme">☼</button>
     </header>
@@ -38,6 +38,12 @@
           <button id="downloadFixturesCsv" class="filter-button export-button" type="button" title="Select at least one favourite league to enable CSV download" disabled aria-disabled="true">↓ CSV</button>
         </div>
         <div class="fixture-tools-row">
+          <div id="fixtureStatusFilters" class="fixture-status-filters" aria-label="Fixture status filters">
+            <button class="filter-button active" type="button" data-fixture-status="all" aria-pressed="true">All</button>
+            <button class="filter-button" type="button" data-fixture-status="scheduled" aria-pressed="false">Fixtures</button>
+            <button class="filter-button" type="button" data-fixture-status="live" aria-pressed="false">In Play</button>
+            <button class="filter-button" type="button" data-fixture-status="finished" aria-pressed="false">Results</button>
+          </div>
           <button id="openResultsExport" class="filter-button results-export-button" type="button">↓ Historical results CSV</button>
         </div>
 
@@ -341,6 +347,6 @@
     </div>
   </dialog>
 
-  <script src="app.js?v=3.31" defer></script>
+  <script src="app.js?v=3.32" defer></script>
 </body>
 </html>

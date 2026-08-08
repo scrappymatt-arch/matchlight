@@ -1,8 +1,10 @@
-# YorAkka V3.26
+# YorAkka V3.27
 
-## V3.26 changes
-- Fixes the mobile Track This Match market picker so every market is reachable, including **Correct score**.
-- Keeps the market buttons horizontally swipeable on phones and adds a small swipe cue/scroll affordance so off-screen choices are obvious.
-- Automatically scrolls the currently selected market button into view when the panel opens or the market changes.
-- Keeps the V3.25 injury-time clock improvements.
-- Updates the visible version and service-worker cache to V3.26.
+## V3.27 changes
+
+- Replaces the fixture condition form with a cleaner two-step flow: choose the market type first, then choose the selection.
+- Correct-score wheels now run in reverse visual order so tapping above the selected value increases the score and tapping below decreases it.
+- New correct-score selections default to 0–0. Existing correct-score selections still reopen on their saved score.
+- Correct-score quick choices are grouped into three columns: HW on the left, DRAW in the middle and AW on the right.
+- Retains V3.26 mobile market access, injury-time clocks, goal-alert reliability and fixture scroll-position restoration.
+- Updates the visible version and service-worker cache to V3.27.

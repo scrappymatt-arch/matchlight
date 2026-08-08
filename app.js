@@ -1141,7 +1141,7 @@ function scoreWheelMarkup(id, label, selected) {
   return `<div class="score-wheel-wrap">
     <span>${label}</span>
     <div id="${id}" class="score-wheel" role="listbox" aria-label="${label} score" data-value="${selected}">
-      ${Array.from({ length: 10 }, (_, score) => `<button type="button" class="score-wheel-item ${score === selected ? "selected" : ""}" role="option" aria-selected="${score === selected ? "true" : "false"}" data-score="${score}">${score}</button>`).join("")}
+      ${Array.from({ length: 10 }, (_, index) => 9 - index).map((score) => `<button type="button" class="score-wheel-item ${score === selected ? "selected" : ""}" role="option" aria-selected="${score === selected ? "true" : "false"}" data-score="${score}">${score}</button>`).join("")}
     </div>
   </div>`;
 }
@@ -1191,20 +1191,97 @@ function marketForCondition(condition) {
   if (["over15", "over25", "over35", "under15", "under25", "under35"].includes(condition)) return "goals";
   if (["bttsYes", "bttsNo"].includes(condition)) return "btts";
   if (parseCorrectScore(condition)) return "score";
-  return "result";
+  return null;
 }
 
-function updateConditionMarketUI(market, ensureVisible = true) {
+function marketTitle(market) {
+  return ({ result: "Result", double: "Double chance", goals: "Goals", btts: "BTTS", score: "Correct score" })[market] || "Choose type";
+}
+
+function renderConditionTypeStep(current) {
+  const container = document.getElementById("conditionOptions");
+  if (!container) return;
+  const selectedMarket = marketForCondition(current);
+  container.innerHTML = `
+    <div class="condition-step-heading">
+      <span>1</span>
+      <div><strong>Choose type</strong><small>What do you want to track?</small></div>
+    </div>
+    <div class="condition-type-grid" role="group" aria-label="Choose result type">
+      <button type="button" class="condition-type-button ${selectedMarket === "result" ? "has-current" : ""}" data-market="result"><strong>Result</strong><small>Home, draw or away</small></button>
+      <button type="button" class="condition-type-button ${selectedMarket === "double" ? "has-current" : ""}" data-market="double"><strong>Double chance</strong><small>Two outcomes covered</small></button>
+      <button type="button" class="condition-type-button ${selectedMarket === "goals" ? "has-current" : ""}" data-market="goals"><strong>Goals</strong><small>Over or under</small></button>
+      <button type="button" class="condition-type-button ${selectedMarket === "btts" ? "has-current" : ""}" data-market="btts"><strong>BTTS</strong><small>Both teams to score</small></button>
+      <button type="button" class="condition-type-button ${selectedMarket === "score" ? "has-current" : ""}" data-market="score"><strong>Correct score</strong><small>Pick the exact scoreline</small></button>
+      <button type="button" class="condition-type-button just-track-choice ${current === "none" ? "has-current" : ""}" data-condition="none"><strong>Just track</strong><small>No result condition</small></button>
+    </div>`;
+  container.querySelectorAll("[data-market]").forEach((button) => button.addEventListener("click", () => renderConditionChoiceStep(button.dataset.market, current)));
+  container.querySelector('[data-condition="none"]')?.addEventListener("click", () => selectCondition("none"));
+}
+
+function correctScoreShortcutColumn(title, scorelines, className) {
+  return `<div class="score-shortcut-column ${className}">
+    <h5>${title}</h5>
+    <div class="score-shortcut-column-buttons">
+      ${scorelines.map(([home, away]) => `<button type="button" class="score-shortcut" data-home="${home}" data-away="${away}">${home}–${away}</button>`).join("")}
+    </div>
+  </div>`;
+}
+
+function renderConditionChoiceStep(market, current) {
   state.editingMarket = market;
-  let activeButton = null;
-  document.querySelectorAll(".market-tab[data-market]").forEach((button) => {
-    const active = button.dataset.market === market;
-    button.classList.toggle("active", active);
-    if (active) activeButton = button;
-  });
-  document.querySelectorAll(".condition-group[data-market]").forEach((group) => group.classList.toggle("market-active", group.dataset.market === market));
-  if (ensureVisible && activeButton && window.matchMedia("(max-width:560px)").matches) {
-    requestAnimationFrame(() => activeButton.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" }));
+  const container = document.getElementById("conditionOptions");
+  if (!container) return;
+  let content = "";
+  if (market === "score") {
+    const existing = parseCorrectScore(current);
+    const scoreParts = existing || { home: 0, away: 0 };
+    content = `
+      <div class="correct-score-picker ${existing ? "active" : ""}">
+        ${scoreWheelMarkup("correctScoreHome", "Home", scoreParts.home)}
+        <strong aria-hidden="true">–</strong>
+        ${scoreWheelMarkup("correctScoreAway", "Away", scoreParts.away)}
+        <button type="button" id="useCorrectScore" class="condition-option correct-score-use">Use score</button>
+      </div>
+      <div class="correct-score-shortcuts grouped" aria-label="Quick correct score choices">
+        ${correctScoreShortcutColumn("HW", [[1,0],[2,0],[2,1],[3,0],[3,1],[3,2],[4,0],[4,1]], "home-win")}
+        ${correctScoreShortcutColumn("DRAW", [[0,0],[1,1],[2,2],[3,3]], "draw")}
+        ${correctScoreShortcutColumn("AW", [[0,1],[0,2],[1,2],[0,3],[1,3],[2,3],[0,4],[1,4]], "away-win")}
+      </div>`;
+  } else {
+    const groupName = ({ result: "Result", double: "Double chance", goals: "Over / Under", btts: "BTTS" })[market];
+    content = `<div class="condition-row ${market === "goals" ? "goal-options" : ""}">
+      ${CONDITIONS.filter((condition) => condition.group === groupName).map((condition) => `<button type="button" class="condition-option ${current === condition.id ? "active" : ""}" data-condition="${condition.id}">${condition.label}</button>`).join("")}
+    </div>`;
+  }
+  container.innerHTML = `
+    <div class="condition-choice-head">
+      <button type="button" class="condition-back-button" id="conditionBack">← Back</button>
+      <div class="condition-step-heading compact"><span>2</span><div><strong>${marketTitle(market)}</strong><small>Choose your selection</small></div></div>
+    </div>
+    <section class="condition-choice-panel">${content}</section>`;
+  document.getElementById("conditionBack")?.addEventListener("click", () => renderConditionTypeStep(current));
+  container.querySelectorAll(".condition-option[data-condition]").forEach((button) => button.addEventListener("click", () => selectCondition(button.dataset.condition)));
+  if (market === "score") {
+    const homeWheel = document.getElementById("correctScoreHome");
+    const awayWheel = document.getElementById("correctScoreAway");
+    bindScoreWheel(homeWheel);
+    bindScoreWheel(awayWheel);
+    container.querySelectorAll(".score-shortcut").forEach((button) => button.addEventListener("click", () => {
+      setScoreWheelValue(homeWheel, button.dataset.home);
+      setScoreWheelValue(awayWheel, button.dataset.away);
+      selectCondition(`score:${button.dataset.home}:${button.dataset.away}`);
+    }));
+    document.getElementById("useCorrectScore")?.addEventListener("click", () => {
+      const home = Number(homeWheel?.dataset.value || 0);
+      const away = Number(awayWheel?.dataset.value || 0);
+      selectCondition(`score:${home}:${away}`);
+    });
+    requestAnimationFrame(() => {
+      const scoreParts = parseCorrectScore(current) || { home: 0, away: 0 };
+      setScoreWheelValue(homeWheel, scoreParts.home);
+      setScoreWheelValue(awayWheel, scoreParts.away);
+    });
   }
 }
 
@@ -1232,71 +1309,9 @@ function openConditionDialog(id) {
   document.getElementById("dialogMatchTitle").textContent = `${fixture.home} v ${fixture.away}`;
   renderDialogListSelect();
   const current = state.lists[state.editingListId]?.selected?.[id]?.condition || "none";
-  const groups = [
-    { label: "Result", market: "result" },
-    { label: "Double chance", market: "double" },
-    { label: "Over / Under", market: "goals" },
-    { label: "BTTS", market: "btts" },
-  ];
-  const scoreParts = parseCorrectScore(current) || { home: 1, away: 0 };
-  state.editingMarket = marketForCondition(current);
-  document.getElementById("conditionOptions").innerHTML = `
-    <div class="market-picker" aria-label="Choose market" tabindex="0">
-      <button type="button" class="market-tab" data-market="result">Result</button>
-      <button type="button" class="market-tab" data-market="double">Double chance</button>
-      <button type="button" class="market-tab" data-market="goals">Goals</button>
-      <button type="button" class="market-tab" data-market="btts">BTTS</button>
-      <button type="button" class="market-tab" data-market="score">Correct score</button>
-      <button type="button" class="market-tab just-track-tab" data-condition="none">Just track</button>
-    </div>
-    <div class="market-picker-hint" aria-hidden="true">Swipe for more markets →</div>` + groups.map(({ label, market }) => `
-    <section class="condition-group" data-market="${market}">
-      <h4>${label}</h4>
-      <div class="condition-row ${label === "Over / Under" ? "goal-options" : ""}">
-        ${CONDITIONS.filter((condition) => condition.group === label).map((condition) => `<button type="button" class="condition-option ${current === condition.id ? "active" : ""}" data-condition="${condition.id}">${condition.label}</button>`).join("")}
-      </div>
-    </section>`).join("") + `
-    <section class="condition-group correct-score-group" data-market="score">
-      <h4>Correct score</h4>
-      <div class="correct-score-picker ${parseCorrectScore(current) ? "active" : ""}">
-        ${scoreWheelMarkup("correctScoreHome", "Home", scoreParts.home)}
-        <strong aria-hidden="true">–</strong>
-        ${scoreWheelMarkup("correctScoreAway", "Away", scoreParts.away)}
-        <button type="button" id="useCorrectScore" class="condition-option correct-score-use">Use score</button>
-      </div>
-      <div class="correct-score-shortcuts" aria-label="Common correct scores">
-        ${[[0,0],[1,0],[0,1],[1,1],[2,0],[0,2],[2,1],[1,2],[2,2],[3,1],[1,3],[3,0],[0,3],[3,2],[2,3],[3,3],[4,0],[0,4]].map(([home, away]) => `<button type="button" class="score-shortcut" data-home="${home}" data-away="${away}">${home}–${away}</button>`).join("")}
-      </div>
-    </section>
-    <section class="condition-group desktop-just-track">
-      <h4>Just track</h4>
-      <div class="condition-row"><button type="button" class="condition-option ${current === "none" ? "active" : ""}" data-condition="none">Just track match</button></div>
-    </section>`;
-  document.querySelectorAll(".market-tab[data-market]").forEach((button) => button.addEventListener("click", () => updateConditionMarketUI(button.dataset.market)));
-  document.querySelector(".market-tab[data-condition=\"none\"]")?.addEventListener("click", () => selectCondition("none"));
-  document.querySelectorAll(".condition-option[data-condition]").forEach((button) => button.addEventListener("click", () => selectCondition(button.dataset.condition)));
-  const homeWheel = document.getElementById("correctScoreHome");
-  const awayWheel = document.getElementById("correctScoreAway");
-  bindScoreWheel(homeWheel);
-  bindScoreWheel(awayWheel);
-  document.querySelectorAll(".score-shortcut").forEach((button) => button.addEventListener("click", () => {
-    setScoreWheelValue(homeWheel, button.dataset.home);
-    setScoreWheelValue(awayWheel, button.dataset.away);
-    selectCondition(`score:${button.dataset.home}:${button.dataset.away}`);
-  }));
-  document.getElementById("useCorrectScore").addEventListener("click", () => {
-    const home = Number(homeWheel?.dataset.value || 0);
-    const away = Number(awayWheel?.dataset.value || 0);
-    selectCondition(`score:${home}:${away}`);
-  });
-  updateConditionMarketUI(state.editingMarket, false);
+  renderConditionTypeStep(current);
   const dialog = document.getElementById("conditionDialog");
   if (!dialog.open) dialog.showModal();
-  requestAnimationFrame(() => {
-    setScoreWheelValue(homeWheel, scoreParts.home);
-    setScoreWheelValue(awayWheel, scoreParts.away);
-    updateConditionMarketUI(state.editingMarket, true);
-  });
 }
 
 function renderDialogListSelect() {

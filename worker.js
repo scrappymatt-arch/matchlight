@@ -104,6 +104,7 @@ export default {
           signals: "/signals?ids=123456,123457",
           leagues: "/leagues",
           leagueHistory: "/league-history?league=39",
+          teams: "/teams?league=39&season=2025",
           results: "/results?league=39&season=2025&from=2025-08-01&to=2026-05-31",
         },
       }, 200, request);
@@ -162,6 +163,29 @@ export default {
         return jsonResponse({ league: Number(league), seasons }, 200, request, { "Cache-Control": "public, max-age=86400" });
       } catch (error) {
         return jsonResponse({ error: "Unable to retrieve league history.", details: error.message || String(error) }, 502, request);
+      }
+    }
+
+    if (url.pathname === "/teams") {
+      const league = url.searchParams.get("league");
+      const season = url.searchParams.get("season");
+      if (!/^\d+$/.test(league || "") || !/^\d{4}$/.test(season || "")) {
+        return jsonResponse({ error: "Provide a numeric league ID and four-digit season." }, 400, request);
+      }
+      try {
+        const data = await requestApiFootball(`/teams?league=${encodeURIComponent(league)}&season=${encodeURIComponent(season)}`, env, 86400, 2);
+        const teams = (Array.isArray(data.response) ? data.response : []).map((item) => ({
+          team: {
+            id: item.team?.id || null,
+            name: item.team?.name || "Unknown team",
+            code: item.team?.code || null,
+            country: item.team?.country || null,
+          },
+        })).filter((item) => item.team.id && item.team.name);
+        teams.sort((a, b) => a.team.name.localeCompare(b.team.name));
+        return jsonResponse({ get: "teams", parameters: { league: Number(league), season: Number(season) }, errors: [], results: teams.length, response: teams }, 200, request, { "Cache-Control": "public, max-age=86400" });
+      } catch (error) {
+        return jsonResponse({ error: "Unable to retrieve league teams.", details: error.message || String(error) }, 502, request);
       }
     }
 

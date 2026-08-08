@@ -8,13 +8,13 @@
   <title>YorAkka</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=3.30" />
+  <link rel="stylesheet" href="styles.css?v=3.31" />
 </head>
 <body class="scores-active">
   <div class="app-shell">
     <header class="topbar">
       <div class="brand-lockup">
-        <h1>YorAkka <span class="app-version">V3.30</span> <span class="brand-tagline">YOUR FOOTBALL. YOUR PICKS. YOUR WAY.</span></h1>
+        <h1>YorAkka <span class="app-version">V3.31</span> <span class="brand-tagline">YOUR FOOTBALL. YOUR PICKS. YOUR WAY.</span></h1>
       </div>
       <button id="themeToggle" class="icon-button" aria-label="Toggle theme" title="Toggle theme">☼</button>
     </header>
@@ -320,7 +320,9 @@
         <label><span>To</span><input id="resultsToDate" type="date"></label>
       </div>
       <p id="resultsLeagueCount" class="results-league-count"></p>
-      <button id="downloadResultsCsv" class="primary-button results-download-button" type="button">Download CSV</button>
+      <button id="downloadResultsCsv" class="primary-button results-download-button" type="button">Download results CSV</button>
+      <button id="downloadTeamListCsv" class="secondary-button results-download-button team-list-download-button" type="button">Download team list CSV</button>
+      <p class="results-export-copy team-list-copy">Team list uses the current/latest season for each selected league.</p>
       <div id="resultsExportProgress" class="results-export-progress" hidden>
         <progress id="resultsProgressBar" max="1" value="0"></progress>
         <p id="resultsProgressText" aria-live="polite"></p>
@@ -339,6 +341,6 @@
     </div>
   </dialog>
 
-  <script src="app.js?v=3.30" defer></script>
+  <script src="app.js?v=3.31" defer></script>
 </body>
 </html>

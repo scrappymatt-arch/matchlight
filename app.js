@@ -1143,6 +1143,86 @@ async function refreshSelectedLeagueHistory(leagues, progressBar, progressText) 
   return selectedFavouriteLeagueRecords();
 }
 
+function preferredLeagueSeason(league) {
+  const seasons = Array.isArray(league?.seasons) ? league.seasons.filter((season) => Number.isFinite(Number(season?.year))) : [];
+  const current = seasons.find((season) => season.current);
+  if (current) return Number(current.year);
+  if (league?.season && Number.isFinite(Number(league.season))) return Number(league.season);
+  return seasons.length ? Math.max(...seasons.map((season) => Number(season.year))) : null;
+}
+
+async function downloadSelectedLeagueTeamsCsv() {
+  const progressWrap = document.getElementById("resultsExportProgress");
+  const progressBar = document.getElementById("resultsProgressBar");
+  const progressText = document.getElementById("resultsProgressText");
+  const resultsButton = document.getElementById("downloadResultsCsv");
+  const teamButton = document.getElementById("downloadTeamListCsv");
+
+  if (!state.favouriteLeagues.length) {
+    alert("Select at least one Favourite League in Settings first.");
+    return;
+  }
+
+  let leagues = selectedFavouriteLeagueRecords();
+  resultsButton.disabled = true;
+  teamButton.disabled = true;
+  progressWrap.hidden = false;
+  progressText.textContent = "Preparing team list…";
+
+  try {
+    if (!leagues.length || leagues.some((league) => !league?.leagueId)) {
+      leagues = await repairFavouriteLeagueApiIds(progressBar, progressText);
+      const unresolved = leagues.filter((league) => !league?.leagueId);
+      if (unresolved.length) throw new Error(`${unresolved.length} selected ${unresolved.length === 1 ? "league could" : "leagues could"} not be matched to API-Football.`);
+    }
+
+    leagues = await refreshSelectedLeagueHistory(leagues, progressBar, progressText);
+    const jobs = leagues.map((league) => ({ league, season: preferredLeagueSeason(league) })).filter((job) => job.league?.leagueId && job.season);
+    if (!jobs.length) throw new Error("No current/latest season could be identified for the selected leagues.");
+
+    progressBar.max = jobs.length;
+    progressBar.value = 0;
+    const rows = [];
+    const failures = [];
+
+    for (let index = 0; index < jobs.length; index += 1) {
+      const job = jobs[index];
+      progressText.textContent = `Downloading teams ${index + 1}/${jobs.length}: ${job.league.country} — ${job.league.league} (${job.season})`;
+      try {
+        const params = new URLSearchParams({ league: String(job.league.leagueId), season: String(job.season) });
+        const data = await fetchJsonWithTimeout(`${API_BASE}/teams?${params.toString()}`, { cache: "no-store" }, 25000);
+        (Array.isArray(data.response) ? data.response : []).forEach((item) => {
+          const name = item?.team?.name || item?.name || "";
+          if (name) rows.push([job.league.country, job.league.league, job.season, name]);
+        });
+      } catch (error) {
+        failures.push(`${job.league.country} — ${job.league.league} (${job.season})`);
+      }
+      progressBar.value = index + 1;
+      if (index < jobs.length - 1) await new Promise((resolve) => setTimeout(resolve, 350));
+    }
+
+    const deduped = [...new Map(rows.map((row) => [`${row[0]}|${row[1]}|${row[2]}|${row[3]}`, row])).values()]
+      .sort((a, b) => `${a[0]} ${a[1]} ${a[3]}`.localeCompare(`${b[0]} ${b[1]} ${b[3]}`));
+
+    if (!deduped.length) {
+      progressText.textContent = failures.length ? "No team lists downloaded; some requests failed." : "No teams were returned for the selected leagues.";
+      return;
+    }
+
+    progressText.textContent = "Creating team list CSV…";
+    downloadCsvBlob(`YorAkka-selected-league-teams.csv`, ["country", "league", "season", "team"], deduped);
+    progressText.textContent = `${deduped.length} teams downloaded${failures.length ? ` · ${failures.length} league request${failures.length === 1 ? "" : "s"} failed` : ""}.`;
+    if (failures.length) alert(`The team-list CSV was created, but ${failures.length} league request${failures.length === 1 ? "" : "s"} failed, so it may be incomplete.`);
+  } catch (error) {
+    progressText.textContent = error.message || "Team list export failed.";
+    alert(error.message || "Team list export failed.");
+  } finally {
+    resultsButton.disabled = false;
+    teamButton.disabled = false;
+  }
+}
+
 async function openResultsExportDialog() {
   setResultsExportDefaults();
   updateResultsExportDialog();
@@ -2616,6 +2696,13 @@ function bindEvents() {
     document.getElementById("resultsExportProgress").hidden = false;
     document.getElementById("resultsProgressText").textContent = error.message || "Historical results export failed.";
     document.getElementById("downloadResultsCsv").disabled = false;
+    document.getElementById("downloadTeamListCsv").disabled = false;
+  }));
+  document.getElementById("downloadTeamListCsv").addEventListener("click", () => downloadSelectedLeagueTeamsCsv().catch((error) => {
+    document.getElementById("resultsExportProgress").hidden = false;
+    document.getElementById("resultsProgressText").textContent = error.message || "Team list export failed.";
+    document.getElementById("downloadResultsCsv").disabled = false;
+    document.getElementById("downloadTeamListCsv").disabled = false;
   }));
   document.getElementById("resultsExportDialog").addEventListener("click", (event) => { if (event.target.id === "resultsExportDialog") event.currentTarget.close(); });
   const overallStatusButton = document.getElementById("overallListStatus");
@@ -2860,7 +2947,7 @@ async function start() {
   renderRefreshSettings();
   setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.30").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.31").catch(() => {});
 }
 
 start();

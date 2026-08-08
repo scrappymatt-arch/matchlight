@@ -1284,3 +1284,7 @@ body.light .results-date-grid input { color-scheme:light; }
   .results-export-button { width:100%; }
   .results-date-grid { grid-template-columns:1fr; }
 }
+
+/* V3.31 team-list export */
+.team-list-download-button { width: 100%; margin-top: 9px; }
+.team-list-copy { margin-top: 8px; font-size: .76rem; }

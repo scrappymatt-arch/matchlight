@@ -272,13 +272,13 @@ function normaliseFixture(item) {
     minute: Number.isFinite(elapsed) ? elapsed : null,
     injuryMinute: Number.isFinite(item.fixture?.status?.extra) ? item.fixture.status.extra : null,
     // API-Football includes the event history on the live-fixtures response. V4 keeps
-    // it on the normalised fixture so one live call can drive scores, red cards and VAR.
+    // it on the normalised fixture so one live call can drive scores and red-card signals.
     events: Array.isArray(item.events) ? item.events : [],
   };
 }
 
 function signalForFixture(id) {
-  return state.matchSignals[String(id)] || { goalUntil: 0, redCards: 0, homeRedCards: 0, awayRedCards: 0, disallowedGoals: 0, homeDisallowedGoals: 0, awayDisallowedGoals: 0 };
+  return state.matchSignals[String(id)] || { goalUntil: 0, redCards: 0, homeRedCards: 0, awayRedCards: 0 };
 }
 
 function saveSignals() {
@@ -464,12 +464,6 @@ function redCardIcons(count, side) {
   return `<span class="team-red-cards ${side}" title="${label}" aria-label="${label}">${'<i></i>'.repeat(total)}</span>`;
 }
 
-function disallowedGoalIcons(count, side) {
-  const total = Math.max(0, Number(count) || 0);
-  if (!total) return "";
-  const label = `${total} disallowed goal${total === 1 ? "" : "s"}`;
-  return `<span class="team-disallowed-goals ${side}" title="${label}" aria-label="${label}">${'<i aria-hidden="true">⚽</i>'.repeat(total)}</span>`;
-}
 
 function matchSignalParts(fixture) {
   const signal = signalForFixture(fixture.id);
@@ -479,8 +473,6 @@ function matchSignalParts(fixture) {
   return {
     homeCards: redCardIcons(signal.homeRedCards, "home"),
     awayCards: redCardIcons(signal.awayRedCards, "away"),
-    homeDisallowed: disallowedGoalIcons(signal.homeDisallowedGoals, "home"),
-    awayDisallowed: disallowedGoalIcons(signal.awayDisallowedGoals, "away"),
     goal: goal ? `<span class="match-signals">${goal}</span>` : "",
   };
 }
@@ -1554,9 +1546,9 @@ function fixtureCardHtml(fixture) {
     <article class="fixture-card" data-open-fixture="${fixture.id}" tabindex="0" role="button" aria-label="Open ${escapeHtml(fixture.home)} versus ${escapeHtml(fixture.away)} details">
       <div class="match-time ${fixture.status === "live" ? "live" : ""}">${escapeHtml(clockText(fixture))}<small>${escapeHtml(statusLabel(fixture))}</small></div>
       <div class="match-line">
-        <strong class="home-team">${signals.homeDisallowed}${signals.homeCards}<span class="team-name">${escapeHtml(fixture.home)}</span></strong>
+        <strong class="home-team">${signals.homeCards}<span class="team-name">${escapeHtml(fixture.home)}</span></strong>
         <span class="central-score ${fixture.status === "scheduled" ? "scheduled" : ""}">${scoreText(fixture)}</span>
-        <strong class="away-team"><span class="team-name">${escapeHtml(fixture.away)}</span>${signals.awayCards}${signals.awayDisallowed}</strong>
+        <strong class="away-team"><span class="team-name">${escapeHtml(fixture.away)}</span>${signals.awayCards}</strong>
         ${signals.goal}
       </div>
       <button class="add-button ${selected ? "selected" : ""}" data-fixture-id="${fixture.id}" aria-label="${selected ? "Edit tracked match" : "Track this match"}">${selected ? "✓" : "+"}</button>
@@ -2003,9 +1995,9 @@ function renderTracker() {
           <div class="tracker-topline">
             <div class="tracker-clock">${escapeHtml(clockText(fixture))}<small>${escapeHtml(statusLabel(fixture))}</small></div>
             <div class="match-line tracker-match-line">
-              <strong class="home-team">${signals.homeDisallowed}${signals.homeCards}<span class="team-name">${escapeHtml(fixture.home)}</span></strong>
+              <strong class="home-team">${signals.homeCards}<span class="team-name">${escapeHtml(fixture.home)}</span></strong>
               <span class="central-score ${fixture.status === "scheduled" ? "scheduled" : ""}">${scoreText(fixture)}</span>
-              <strong class="away-team"><span class="team-name">${escapeHtml(fixture.away)}</span>${signals.awayCards}${signals.awayDisallowed}</strong>
+              <strong class="away-team"><span class="team-name">${escapeHtml(fixture.away)}</span>${signals.awayCards}</strong>
               ${signals.goal}
             </div>
             ${state.trackerOrder === "custom" ? `<div class="tracker-reorder" aria-label="Move match"><button type="button" data-move-id="${entry.id}" data-direction="up" aria-label="Move match up">↑</button><button type="button" data-move-id="${entry.id}" data-direction="down" aria-label="Move match down">↓</button></div>` : ""}
@@ -2352,63 +2344,23 @@ function updateRedCardsFromEvents(fixture, events, match = {}) {
   const awayId = String(fixture.awayId ?? match.teams?.away?.id ?? "");
   const normalise = (value) => String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
   const seenDismissals = new Set();
-  const seenDisallowed = new Set();
-  const seenHomeGoals = new Set();
-  const seenAwayGoals = new Set();
   let homeRedCards = 0;
   let awayRedCards = 0;
-  let homeDisallowedGoals = 0;
-  let awayDisallowedGoals = 0;
-  let homeGoalEvents = 0;
-  let awayGoalEvents = 0;
-  const currentMinute = Number(fixture.minute);
+
   (Array.isArray(events) ? events : []).forEach((event) => {
     const text = `${event.type || ""} ${event.detail || ""} ${event.comments || ""}`.toLowerCase();
     const eventTeamId = String(event.team?.id ?? "");
     const eventTeamName = normalise(event.team?.name);
     const isHome = (eventTeamId && homeId && eventTeamId === homeId) || eventTeamName === normalise(fixture.home);
     const isAway = (eventTeamId && awayId && eventTeamId === awayId) || eventTeamName === normalise(fixture.away);
-    const key = [event.team?.id || event.team?.name || "", event.player?.id || event.player?.name || "", event.time?.elapsed || "", event.time?.extra || "", event.detail || ""].join("|");
-
+    const key = [event.team?.id || event.team?.name || "", event.player?.id || event.player?.name || "", event.time?.elapsed || "", event.time?.extra || ""].join("|");
     const dismissal = text.includes("red card") || text.includes("second yellow") || text.includes("2nd yellow") || text.includes("yellow-red") || text.includes("yellow red");
     if (dismissal && !seenDismissals.has(key)) {
       seenDismissals.add(key);
       if (isHome) homeRedCards += 1;
       else if (isAway) awayRedCards += 1;
     }
-
-    const eventType = String(event.type || "").trim().toLowerCase();
-    const eventDetail = String(event.detail || "").trim().toLowerCase();
-    const disallowed = /goal\s+(?:cancel+ed|canceled|disallowed|overturned)|(?:cancel+ed|canceled|disallowed|overturned)\s+goal|no\s+goal/.test(text.replace(/\s+/g, " "))
-      && (eventType === "var" || eventType === "goal" || text.includes("var"));
-    if (disallowed && !seenDisallowed.has(key)) {
-      seenDisallowed.add(key);
-      if (isHome) homeDisallowedGoals += 1;
-      else if (isAway) awayDisallowedGoals += 1;
-    }
-
-    // V4.01 fallback: some feeds retain the original goal as a normal Goal event but
-    // omit the separate VAR cancellation. If the number of established goal events is
-    // greater than the current official score, the surplus goal(s) must have been ruled
-    // out. Wait until the event is at least two match-minutes old so a newly scored goal
-    // is not briefly marked as disallowed while the score field catches up.
-    const isGoalEvent = eventType === "goal" && !eventDetail.includes("missed penalty") && !disallowed;
-    const eventMinute = Number(event.time?.elapsed);
-    const established = !Number.isFinite(currentMinute) || !Number.isFinite(eventMinute) || currentMinute - eventMinute >= 2;
-    if (isGoalEvent && established) {
-      const goalKey = [event.team?.id || event.team?.name || "", event.player?.id || event.player?.name || "", event.time?.elapsed || "", event.time?.extra || "", event.detail || ""].join("|");
-      if (isHome && !seenHomeGoals.has(goalKey)) { seenHomeGoals.add(goalKey); homeGoalEvents += 1; }
-      else if (isAway && !seenAwayGoals.has(goalKey)) { seenAwayGoals.add(goalKey); awayGoalEvents += 1; }
-    }
   });
-
-  // Compare established goal events with the official score. Use max(), rather than
-  // adding, because a feed that *does* include an explicit VAR cancellation may also
-  // retain the original goal event.
-  if (fixture.statusShort !== "P") {
-    homeDisallowedGoals = Math.max(homeDisallowedGoals, Math.max(0, homeGoalEvents - (Number(fixture.homeScore) || 0)));
-    awayDisallowedGoals = Math.max(awayDisallowedGoals, Math.max(0, awayGoalEvents - (Number(fixture.awayScore) || 0)));
-  }
 
   const current = signalForFixture(fixture.id);
   state.matchSignals[String(fixture.id)] = {
@@ -2416,9 +2368,6 @@ function updateRedCardsFromEvents(fixture, events, match = {}) {
     redCards: Math.max(Number(current.redCards) || 0, homeRedCards + awayRedCards),
     homeRedCards: Math.max(Number(current.homeRedCards) || 0, homeRedCards),
     awayRedCards: Math.max(Number(current.awayRedCards) || 0, awayRedCards),
-    disallowedGoals: Math.max(Number(current.disallowedGoals) || 0, homeDisallowedGoals + awayDisallowedGoals),
-    homeDisallowedGoals: Math.max(Number(current.homeDisallowedGoals) || 0, homeDisallowedGoals),
-    awayDisallowedGoals: Math.max(Number(current.awayDisallowedGoals) || 0, awayDisallowedGoals),
   };
   saveSignals();
 }
@@ -3021,7 +2970,7 @@ async function start() {
   renderRefreshSettings();
   setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=4.01").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=4.02").catch(() => {});
 }
 
 start();

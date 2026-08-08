@@ -717,7 +717,10 @@ function updateKnownLeagues(fixtures) {
   const merged = new Map(state.knownLeagues.map((league) => [league.key, league]));
   fixtures.forEach((fixture) => {
     const key = `${fixture.country}|${fixture.league}`;
-    merged.set(key, { key, country: fixture.country, league: fixture.league });
+    const existing = merged.get(key) || {};
+    // Preserve catalogue metadata (especially API leagueId and season history)
+    // when the same league is rediscovered from an ordinary fixture response.
+    merged.set(key, { ...existing, key, country: fixture.country, league: fixture.league });
   });
   state.knownLeagues = [...merged.values()].sort((a, b) => `${a.country} ${a.league}`.localeCompare(`${b.country} ${b.league}`));
   localStorage.setItem(`${STORAGE_PREFIX}known-leagues`, JSON.stringify(state.knownLeagues));
@@ -937,7 +940,106 @@ function downloadVisibleFixturesCsv() {
 
 function selectedFavouriteLeagueRecords() {
   const byKey = new Map(state.knownLeagues.map((league) => [league.key, league]));
-  return state.favouriteLeagues.map((key) => byKey.get(key)).filter(Boolean);
+  return state.favouriteLeagues.map((key) => {
+    const known = byKey.get(key);
+    if (known) return known;
+    const separator = key.indexOf("|");
+    return {
+      key,
+      country: separator >= 0 ? key.slice(0, separator) : "International",
+      league: separator >= 0 ? key.slice(separator + 1) : key,
+      leagueId: null,
+      seasons: [],
+    };
+  });
+}
+
+function normaliseLeagueMatchText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function leagueMatchSignature(country, league) {
+  return `${normaliseLeagueMatchText(country)}|${normaliseLeagueMatchText(league)}`;
+}
+
+function mergeResolvedCatalogue(catalogue) {
+  const merged = new Map(state.knownLeagues.map((league) => [league.key, league]));
+  catalogue.forEach((league) => {
+    const existing = merged.get(league.key) || {};
+    merged.set(league.key, { ...existing, ...league });
+  });
+  state.knownLeagues = [...merged.values()].sort((a, b) => `${a.country} ${a.league}`.localeCompare(`${b.country} ${b.league}`));
+  localStorage.setItem(`${STORAGE_PREFIX}known-leagues`, JSON.stringify(state.knownLeagues));
+}
+
+async function repairFavouriteLeagueApiIds(progressBar, progressText) {
+  let selected = selectedFavouriteLeagueRecords();
+  const missing = selected.filter((league) => !league?.leagueId);
+  if (!missing.length) return selected;
+
+  progressBar.max = missing.length + 1;
+  progressBar.value = 0;
+  progressText.textContent = `Matching ${missing.length} saved ${missing.length === 1 ? "league" : "leagues"} to API-Football…`;
+
+  const data = await fetchJsonWithTimeout(`${API_BASE}/leagues`, { cache: "no-store" }, 25000);
+  const catalogue = (Array.isArray(data.response) ? data.response : []).map((item) => ({
+    key: `${item.country || "International"}|${item.name}`,
+    country: item.country || "International",
+    league: item.name,
+    leagueId: item.id || null,
+    type: item.type || "League",
+    current: Boolean(item.current),
+    season: item.season || null,
+    seasons: Array.isArray(item.seasons) ? item.seasons.map((season) => ({
+      year: Number(season.year),
+      start: season.start || null,
+      end: season.end || null,
+      current: Boolean(season.current),
+    })).filter((season) => Number.isFinite(season.year)) : [],
+  })).filter((league) => league.leagueId);
+
+  const exact = new Map(catalogue.map((league) => [league.key, league]));
+  const bySignature = new Map();
+  const byLeagueName = new Map();
+  catalogue.forEach((league) => {
+    bySignature.set(leagueMatchSignature(league.country, league.league), league);
+    const name = normaliseLeagueMatchText(league.league);
+    if (!byLeagueName.has(name)) byLeagueName.set(name, []);
+    byLeagueName.get(name).push(league);
+  });
+
+  const repaired = [];
+  missing.forEach((savedLeague, index) => {
+    let match = exact.get(savedLeague.key) || bySignature.get(leagueMatchSignature(savedLeague.country, savedLeague.league));
+    if (!match) {
+      const nameMatches = byLeagueName.get(normaliseLeagueMatchText(savedLeague.league)) || [];
+      if (nameMatches.length === 1) match = nameMatches[0];
+    }
+    if (match) {
+      repaired.push({ ...match, key: savedLeague.key, country: savedLeague.country || match.country, league: savedLeague.league || match.league });
+    }
+    progressBar.value = index + 1;
+  });
+
+  mergeResolvedCatalogue(catalogue);
+  // Preserve the user's original favourite keys while attaching the recovered API metadata.
+  if (repaired.length) {
+    const merged = new Map(state.knownLeagues.map((league) => [league.key, league]));
+    repaired.forEach((league) => merged.set(league.key, { ...(merged.get(league.key) || {}), ...league }));
+    state.knownLeagues = [...merged.values()].sort((a, b) => `${a.country} ${a.league}`.localeCompare(`${b.country} ${b.league}`));
+    localStorage.setItem(`${STORAGE_PREFIX}known-leagues`, JSON.stringify(state.knownLeagues));
+  }
+
+  progressBar.value = missing.length + 1;
+  selected = selectedFavouriteLeagueRecords();
+  return selected;
 }
 
 function setResultsExportDefaults() {
@@ -963,9 +1065,10 @@ function updateResultsExportDialog() {
     button.disabled = true;
     return;
   }
-  if (!withIds.length) {
-    count.textContent = `${state.favouriteLeagues.length} selected leagues, but their API IDs are unavailable. Refresh Favourite Leagues in Settings first.`;
-    button.disabled = true;
+  if (withIds.length !== state.favouriteLeagues.length) {
+    const missing = state.favouriteLeagues.length - withIds.length;
+    count.textContent = `${state.favouriteLeagues.length} selected leagues. YorAkka will automatically match ${missing} saved ${missing === 1 ? "league" : "leagues"} to API-Football before export.`;
+    button.disabled = false;
     return;
   }
   count.textContent = `${state.favouriteLeagues.length} selected ${state.favouriteLeagues.length === 1 ? "league" : "leagues"}. League history will be checked when you download.`;
@@ -1068,10 +1171,6 @@ async function downloadHistoricalResultsCsv() {
   }
 
   let leagues = selectedFavouriteLeagueRecords();
-  if (!leagues.length || leagues.some((league) => !league?.leagueId)) {
-    alert("One or more selected leagues is missing its API ID. Open Favourite Leagues in Settings and refresh the catalogue, then try again.");
-    return;
-  }
 
   button.disabled = true;
   progressWrap.hidden = false;
@@ -1079,6 +1178,23 @@ async function downloadHistoricalResultsCsv() {
   const failures = [];
 
   try {
+    if (!leagues.length || leagues.some((league) => !league?.leagueId)) {
+      try {
+        leagues = await repairFavouriteLeagueApiIds(progressBar, progressText);
+      } catch (error) {
+        progressText.textContent = error.message || "Could not match saved leagues.";
+        alert(`Could not match your saved Favourite Leagues to API-Football. ${error.message || "Please try again."}`);
+        return;
+      }
+      const unresolved = leagues.filter((league) => !league?.leagueId);
+      if (unresolved.length) {
+        const names = unresolved.slice(0, 4).map((league) => `${league.country} — ${league.league}`).join("\n");
+        progressText.textContent = `${unresolved.length} selected ${unresolved.length === 1 ? "league could" : "leagues could"} not be matched.`;
+        alert(`YorAkka could not match ${unresolved.length} selected ${unresolved.length === 1 ? "league" : "leagues"} to API-Football.${names ? `\n\n${names}` : ""}`);
+        return;
+      }
+    }
+
     try {
       leagues = await refreshSelectedLeagueHistory(leagues, progressBar, progressText);
     } catch (error) {
@@ -2744,7 +2860,7 @@ async function start() {
   renderRefreshSettings();
   setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.29").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.30").catch(() => {});
 }
 
 start();

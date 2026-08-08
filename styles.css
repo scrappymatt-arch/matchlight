@@ -1293,3 +1293,54 @@ body.light .results-date-grid input { color-scheme:light; }
 /* V3.31 team-list export */
 .team-list-download-button { width: 100%; margin-top: 9px; }
 .team-list-copy { margin-top: 8px; font-size: .76rem; }
+
+
+/* YorAkka V3.33 — centred scores and disallowed-goal markers */
+.team-disallowed-goals { display: inline-flex; align-items: center; gap: 2px; flex: 0 0 auto; }
+.team-disallowed-goals.home { margin-right: 5px; }
+.team-disallowed-goals.away { margin-left: 5px; }
+.team-disallowed-goals i {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  font-size: 11px;
+  line-height: 1;
+  font-style: normal;
+  filter: grayscale(.55) saturate(.65);
+  opacity: .9;
+}
+.team-disallowed-goals i::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 7px;
+  width: 15px;
+  height: 2px;
+  border-radius: 2px;
+  background: #ff4a62;
+  transform: rotate(-42deg);
+  box-shadow: 0 0 2px rgba(0,0,0,.45);
+}
+.match-line .team-disallowed-goals.home { order: -2; }
+.match-line .team-red-cards.home { order: -1; }
+.match-line .team-red-cards.away { order: 2; }
+.match-line .team-disallowed-goals.away { order: 3; }
+
+/* Keep the fixture score on one fixed vertical centre line regardless of team-name length. */
+#fixturesView .fixture-card .match-line {
+  grid-template-columns: minmax(0, 1fr) 54px minmax(0, 1fr);
+  position: relative;
+}
+#fixturesView .fixture-card .central-score { width: 54px; min-width: 54px; justify-self: center; }
+#fixturesView .fixture-card .match-signals { position: absolute; right: 0; }
+
+@media (max-width: 600px) {
+  .team-disallowed-goals.home { margin-right: 3px; }
+  .team-disallowed-goals.away { margin-left: 3px; }
+  .team-disallowed-goals i { width: 13px; height: 13px; font-size: 9px; }
+  .team-disallowed-goals i::after { width: 13px; top: 6px; }
+  #fixturesView .fixture-card .match-line { grid-template-columns: minmax(0, 1fr) 46px minmax(0, 1fr); }
+  #fixturesView .fixture-card .central-score { width: 46px; min-width: 46px; }
+}

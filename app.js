@@ -276,7 +276,7 @@ function normaliseFixture(item) {
 }
 
 function signalForFixture(id) {
-  return state.matchSignals[String(id)] || { goalUntil: 0, redCards: 0, homeRedCards: 0, awayRedCards: 0 };
+  return state.matchSignals[String(id)] || { goalUntil: 0, redCards: 0, homeRedCards: 0, awayRedCards: 0, disallowedGoals: 0, homeDisallowedGoals: 0, awayDisallowedGoals: 0 };
 }
 
 function saveSignals() {
@@ -462,6 +462,13 @@ function redCardIcons(count, side) {
   return `<span class="team-red-cards ${side}" title="${label}" aria-label="${label}">${'<i></i>'.repeat(total)}</span>`;
 }
 
+function disallowedGoalIcons(count, side) {
+  const total = Math.max(0, Number(count) || 0);
+  if (!total) return "";
+  const label = `${total} disallowed goal${total === 1 ? "" : "s"}`;
+  return `<span class="team-disallowed-goals ${side}" title="${label}" aria-label="${label}">${'<i aria-hidden="true">⚽</i>'.repeat(total)}</span>`;
+}
+
 function matchSignalParts(fixture) {
   const signal = signalForFixture(fixture.id);
   const goal = signal.goalUntil > Date.now()
@@ -470,6 +477,8 @@ function matchSignalParts(fixture) {
   return {
     homeCards: redCardIcons(signal.homeRedCards, "home"),
     awayCards: redCardIcons(signal.awayRedCards, "away"),
+    homeDisallowed: disallowedGoalIcons(signal.homeDisallowedGoals, "home"),
+    awayDisallowed: disallowedGoalIcons(signal.awayDisallowedGoals, "away"),
     goal: goal ? `<span class="match-signals">${goal}</span>` : "",
   };
 }
@@ -510,11 +519,16 @@ async function refreshMatchSignals(fixtures) {
       };
       const homeRedCards = item.homeRedCards != null ? Number(item.homeRedCards) || 0 : byKey(fixture?.homeId, fixture?.home);
       const awayRedCards = item.awayRedCards != null ? Number(item.awayRedCards) || 0 : byKey(fixture?.awayId, fixture?.away);
+      const homeDisallowedGoals = Number(item.homeDisallowedGoals) || 0;
+      const awayDisallowedGoals = Number(item.awayDisallowedGoals) || 0;
       state.matchSignals[id] = {
         ...current,
         redCards: Math.max(Number(current.redCards) || 0, Number(item.redCards) || homeRedCards + awayRedCards),
         homeRedCards: Math.max(Number(current.homeRedCards) || 0, homeRedCards),
         awayRedCards: Math.max(Number(current.awayRedCards) || 0, awayRedCards),
+        disallowedGoals: Math.max(Number(current.disallowedGoals) || 0, Number(item.disallowedGoals) || homeDisallowedGoals + awayDisallowedGoals),
+        homeDisallowedGoals: Math.max(Number(current.homeDisallowedGoals) || 0, homeDisallowedGoals),
+        awayDisallowedGoals: Math.max(Number(current.awayDisallowedGoals) || 0, awayDisallowedGoals),
       };
     });
     saveSignals();
@@ -1557,9 +1571,9 @@ function fixtureCardHtml(fixture) {
     <article class="fixture-card" data-open-fixture="${fixture.id}" tabindex="0" role="button" aria-label="Open ${escapeHtml(fixture.home)} versus ${escapeHtml(fixture.away)} details">
       <div class="match-time ${fixture.status === "live" ? "live" : ""}">${escapeHtml(clockText(fixture))}<small>${escapeHtml(statusLabel(fixture))}</small></div>
       <div class="match-line">
-        <strong class="home-team">${signals.homeCards}<span class="team-name">${escapeHtml(fixture.home)}</span></strong>
+        <strong class="home-team">${signals.homeDisallowed}${signals.homeCards}<span class="team-name">${escapeHtml(fixture.home)}</span></strong>
         <span class="central-score ${fixture.status === "scheduled" ? "scheduled" : ""}">${scoreText(fixture)}</span>
-        <strong class="away-team"><span class="team-name">${escapeHtml(fixture.away)}</span>${signals.awayCards}</strong>
+        <strong class="away-team"><span class="team-name">${escapeHtml(fixture.away)}</span>${signals.awayCards}${signals.awayDisallowed}</strong>
         ${signals.goal}
       </div>
       <button class="add-button ${selected ? "selected" : ""}" data-fixture-id="${fixture.id}" aria-label="${selected ? "Edit tracked match" : "Track this match"}">${selected ? "✓" : "+"}</button>
@@ -1942,7 +1956,7 @@ function renderTracker() {
 
   entries = entries.filter((entry) => {
     if (state.trackerFilter === "live") return entry.fixture.status === "live";
-    if (state.trackerFilter === "upcoming") return entry.fixture.status === "scheduled";
+    if (state.trackerFilter === "upcoming") return entry.fixture.status === "scheduled" && entry.condition !== "none";
     if (state.trackerFilter === "finished") return entry.fixture.status === "finished" || entry.fixture.status === "cancelled";
     return true;
   });
@@ -2006,9 +2020,9 @@ function renderTracker() {
           <div class="tracker-topline">
             <div class="tracker-clock">${escapeHtml(clockText(fixture))}<small>${escapeHtml(statusLabel(fixture))}</small></div>
             <div class="match-line tracker-match-line">
-              <strong class="home-team">${signals.homeCards}<span class="team-name">${escapeHtml(fixture.home)}</span></strong>
+              <strong class="home-team">${signals.homeDisallowed}${signals.homeCards}<span class="team-name">${escapeHtml(fixture.home)}</span></strong>
               <span class="central-score ${fixture.status === "scheduled" ? "scheduled" : ""}">${scoreText(fixture)}</span>
-              <strong class="away-team"><span class="team-name">${escapeHtml(fixture.away)}</span>${signals.awayCards}</strong>
+              <strong class="away-team"><span class="team-name">${escapeHtml(fixture.away)}</span>${signals.awayCards}${signals.awayDisallowed}</strong>
               ${signals.goal}
             </div>
             ${state.trackerOrder === "custom" ? `<div class="tracker-reorder" aria-label="Move match"><button type="button" data-move-id="${entry.id}" data-direction="up" aria-label="Move match up">↑</button><button type="button" data-move-id="${entry.id}" data-direction="down" aria-label="Move match down">↓</button></div>` : ""}
@@ -2137,6 +2151,7 @@ function renderSummaryLine() {
   const counts = { green: 0, yellow: 0, red: 0, won: 0, lost: 0, grey: 0 };
   values.forEach((entry) => {
     const colour = trafficState(entry.fixture, entry.condition).colour;
+    if (colour === "grey" && entry.fixture?.status === "scheduled" && entry.condition === "none") return;
     counts[colour] = (counts[colour] || 0) + 1;
   });
   const boxes = [
@@ -2353,19 +2368,33 @@ function updateRedCardsFromEvents(fixture, events, match = {}) {
   const homeId = String(fixture.homeId ?? match.teams?.home?.id ?? "");
   const awayId = String(fixture.awayId ?? match.teams?.away?.id ?? "");
   const normalise = (value) => String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
-  const seen = new Set();
+  const seenDismissals = new Set();
+  const seenDisallowed = new Set();
   let homeRedCards = 0;
   let awayRedCards = 0;
+  let homeDisallowedGoals = 0;
+  let awayDisallowedGoals = 0;
   (Array.isArray(events) ? events : []).forEach((event) => {
     const text = `${event.type || ""} ${event.detail || ""} ${event.comments || ""}`.toLowerCase();
-    if (!(text.includes("red card") || text.includes("second yellow") || text.includes("2nd yellow") || text.includes("yellow-red") || text.includes("yellow red"))) return;
-    const key = [event.team?.id || event.team?.name || "", event.player?.id || event.player?.name || "", event.time?.elapsed || "", event.time?.extra || ""].join("|");
-    if (seen.has(key)) return;
-    seen.add(key);
     const eventTeamId = String(event.team?.id ?? "");
     const eventTeamName = normalise(event.team?.name);
-    if ((eventTeamId && homeId && eventTeamId === homeId) || eventTeamName === normalise(fixture.home)) homeRedCards += 1;
-    else if ((eventTeamId && awayId && eventTeamId === awayId) || eventTeamName === normalise(fixture.away)) awayRedCards += 1;
+    const isHome = (eventTeamId && homeId && eventTeamId === homeId) || eventTeamName === normalise(fixture.home);
+    const isAway = (eventTeamId && awayId && eventTeamId === awayId) || eventTeamName === normalise(fixture.away);
+    const key = [event.team?.id || event.team?.name || "", event.player?.id || event.player?.name || "", event.time?.elapsed || "", event.time?.extra || "", event.detail || ""].join("|");
+
+    const dismissal = text.includes("red card") || text.includes("second yellow") || text.includes("2nd yellow") || text.includes("yellow-red") || text.includes("yellow red");
+    if (dismissal && !seenDismissals.has(key)) {
+      seenDismissals.add(key);
+      if (isHome) homeRedCards += 1;
+      else if (isAway) awayRedCards += 1;
+    }
+
+    const disallowed = text.includes("goal cancelled") || text.includes("goal canceled") || text.includes("cancelled goal") || text.includes("canceled goal") || text.includes("goal disallowed") || text.includes("disallowed goal") || text.includes("goal overturned") || text.includes("no goal");
+    if (disallowed && !seenDisallowed.has(key)) {
+      seenDisallowed.add(key);
+      if (isHome) homeDisallowedGoals += 1;
+      else if (isAway) awayDisallowedGoals += 1;
+    }
   });
   const current = signalForFixture(fixture.id);
   state.matchSignals[String(fixture.id)] = {
@@ -2373,6 +2402,9 @@ function updateRedCardsFromEvents(fixture, events, match = {}) {
     redCards: Math.max(Number(current.redCards) || 0, homeRedCards + awayRedCards),
     homeRedCards: Math.max(Number(current.homeRedCards) || 0, homeRedCards),
     awayRedCards: Math.max(Number(current.awayRedCards) || 0, awayRedCards),
+    disallowedGoals: Math.max(Number(current.disallowedGoals) || 0, homeDisallowedGoals + awayDisallowedGoals),
+    homeDisallowedGoals: Math.max(Number(current.homeDisallowedGoals) || 0, homeDisallowedGoals),
+    awayDisallowedGoals: Math.max(Number(current.awayDisallowedGoals) || 0, awayDisallowedGoals),
   };
   saveSignals();
 }
@@ -2975,7 +3007,7 @@ async function start() {
   renderRefreshSettings();
   setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.32").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.33").catch(() => {});
 }
 
 start();

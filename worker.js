@@ -96,7 +96,7 @@ export default {
       return jsonResponse({
         service: "YorAkka API",
         status: "online",
-        version: "3.29",
+        version: "3.33",
         endpoints: {
           fixtures: "/fixtures?from=2026-08-01&to=2026-08-01",
           live: "/live",
@@ -297,7 +297,42 @@ export default {
               if (homeId && idKey === homeId) homeRedCards += 1;
               if (awayId && idKey === awayId) awayRedCards += 1;
             });
-            results.push({ fixtureId: id, redCards: uniqueEvents.size, homeRedCards, awayRedCards, teamCards });
+
+            const disallowedEvents = events.filter((event) => {
+              const type = String(event.type || "").trim().toLowerCase();
+              const detail = String(event.detail || "").trim().toLowerCase();
+              const comments = String(event.comments || "").trim().toLowerCase();
+              const text = `${type} ${detail} ${comments}`;
+              return text.includes("goal cancelled") || text.includes("goal canceled") || text.includes("cancelled goal") || text.includes("canceled goal") || text.includes("goal disallowed") || text.includes("disallowed goal") || text.includes("goal overturned") || text.includes("no goal");
+            });
+            const uniqueDisallowed = new Map();
+            disallowedEvents.forEach((event) => {
+              const key = [
+                event.team?.id || event.team?.name || "",
+                event.player?.id || event.player?.name || "",
+                event.time?.elapsed || "",
+                event.time?.extra || "",
+                event.detail || "",
+              ].join("|");
+              if (!uniqueDisallowed.has(key)) uniqueDisallowed.set(key, event);
+            });
+            let homeDisallowedGoals = 0;
+            let awayDisallowedGoals = 0;
+            uniqueDisallowed.forEach((event) => {
+              const idKey = event.team?.id != null ? String(event.team.id) : "";
+              if (homeId && idKey === homeId) homeDisallowedGoals += 1;
+              if (awayId && idKey === awayId) awayDisallowedGoals += 1;
+            });
+            results.push({
+              fixtureId: id,
+              redCards: uniqueEvents.size,
+              homeRedCards,
+              awayRedCards,
+              teamCards,
+              disallowedGoals: uniqueDisallowed.size,
+              homeDisallowedGoals,
+              awayDisallowedGoals,
+            });
           } catch {
             // One unavailable event feed must not discard the other tracked matches.
             results.push({ fixtureId: id, redCards: null });

@@ -1295,7 +1295,7 @@ body.light .results-date-grid input { color-scheme:light; }
 .team-list-copy { margin-top: 8px; font-size: .76rem; }
 
 
-/* YorAkka V3.34 — centred scores and disallowed-goal markers */
+/* YorAkka V4.0 — centred scores and disallowed-goal markers */
 .team-disallowed-goals { display: inline-flex; align-items: center; gap: 2px; flex: 0 0 auto; }
 .team-disallowed-goals.home { margin-right: 5px; }
 .team-disallowed-goals.away { margin-left: 5px; }

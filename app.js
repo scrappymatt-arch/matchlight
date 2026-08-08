@@ -4,7 +4,6 @@ const DEFAULT_LIVE_REFRESH_SECONDS = 30;
 const DEFAULT_SIGNAL_REFRESH_SECONDS = 30;
 const DEFAULT_COMPLETED_CLEANUP_HOURS = 24;
 const GOAL_PULSE_MS = 60000;
-const MAX_SIGNAL_FIXTURES = 8;
 const DAY_CACHE_MS = 5 * 60 * 1000;
 const STORAGE_PREFIX = "matchbuddy-"; // retained so existing users keep their lists and settings
 const DEFAULT_TIME_ZONE = "Europe/London";
@@ -272,6 +271,9 @@ function normaliseFixture(item) {
     statusLong: item.fixture?.status?.long || "Not Started",
     minute: Number.isFinite(elapsed) ? elapsed : null,
     injuryMinute: Number.isFinite(item.fixture?.status?.extra) ? item.fixture.status.extra : null,
+    // API-Football includes the event history on the live-fixtures response. V4 keeps
+    // it on the normalised fixture so one live call can drive scores, red cards and VAR.
+    events: Array.isArray(item.events) ? item.events : [],
   };
 }
 
@@ -483,67 +485,62 @@ function matchSignalParts(fixture) {
   };
 }
 
-async function refreshMatchSignals(fixtures) {
-  if (state.signalRefreshInProgress || state.detailsRequestInProgress || state.activeView === "detailsView") return;
+async function refreshMatchSignals(fixtures = []) {
+  if (state.signalRefreshInProgress || state.detailsRequestInProgress || state.activeView === "detailsView" || document.hidden) return;
   const trackedLive = allListEntries().map(({ entry }) => entry.fixture).filter((fixture) => fixture?.status === "live");
-  const live = [...new Map([...fixtures, ...trackedLive].filter((fixture) => fixture?.status === "live").map((fixture) => [String(fixture.id), fixture])).values()];
-  if (!live.length || Date.now() - state.lastSignalRefresh < Math.max(5000, state.signalRefreshSeconds * 1000 - 1000)) return;
+  const visibleLive = (fixtures || []).filter((fixture) => fixture?.status === "live");
+  if (!trackedLive.length && !visibleLive.length) return;
+  if (Date.now() - state.lastSignalRefresh < Math.max(5000, state.signalRefreshSeconds * 1000 - 1000)) return;
 
-  const selectedIds = new Set(allListEntries().filter(({ entry }) => entry.fixture?.status === "live").map(({ id }) => String(id)));
-  const ordered = [...live].sort((a, b) => Number(selectedIds.has(b.id)) - Number(selectedIds.has(a.id)) || Number(isFavourite(b)) - Number(isFavourite(a)) || a.timestamp - b.timestamp);
-  const signalFixtures = [...new Map(ordered.map((fixture) => [String(fixture.id), fixture])).values()].slice(0, MAX_SIGNAL_FIXTURES);
-  const ids = signalFixtures.map((fixture) => String(fixture.id));
-  if (!ids.length) return;
-  // Include the home and away API team IDs so the Worker can assign each dismissal
-  // to the correct side without relying on variations in team names.
-  const signalTokens = signalFixtures.map((fixture) => [fixture.id, fixture.homeId || "", fixture.awayId || ""].join(":"));
-
+  // V4 architecture: use the single API-Football live-fixtures payload, which already
+  // contains events, rather than one /fixtures/events request for each live fixture.
   state.lastSignalRefresh = Date.now();
   state.signalRefreshInProgress = true;
   try {
-    const response = await fetch(`${API_BASE}/signals?ids=${encodeURIComponent(signalTokens.join(","))}`, { cache: "no-store" });
+    const response = await fetch(`${API_BASE}/live`, { cache: "no-store" });
     const data = await response.json();
-    if (!response.ok || data.error) return;
-    (data.response || []).forEach((item) => {
-      const id = String(item.fixtureId);
-      const current = signalForFixture(id);
-      const fixture = live.find((match) => String(match.id) === id);
-      const teamCards = item.teamCards || {};
-      const normaliseTeam = (value) => String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
-      const byKey = (teamId, teamName) => {
-        const direct = teamCards[String(teamId)] ?? teamCards[String(teamName || "").trim().toLowerCase()];
-        if (direct != null) return Number(direct) || 0;
-        const wanted = normaliseTeam(teamName);
-        const matchedKey = Object.keys(teamCards).find((key) => normaliseTeam(key) === wanted);
-        return matchedKey ? Number(teamCards[matchedKey]) || 0 : 0;
-      };
-      const homeRedCards = item.homeRedCards != null ? Number(item.homeRedCards) || 0 : byKey(fixture?.homeId, fixture?.home);
-      const awayRedCards = item.awayRedCards != null ? Number(item.awayRedCards) || 0 : byKey(fixture?.awayId, fixture?.away);
-      const homeDisallowedGoals = Number(item.homeDisallowedGoals) || 0;
-      const awayDisallowedGoals = Number(item.awayDisallowedGoals) || 0;
-      state.matchSignals[id] = {
-        ...current,
-        redCards: Math.max(Number(current.redCards) || 0, Number(item.redCards) || homeRedCards + awayRedCards),
-        homeRedCards: Math.max(Number(current.homeRedCards) || 0, homeRedCards),
-        awayRedCards: Math.max(Number(current.awayRedCards) || 0, awayRedCards),
-        disallowedGoals: Math.max(Number(current.disallowedGoals) || 0, Number(item.disallowedGoals) || homeDisallowedGoals + awayDisallowedGoals),
-        homeDisallowedGoals: Math.max(Number(current.homeDisallowedGoals) || 0, homeDisallowedGoals),
-        awayDisallowedGoals: Math.max(Number(current.awayDisallowedGoals) || 0, awayDisallowedGoals),
-      };
-    });
+    if (!response.ok || data.error) throw new Error(data.details || data.error || "Unable to refresh live events");
+    const liveFixtures = (data.response || []).map(normaliseFixture);
+    applyLiveFixtureUpdates(liveFixtures, { recordAlerts: false });
+    updateSignalsFromLiveFixtures(liveFixtures);
+    saveSelected();
     saveSignals();
     state.lastSignalSucceededAt = Date.now();
     state.lastSignalFailedAt = null;
-    renderFixtures();
-    renderTracker();
-    renderUpdateHealth();
+    renderAll();
   } catch {
     state.lastSignalFailedAt = Date.now();
     renderUpdateHealth();
-    // Signal icons are supplementary; keep scores working if this request fails.
   } finally {
     state.signalRefreshInProgress = false;
   }
+}
+
+function updateSignalsFromLiveFixtures(liveFixtures) {
+  (liveFixtures || []).forEach((fixture) => {
+    if (!fixture || fixture.status !== "live") return;
+    updateRedCardsFromEvents(fixture, fixture.events || [], {});
+  });
+}
+
+function applyLiveFixtureUpdates(liveFixtures, { recordAlerts = true } = {}) {
+  const liveMap = new Map((liveFixtures || []).map((fixture) => [String(fixture.id), fixture]));
+  Object.keys(state.fixturesByDate).forEach((date) => {
+    state.fixturesByDate[date] = state.fixturesByDate[date].map((fixture) => {
+      const updated = liveMap.get(String(fixture.id));
+      if (updated && recordAlerts) recordScoreChange(fixture, updated);
+      return updated || fixture;
+    });
+  });
+  Object.values(state.lists).forEach((list) => {
+    Object.keys(list.selected || {}).forEach((id) => {
+      const updated = liveMap.get(String(id));
+      if (!updated) return;
+      const previous = list.selected[id].fixture;
+      if (recordAlerts) recordScoreChange(previous, updated);
+      list.selected[id].fixture = updated;
+    });
+  });
 }
 
 function mergeFixture(fixture) {
@@ -614,30 +611,16 @@ async function refreshLive({ manual = false } = {}) {
     const data = await response.json();
     if (!response.ok || data.error) return;
     const liveFixtures = (data.response || []).map(normaliseFixture);
-    const liveMap = new Map(liveFixtures.map((fixture) => [fixture.id, fixture]));
-
-    Object.keys(state.fixturesByDate).forEach((date) => {
-      state.fixturesByDate[date] = state.fixturesByDate[date].map((fixture) => {
-        const updated = liveMap.get(fixture.id);
-        if (updated) recordScoreChange(fixture, updated);
-        return updated || fixture;
-      });
-    });
-    Object.values(state.lists).forEach((list) => {
-      Object.keys(list.selected || {}).forEach((id) => {
-        if (liveMap.has(id)) {
-          const previous = list.selected[id].fixture;
-          const updated = liveMap.get(id);
-          recordScoreChange(previous, updated);
-          list.selected[id].fixture = updated;
-        }
-      });
-    });
+    applyLiveFixtureUpdates(liveFixtures, { recordAlerts: true });
+    updateSignalsFromLiveFixtures(liveFixtures);
     saveSelected();
+    saveSignals();
     state.lastRefreshSucceededAt = Date.now();
+    state.lastSignalSucceededAt = Date.now();
     state.lastRefreshFailedAt = null;
+    state.lastSignalFailedAt = null;
+    state.lastSignalRefresh = Date.now();
     renderAll();
-    refreshMatchSignals(liveFixtures);
   } catch {
     state.lastRefreshFailedAt = Date.now();
     renderUpdateHealth();
@@ -3009,7 +2992,7 @@ async function start() {
   renderRefreshSettings();
   setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=3.34").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=4.0").catch(() => {});
 }
 
 start();

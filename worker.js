@@ -96,7 +96,7 @@ export default {
       return jsonResponse({
         service: "YorAkka API",
         status: "online",
-        version: "3.34",
+        version: "4.0",
         endpoints: {
           fixtures: "/fixtures?from=2026-08-01&to=2026-08-01",
           live: "/live",
@@ -243,13 +243,19 @@ export default {
 
     if (url.pathname === "/live") {
       try {
-        const data = await requestApiFootball(`/fixtures?live=all&timezone=${encodeURIComponent("Europe/London")}`, env, 15);
-        return jsonResponse(data, 200, request, { "Cache-Control": "public, max-age=15" });
+        // V4 live-data backbone. API-Football's live fixtures response includes its
+        // event arrays, so this one upstream request supplies scores, red cards and VAR
+        // markers for every current live fixture. Cloudflare caches the shared response
+        // briefly so several YorAkka clients do not multiply provider calls.
+        const data = await requestApiFootball(`/fixtures?live=all&timezone=${encodeURIComponent("Europe/London")}`, env, 12);
+        return jsonResponse(data, 200, request, { "Cache-Control": "public, max-age=12, stale-while-revalidate=6", "X-YorAkka-Live-Architecture": "4.0" });
       } catch (error) {
         return jsonResponse({ error: "Unable to retrieve live matches.", details: error.message || String(error) }, 502, request);
       }
     }
 
+    // Legacy per-fixture fallback retained for older clients and diagnostics. V4 clients
+    // use /live as their primary event source and should not normally call this route.
     if (url.pathname === "/signals") {
       const rawTokens = (url.searchParams.get("ids") || "").split(",").map((token) => token.trim()).filter(Boolean);
       const fixtures = [];

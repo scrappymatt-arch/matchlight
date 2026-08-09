@@ -96,7 +96,7 @@ export default {
       return jsonResponse({
         service: "YorAkka API",
         status: "online",
-        version: "4.03",
+        version: "4.04",
         endpoints: {
           fixtures: "/fixtures?from=2026-08-01&to=2026-08-01",
           live: "/live",
@@ -104,6 +104,7 @@ export default {
           signals: "/signals?ids=123456,123457",
           leagues: "/leagues",
           leagueHistory: "/league-history?league=39",
+          exportFixtures: "/export-fixtures?league=39&season=2025&from=2026-08-01&to=2026-08-08",
           teams: "/teams?league=39&season=2025",
           results: "/results?league=39&season=2025&from=2025-08-01&to=2026-05-31",
         },
@@ -186,6 +187,42 @@ export default {
         return jsonResponse({ get: "teams", parameters: { league: Number(league), season: Number(season) }, errors: [], results: teams.length, response: teams }, 200, request, { "Cache-Control": "public, max-age=86400" });
       } catch (error) {
         return jsonResponse({ error: "Unable to retrieve league teams.", details: error.message || String(error) }, 502, request);
+      }
+    }
+
+
+    if (url.pathname === "/export-fixtures") {
+      const league = url.searchParams.get("league");
+      const season = url.searchParams.get("season");
+      const from = url.searchParams.get("from");
+      const to = url.searchParams.get("to");
+      if (!/^\d+$/.test(league || "") || !/^\d{4}$/.test(season || "") || !from || !to || !validDate(from) || !validDate(to)) {
+        return jsonResponse({ error: "Provide numeric league, four-digit season, and YYYY-MM-DD from/to dates." }, 400, request);
+      }
+      const start = new Date(`${from}T00:00:00Z`);
+      const end = new Date(`${to}T00:00:00Z`);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
+        return jsonResponse({ error: "The fixtures date range is invalid." }, 400, request);
+      }
+      try {
+        const path = `/fixtures?league=${encodeURIComponent(league)}&season=${encodeURIComponent(season)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&timezone=${encodeURIComponent("Europe/London")}`;
+        const data = await requestApiFootball(path, env, 900, 3);
+        const liveCodes = new Set(["1H", "HT", "2H", "ET", "BT", "P", "SUSP", "INT", "LIVE"]);
+        const scheduledCodes = new Set(["NS", "TBD"]);
+        const fixtures = (Array.isArray(data.response) ? data.response : []).filter((item) => {
+          const code = item.fixture?.status?.short || "";
+          return scheduledCodes.has(code) || liveCodes.has(code);
+        });
+        fixtures.sort((a, b) => new Date(a.fixture?.date || 0) - new Date(b.fixture?.date || 0));
+        return jsonResponse({
+          get: "export-fixtures",
+          parameters: { league: Number(league), season: Number(season), from, to, timezone: "Europe/London" },
+          errors: [],
+          results: fixtures.length,
+          response: fixtures,
+        }, 200, request, { "Cache-Control": "public, max-age=900" });
+      } catch (error) {
+        return jsonResponse({ error: "Unable to retrieve fixture export.", details: error.message || String(error) }, 502, request);
       }
     }
 

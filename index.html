@@ -8,13 +8,13 @@
   <title>YorAkka</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=4.03" />
+  <link rel="stylesheet" href="styles.css?v=4.04" />
 </head>
 <body class="scores-active">
   <div class="app-shell">
     <header class="topbar">
       <div class="brand-lockup">
-        <h1>YorAkka <span class="app-version">V4.03</span> <span class="brand-tagline">YOUR FOOTBALL. YOUR PICKS. YOUR WAY.</span></h1>
+        <h1>YorAkka <span class="app-version">V4.04</span> <span class="brand-tagline">YOUR FOOTBALL. YOUR PICKS. YOUR WAY.</span></h1>
       </div>
       <button id="themeToggle" class="icon-button" aria-label="Toggle theme" title="Toggle theme">☼</button>
     </header>
@@ -35,7 +35,6 @@
             <input id="fixtureSearch" type="search" placeholder="Search team or league" autocomplete="off" />
           </label>
           <button id="showSelectedOnly" class="filter-button" aria-pressed="false">Selected</button>
-          <button id="downloadFixturesCsv" class="filter-button export-button" type="button" title="Select at least one favourite league to enable CSV download" disabled aria-disabled="true">↓ CSV</button>
         </div>
         <div class="fixture-tools-row">
           <div id="fixtureStatusFilters" class="fixture-status-filters" aria-label="Fixture status filters">
@@ -44,7 +43,6 @@
             <button class="filter-button" type="button" data-fixture-status="live" aria-pressed="false">In Play</button>
             <button class="filter-button" type="button" data-fixture-status="finished" aria-pressed="false">Results</button>
           </div>
-          <button id="openResultsExport" class="filter-button results-export-button" type="button">↓ Historical results CSV</button>
         </div>
 
         <div id="dataStatus" class="data-status" aria-live="polite"></div>
@@ -82,6 +80,36 @@
         <div id="trackerList" class="tracker-list"></div>
       </section>
 
+
+      <section id="toolsView" class="view" aria-labelledby="toolsTitle">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">EXPORTS</p>
+            <h2 id="toolsTitle">Tools</h2>
+          </div>
+        </div>
+
+        <div class="tools-card">
+          <div class="tools-card-head">
+            <div><h3>Favourite league CSV export</h3><p>Choose a date range. Exports use the leagues selected in Favourite Leagues.</p></div>
+            <div class="tools-wrench" aria-hidden="true">🔧</div>
+          </div>
+          <div class="tools-date-grid">
+            <label><span>From</span><input id="toolsFromDate" type="date"></label>
+            <label><span>To</span><input id="toolsToDate" type="date"></label>
+          </div>
+          <p id="toolsLeagueCount" class="tools-league-count"></p>
+          <div class="tools-export-actions">
+            <button id="downloadToolsFixturesCsv" class="primary-button tools-download-button" type="button">Download fixtures CSV</button>
+            <button id="downloadToolsResultsCsv" class="secondary-button tools-download-button" type="button">Download results CSV</button>
+          </div>
+          <p class="tools-export-note"><strong>Fixtures</strong> includes scheduled and in-play matches. <strong>Results</strong> includes completed matches only.</p>
+          <div id="toolsExportProgress" class="tools-export-progress" hidden>
+            <progress id="toolsProgressBar" max="1" value="0"></progress>
+            <p id="toolsProgressText" aria-live="polite"></p>
+          </div>
+        </div>
+      </section>
 
       <section id="detailsView" class="view" aria-labelledby="detailsTitle">
         <div class="details-topbar">
@@ -259,8 +287,9 @@
     </main>
 
     <nav class="bottom-nav" aria-label="Main navigation">
-      <button data-view="scoresView" class="active"><span>◫</span><small>Scores</small></button>
+      <button data-view="scoresView" class="active"><span>◫</span><small>Fixtures</small></button>
       <button data-view="trackerView"><span>◎</span><small>My Matches</small><b id="trackerBadge" hidden>0</b></button>
+      <button data-view="toolsView"><span>🔧</span><small>Tools</small></button>
       <button data-view="settingsView"><span>⚙</span><small>Settings</small></button>
     </nav>
   </div>
@@ -314,28 +343,6 @@
   </dialog>
 
 
-  <dialog id="resultsExportDialog">
-    <div class="dialog-card compact results-export-dialog-card">
-      <div class="dialog-header">
-        <div><p class="section-kicker">RESULTS EXPORT</p><h3>Download historical results</h3></div>
-        <button id="closeResultsExport" class="dialog-close" type="button" aria-label="Close">×</button>
-      </div>
-      <p class="results-export-copy">Downloads completed results from your selected Favourite Leagues.</p>
-      <div class="results-date-grid">
-        <label><span>From</span><input id="resultsFromDate" type="date"></label>
-        <label><span>To</span><input id="resultsToDate" type="date"></label>
-      </div>
-      <p id="resultsLeagueCount" class="results-league-count"></p>
-      <button id="downloadResultsCsv" class="primary-button results-download-button" type="button">Download results CSV</button>
-      <button id="downloadTeamListCsv" class="secondary-button results-download-button team-list-download-button" type="button">Download team list CSV</button>
-      <p class="results-export-copy team-list-copy">Team list uses the current/latest season for each selected league.</p>
-      <div id="resultsExportProgress" class="results-export-progress" hidden>
-        <progress id="resultsProgressBar" max="1" value="0"></progress>
-        <p id="resultsProgressText" aria-live="polite"></p>
-      </div>
-    </div>
-  </dialog>
-
   <dialog id="timezoneDialog">
     <div class="dialog-card timezone-dialog-card">
       <div class="dialog-header">
@@ -347,6 +354,6 @@
     </div>
   </dialog>
 
-  <script src="app.js?v=4.03" defer></script>
+  <script src="app.js?v=4.04" defer></script>
 </body>
 </html>

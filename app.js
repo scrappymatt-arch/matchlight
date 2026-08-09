@@ -1352,6 +1352,148 @@ async function downloadHistoricalResultsCsv() {
   }
 }
 
+
+function setToolsExportDefaults() {
+  const toInput = document.getElementById("toolsToDate");
+  const fromInput = document.getElementById("toolsFromDate");
+  if (!toInput || !fromInput) return;
+  const end = new Date();
+  const start = new Date(end);
+  start.setDate(start.getDate() - 30);
+  const localIso = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  if (!toInput.value) toInput.value = localIso(end);
+  if (!fromInput.value) fromInput.value = localIso(start);
+}
+
+function updateToolsExportView() {
+  const count = document.getElementById("toolsLeagueCount");
+  const fixturesButton = document.getElementById("downloadToolsFixturesCsv");
+  const resultsButton = document.getElementById("downloadToolsResultsCsv");
+  if (!count || !fixturesButton || !resultsButton) return;
+  const selected = selectedFavouriteLeagueRecords();
+  const withIds = selected.filter((league) => league?.leagueId);
+  const total = state.favouriteLeagues.length;
+  if (!total) {
+    count.textContent = "No Favourite Leagues selected. Choose leagues in Settings first.";
+    fixturesButton.disabled = true;
+    resultsButton.disabled = true;
+    return;
+  }
+  const missing = total - withIds.length;
+  count.textContent = missing
+    ? `${total} selected ${total === 1 ? "league" : "leagues"}. YorAkka will match ${missing} saved ${missing === 1 ? "league" : "leagues"} to API-Football before export.`
+    : `${total} selected ${total === 1 ? "league" : "leagues"}.`;
+  fixturesButton.disabled = false;
+  resultsButton.disabled = false;
+}
+
+function showToolsExportError(error) {
+  const wrap = document.getElementById("toolsExportProgress");
+  const text = document.getElementById("toolsProgressText");
+  if (wrap) wrap.hidden = false;
+  if (text) text.textContent = error?.message || "CSV export failed.";
+  const fixturesButton = document.getElementById("downloadToolsFixturesCsv");
+  const resultsButton = document.getElementById("downloadToolsResultsCsv");
+  if (fixturesButton) fixturesButton.disabled = false;
+  if (resultsButton) resultsButton.disabled = false;
+}
+
+async function downloadToolsCsv(kind) {
+  const from = document.getElementById("toolsFromDate")?.value;
+  const to = document.getElementById("toolsToDate")?.value;
+  const progressWrap = document.getElementById("toolsExportProgress");
+  const progressBar = document.getElementById("toolsProgressBar");
+  const progressText = document.getElementById("toolsProgressText");
+  const fixturesButton = document.getElementById("downloadToolsFixturesCsv");
+  const resultsButton = document.getElementById("downloadToolsResultsCsv");
+  const isFixtures = kind === "fixtures";
+
+  if (!state.favouriteLeagues.length) {
+    alert("Select at least one Favourite League in Settings first.");
+    return;
+  }
+  if (!from || !to || from > to) {
+    alert("Choose a valid From and To date.");
+    return;
+  }
+
+  let leagues = selectedFavouriteLeagueRecords();
+  fixturesButton.disabled = true;
+  resultsButton.disabled = true;
+  progressWrap.hidden = false;
+  progressBar.value = 0;
+  progressText.textContent = `Preparing ${isFixtures ? "fixtures" : "results"} export…`;
+  const failures = [];
+
+  try {
+    if (!leagues.length || leagues.some((league) => !league?.leagueId)) {
+      leagues = await repairFavouriteLeagueApiIds(progressBar, progressText);
+      const unresolved = leagues.filter((league) => !league?.leagueId);
+      if (unresolved.length) throw new Error(`${unresolved.length} selected ${unresolved.length === 1 ? "league could" : "leagues could"} not be matched to API-Football.`);
+    }
+
+    leagues = await refreshSelectedLeagueHistory(leagues, progressBar, progressText);
+    const jobs = seasonJobsForRange(leagues, from, to);
+    if (!jobs.length) throw new Error("None of the selected leagues has a season covering that date range.");
+
+    progressBar.max = jobs.length;
+    progressBar.value = 0;
+    const matches = new Map();
+    for (let index = 0; index < jobs.length; index += 1) {
+      const job = jobs[index];
+      progressText.textContent = `Downloading ${isFixtures ? "fixtures" : "results"} ${index + 1}/${jobs.length}: ${job.league.country} — ${job.league.league} (${job.season})`;
+      try {
+        const params = new URLSearchParams({ league: String(job.league.leagueId), season: String(job.season), from: job.from, to: job.to });
+        const endpoint = isFixtures ? "export-fixtures" : "results";
+        const data = await fetchJsonWithTimeout(`${API_BASE}/${endpoint}?${params.toString()}`, { cache: "no-store" }, 25000);
+        (Array.isArray(data.response) ? data.response : []).forEach((item) => {
+          const fixture = normaliseFixture(item);
+          if (isFixtures ? ["scheduled", "live"].includes(fixture.status) : fixture.status === "finished") matches.set(fixture.id, fixture);
+        });
+      } catch (error) {
+        failures.push(`${job.league.country} — ${job.league.league} (${job.season})`);
+      }
+      progressBar.value = index + 1;
+      if (index < jobs.length - 1) await new Promise((resolve) => setTimeout(resolve, 350));
+    }
+
+    progressText.textContent = "Creating CSV…";
+    const filtered = [...matches.values()]
+      .filter((fixture) => {
+        const local = fixtureLocalDateParts(fixture);
+        return local.date >= from && local.date <= to;
+      })
+      .sort((a, b) => a.timestamp - b.timestamp || a.country.localeCompare(b.country) || a.league.localeCompare(b.league));
+
+    const rows = isFixtures
+      ? filtered.map((fixture) => {
+          const local = fixtureLocalDateParts(fixture);
+          return [local.date, local.time, fixture.home, fixture.away, fixture.country, fixture.league];
+        })
+      : filtered.map((fixture) => {
+          const local = fixtureLocalDateParts(fixture);
+          return [local.date, fixture.home, fixture.homeScore, fixture.awayScore, fixture.away, fixture.country, fixture.league];
+        });
+
+    if (!rows.length) {
+      progressText.textContent = failures.length
+        ? `No ${isFixtures ? "fixtures" : "results"} downloaded; some requests failed.`
+        : `No ${isFixtures ? "fixtures" : "completed results"} were found for those dates.`;
+      if (failures.length) alert(`No data was downloaded. ${failures.length} league-season request${failures.length === 1 ? "" : "s"} failed.`);
+      return;
+    }
+
+    const columns = isFixtures
+      ? ["date", "time", "home team", "away team", "country", "league"]
+      : ["date", "home team", "home goals", "away goals", "away team", "country", "league"];
+    downloadCsvBlob(`YorAkka-${isFixtures ? "fixtures" : "results"}-${from}-to-${to}.csv`, columns, rows);
+    progressText.textContent = `${rows.length} ${isFixtures ? "fixtures" : "results"} downloaded${failures.length ? ` · ${failures.length} request${failures.length === 1 ? "" : "s"} failed` : ""}.`;
+    if (failures.length) alert(`The CSV was created, but ${failures.length} league-season request${failures.length === 1 ? "" : "s"} failed, so it may be incomplete.`);
+  } finally {
+    updateToolsExportView();
+  }
+}
+
 function fixtureGroupStats(matches) {
   return {
     earliest: Math.min(...matches.map((fixture) => fixture.timestamp)),
@@ -2528,6 +2670,7 @@ function setView(viewId) {
   document.body.classList.toggle("tracker-active", viewId === "trackerView");
   document.body.classList.toggle("scores-active", viewId === "scoresView");
   if (viewId === "trackerView") renderTracker();
+  if (viewId === "toolsView") { setToolsExportDefaults(); updateToolsExportView(); }
 }
 
 function applyTheme() {
@@ -2627,6 +2770,7 @@ function renderAll() {
   renderRefreshSettings();
   renderCleanupSetting();
   renderUpdateHealth();
+  updateToolsExportView();
   const count = allListEntries().length;
   const badge = document.getElementById("trackerBadge");
   badge.hidden = count === 0;
@@ -2732,22 +2876,8 @@ function bindEvents() {
   document.getElementById("fixtureSearch").addEventListener("input", (event) => { state.search = event.target.value; renderFixtures(); });
   document.getElementById("showSelectedOnly").addEventListener("click", () => { state.selectedOnly = !state.selectedOnly; renderAll(); });
   document.querySelectorAll("#fixtureStatusFilters [data-fixture-status]").forEach((button) => button.addEventListener("click", () => toggleFixtureStatusFilter(button.dataset.fixtureStatus)));
-  document.getElementById("downloadFixturesCsv").addEventListener("click", downloadVisibleFixturesCsv);
-  document.getElementById("openResultsExport").addEventListener("click", openResultsExportDialog);
-  document.getElementById("closeResultsExport").addEventListener("click", () => document.getElementById("resultsExportDialog").close());
-  document.getElementById("downloadResultsCsv").addEventListener("click", () => downloadHistoricalResultsCsv().catch((error) => {
-    document.getElementById("resultsExportProgress").hidden = false;
-    document.getElementById("resultsProgressText").textContent = error.message || "Historical results export failed.";
-    document.getElementById("downloadResultsCsv").disabled = false;
-    document.getElementById("downloadTeamListCsv").disabled = false;
-  }));
-  document.getElementById("downloadTeamListCsv").addEventListener("click", () => downloadSelectedLeagueTeamsCsv().catch((error) => {
-    document.getElementById("resultsExportProgress").hidden = false;
-    document.getElementById("resultsProgressText").textContent = error.message || "Team list export failed.";
-    document.getElementById("downloadResultsCsv").disabled = false;
-    document.getElementById("downloadTeamListCsv").disabled = false;
-  }));
-  document.getElementById("resultsExportDialog").addEventListener("click", (event) => { if (event.target.id === "resultsExportDialog") event.currentTarget.close(); });
+  document.getElementById("downloadToolsFixturesCsv").addEventListener("click", () => downloadToolsCsv("fixtures").catch(showToolsExportError));
+  document.getElementById("downloadToolsResultsCsv").addEventListener("click", () => downloadToolsCsv("results").catch(showToolsExportError));
   const overallStatusButton = document.getElementById("overallListStatus");
   overallStatusButton.addEventListener("click", showGoalsBreakdown);
   overallStatusButton.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); showGoalsBreakdown(); } });
@@ -2990,7 +3120,7 @@ async function start() {
   renderRefreshSettings();
   setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=4.03").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=4.04").catch(() => {});
 }
 
 start();

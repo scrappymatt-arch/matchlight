@@ -1,16 +1,13 @@
-# YorAkka V4.06
+# YorAkka V4.08
 
-## V4.06 interface and alert polish
+## V4.08 CSV status + My Matches status ordering
 
-- Moves the live update-health text onto its own line in My Matches so changing
-  "Scores updated / events updated" text no longer shifts the neighbouring buttons.
-- Adds one compact direction toggle beside each Ordering control in Settings.
-  The same button reverses the currently selected sort.
-- Alphabetical sorts show A→Z / Z→A; other sorts use ↑ / ↓.
-- Sort direction is remembered separately for Fixtures, Favourite Leagues and My Matches.
-- Reset order also resets all three directions to their normal/default direction.
-- Extends the Cheer / Boo crowd alert clips from about 0.9 seconds to about 1.8 seconds.
-- Updates the visible app version and offline cache to V4.06.
+- Fixtures-page CSV adds a final `status` column.
+- CSV status values are exactly `fixture`, `live`, or `result`.
+- The CSV still exports only the games currently showing and makes no extra API requests.
+- My Matches **Status** ordering is changed to: Lost → goals needed (highest first) → Winning → Won → Pending.
+- Within the goals-needed section, larger requirements are placed first (for example Needs 4 before Needs 3 before Needs 1).
+- The existing sort-direction toggle still reverses the whole selected sort when required.
+- Visible version and service-worker cache updated to V4.08.
 
-Backend behaviour is unchanged from V4.05. The packaged worker.js only updates its
-reported version metadata.
+Backend behaviour is unchanged from V4.07. The packaged worker.js only updates its reported version metadata.

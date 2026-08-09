@@ -1405,3 +1405,28 @@ body.light .results-date-grid input { color-scheme:light; }
   .order-choice-row { align-items: flex-start; }
   .order-direction-toggle { min-width: 46px; }
 }
+
+
+/* YorAkka V4.07 — local export of games currently showing on Fixtures */
+.fixture-tools-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.fixture-tools-row .fixture-status-filters {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.fixture-csv-button {
+  flex: 0 0 auto;
+  min-height: 36px;
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .fixture-tools-row { align-items: flex-start; }
+  .fixture-csv-button {
+    padding-left: 10px;
+    padding-right: 10px;
+    font-size: .72rem;
+  }
+}

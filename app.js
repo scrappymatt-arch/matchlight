@@ -888,42 +888,36 @@ function fixtureLocalDateParts(fixture) {
   }
 }
 
-function favouriteFixturesForCsv() {
-  if (!state.favouriteLeagues.length) return [];
-  const query = state.search.trim().toLowerCase();
-  return [...(state.fixturesByDate[state.selectedDate] || [])].filter((fixture) => {
-    if (!isFavourite(fixture)) return false;
-    if (state.selectedOnly && !fixtureIsSelectedAnywhere(fixture.id)) return false;
-    if (!state.fixtureStatusFilters.has("all") && !state.fixtureStatusFilters.has(fixture.status)) return false;
-    if (!query) return true;
-    return `${fixture.home} ${fixture.away} ${fixture.league} ${fixture.country}`.toLowerCase().includes(query);
-  });
+function fixturesCurrentlyShowingForCsv() {
+  return visibleFixtures();
 }
 
 function updateCsvButtonState() {
   const button = document.getElementById("downloadFixturesCsv");
   if (!button) return;
-  const enabled = state.favouriteLeagues.length > 0;
-  button.disabled = !enabled;
-  button.title = enabled
-    ? "Download fixtures from your favourite leagues"
-    : "Select at least one favourite league to enable CSV download";
-  button.setAttribute("aria-disabled", String(!enabled));
+  const count = fixturesCurrentlyShowingForCsv().length;
+  button.disabled = count === 0;
+  button.title = count
+    ? `Download ${count} currently visible ${count === 1 ? "game" : "games"}`
+    : "No visible games to download";
+  button.setAttribute("aria-disabled", String(count === 0));
 }
 
 function downloadVisibleFixturesCsv() {
-  if (!state.favouriteLeagues.length) {
-    alert("Select at least one favourite league before downloading a CSV.");
+  const fixtures = fixturesCurrentlyShowingForCsv();
+  if (!fixtures.length) {
+    alert("There are no games currently showing to export.");
     return;
   }
-  const fixtures = favouriteFixturesForCsv();
-  if (!fixtures.length) { alert("There are no favourite-league fixtures to export for this date and filter."); return; }
-  const columns = ["date", "time", "home team", "home goals", "away goals", "away team", "country", "league", "half time home", "half time away"];
+
+  const columns = ["date", "time", "home team", "home goals", "away goals", "away team", "country", "league", "status"];
   const rows = fixtures
+    .slice()
     .sort((a, b) => a.timestamp - b.timestamp || a.country.localeCompare(b.country) || a.league.localeCompare(b.league))
     .map((fixture) => {
       const local = fixtureLocalDateParts(fixture);
       const hasScore = fixture.status !== "scheduled";
+      const exportStatus = fixture.status === "finished" ? "result" : fixture.status === "live" ? "live" : "fixture";
       return [
         local.date,
         local.time,
@@ -933,20 +927,12 @@ function downloadVisibleFixturesCsv() {
         fixture.away,
         fixture.country,
         fixture.league,
-        fixture.halfTimeHome ?? "",
-        fixture.halfTimeAway ?? "",
+        exportStatus,
       ];
     });
-  const csv = [columns, ...rows].map((row) => row.map(csvEscape).join(",")).join("\r\n");
-  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `YorAkka-favourite-fixtures-${state.selectedDate}.csv`;
-  document.body.appendChild(link); link.click(); link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
 
+  downloadCsvBlob(`YorAkka-visible-games-${state.selectedDate}.csv`, columns, rows);
+}
 
 
 function selectedFavouriteLeagueRecords() {
@@ -2162,15 +2148,14 @@ function renderTracker() {
     return true;
   });
 
-  const statusRank = (entry) => {
+  const statusSortKey = (entry) => {
     const stateInfo = trafficState(entry.fixture, entry.condition);
-    if (entry.fixture.status === "scheduled") return 4;
-    if (stateInfo.colour === "green" || stateInfo.colour === "won") return 0;
-    if (stateInfo.copy === "Needs 1 goal") return 1;
-    if (/Needs \d+ goals/.test(stateInfo.copy)) return 2;
-    if (stateInfo.colour === "grey") return 3;
-    if (stateInfo.colour === "lost") return 5;
-    return 3;
+    const goalsNeeded = goalsNeededForSelection(entry.fixture, entry.condition);
+    if (stateInfo.colour === "lost") return { group: 0, goals: 0 };
+    if (goalsNeeded > 0) return { group: 1, goals: goalsNeeded };
+    if (stateInfo.colour === "green") return { group: 2, goals: 0 };
+    if (stateInfo.colour === "won") return { group: 3, goals: 0 };
+    return { group: 4, goals: 0 };
   };
   const liveRank = (fixture) => fixture.status === "live" ? 0 : fixture.status === "scheduled" ? 1 : 2;
   const customOrder = state.trackerCustomOrders[state.currentListId] || [];
@@ -2181,7 +2166,11 @@ function renderTracker() {
     if (state.trackerOrder === "list") result = (a.addedAt || 0) - (b.addedAt || 0);
     else if (state.trackerOrder === "kickoff") result = a.fixture.timestamp - b.fixture.timestamp;
     else if (state.trackerOrder === "live") result = liveRank(a.fixture) - liveRank(b.fixture) || a.fixture.timestamp - b.fixture.timestamp;
-    else if (state.trackerOrder === "status") result = statusRank(a) - statusRank(b) || a.fixture.timestamp - b.fixture.timestamp;
+    else if (state.trackerOrder === "status") {
+      const aStatus = statusSortKey(a);
+      const bStatus = statusSortKey(b);
+      result = aStatus.group - bStatus.group || (aStatus.group === 1 ? bStatus.goals - aStatus.goals : 0) || a.fixture.timestamp - b.fixture.timestamp;
+    }
     else if (state.trackerOrder === "goals") {
       const aLost = trafficState(a.fixture, a.condition).colour === "lost" ? 1 : 0;
       const bLost = trafficState(b.fixture, b.condition).colour === "lost" ? 1 : 0;
@@ -2944,6 +2933,7 @@ function bindEvents() {
   document.getElementById("fixtureSearch").addEventListener("input", (event) => { state.search = event.target.value; renderFixtures(); });
   document.getElementById("showSelectedOnly").addEventListener("click", () => { state.selectedOnly = !state.selectedOnly; renderAll(); });
   document.querySelectorAll("#fixtureStatusFilters [data-fixture-status]").forEach((button) => button.addEventListener("click", () => toggleFixtureStatusFilter(button.dataset.fixtureStatus)));
+  document.getElementById("downloadFixturesCsv")?.addEventListener("click", downloadVisibleFixturesCsv);
   document.getElementById("downloadToolsFixturesCsv").addEventListener("click", () => downloadToolsCsv("fixtures").catch(showToolsExportError));
   document.getElementById("downloadToolsResultsCsv").addEventListener("click", () => downloadToolsCsv("results").catch(showToolsExportError));
   const overallStatusButton = document.getElementById("overallListStatus");
@@ -3208,7 +3198,7 @@ async function start() {
   renderRefreshSettings();
   setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=4.06").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=4.08").catch(() => {});
 }
 
 start();

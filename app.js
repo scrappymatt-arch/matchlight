@@ -1116,13 +1116,46 @@ async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 20000) {
   try {
     const response = await fetch(url, { ...options, signal: controller.signal });
     const data = await response.json();
-    if (!response.ok || data?.error) throw new Error(data?.details || data?.error || `Request failed (${response.status})`);
+    if (!response.ok || data?.error) {
+      const error = new Error(data?.details || data?.error || `Request failed (${response.status})`);
+      error.status = response.status;
+      error.retryable = Boolean(data?.retryable) || response.status === 429;
+      error.retryAfter = Number(data?.retryAfter || response.headers.get("Retry-After") || 0) || 0;
+      throw error;
+    }
     return data;
   } catch (error) {
     if (error?.name === "AbortError") throw new Error("The request timed out. Please try again.");
     throw error;
   } finally {
     clearTimeout(timer);
+  }
+}
+
+function isApiRateLimitError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return error?.status === 429 || error?.retryable === true || message.includes("rate") || message.includes("too many requests") || message.includes("limit of requests");
+}
+
+async function waitForApiLimitReset(progressText, seconds, resumeLabel) {
+  const total = Math.max(15, Math.min(90, Number(seconds) || 60));
+  for (let remaining = total; remaining > 0; remaining -= 1) {
+    if (progressText) progressText.textContent = `API limit reached — waiting ${remaining}s. Export will resume automatically.`;
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  if (progressText) progressText.textContent = resumeLabel || "Resuming export…";
+}
+
+async function fetchExportJson(url, progressText, resumeLabel, timeoutMs = 25000) {
+  let pauses = 0;
+  while (true) {
+    try {
+      return await fetchJsonWithTimeout(url, { cache: "no-store" }, timeoutMs);
+    } catch (error) {
+      if (!isApiRateLimitError(error) || pauses >= 3) throw error;
+      pauses += 1;
+      await waitForApiLimitReset(progressText, error?.retryAfter || 60, resumeLabel);
+    }
   }
 }
 
@@ -1143,10 +1176,11 @@ async function refreshSelectedLeagueHistory(leagues, progressBar, progressText) 
   for (let index = 0; index < needingHistory.length; index += 1) {
     const league = needingHistory[index];
     progressText.textContent = `Checking league history ${index + 1}/${needingHistory.length}: ${league.country} — ${league.league}`;
-    const data = await fetchJsonWithTimeout(`${API_BASE}/league-history?league=${encodeURIComponent(league.leagueId)}`, { cache: "no-store" }, 20000);
+    const resumeLabel = `Checking league history ${index + 1}/${needingHistory.length}: ${league.country} — ${league.league}`;
+    const data = await fetchExportJson(`${API_BASE}/league-history?league=${encodeURIComponent(league.leagueId)}`, progressText, resumeLabel, 25000);
     mergeLeagueHistory(league.leagueId, data.seasons || []);
     progressBar.value = index + 1;
-    if (index < needingHistory.length - 1) await new Promise((resolve) => setTimeout(resolve, 250));
+    if (index < needingHistory.length - 1) await new Promise((resolve) => setTimeout(resolve, 650));
   }
   return selectedFavouriteLeagueRecords();
 }
@@ -1207,7 +1241,7 @@ async function downloadSelectedLeagueTeamsCsv() {
         failures.push(`${job.league.country} — ${job.league.league} (${job.season})`);
       }
       progressBar.value = index + 1;
-      if (index < jobs.length - 1) await new Promise((resolve) => setTimeout(resolve, 350));
+      if (index < jobs.length - 1) await new Promise((resolve) => setTimeout(resolve, 750));
     }
 
     const deduped = [...new Map(rows.map((row) => [`${row[0]}|${row[1]}|${row[2]}|${row[3]}`, row])).values()]
@@ -1445,7 +1479,8 @@ async function downloadToolsCsv(kind) {
       try {
         const params = new URLSearchParams({ league: String(job.league.leagueId), season: String(job.season), from: job.from, to: job.to });
         const endpoint = isFixtures ? "export-fixtures" : "results";
-        const data = await fetchJsonWithTimeout(`${API_BASE}/${endpoint}?${params.toString()}`, { cache: "no-store" }, 25000);
+        const resumeLabel = `Downloading ${isFixtures ? "fixtures" : "results"} ${index + 1}/${jobs.length}: ${job.league.country} — ${job.league.league} (${job.season})`;
+        const data = await fetchExportJson(`${API_BASE}/${endpoint}?${params.toString()}`, progressText, resumeLabel, 30000);
         (Array.isArray(data.response) ? data.response : []).forEach((item) => {
           const fixture = normaliseFixture(item);
           if (isFixtures ? ["scheduled", "live"].includes(fixture.status) : fixture.status === "finished") matches.set(fixture.id, fixture);
@@ -1454,7 +1489,7 @@ async function downloadToolsCsv(kind) {
         failures.push(`${job.league.country} — ${job.league.league} (${job.season})`);
       }
       progressBar.value = index + 1;
-      if (index < jobs.length - 1) await new Promise((resolve) => setTimeout(resolve, 350));
+      if (index < jobs.length - 1) await new Promise((resolve) => setTimeout(resolve, 750));
     }
 
     progressText.textContent = "Creating CSV…";
@@ -3120,7 +3155,7 @@ async function start() {
   renderRefreshSettings();
   setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=4.04").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=4.05").catch(() => {});
 }
 
 start();

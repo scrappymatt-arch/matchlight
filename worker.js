@@ -78,7 +78,11 @@ async function requestApiFootball(path, env, cacheSeconds, retries = 3) {
     if (response.ok && !providerHasErrors(data)) return data;
 
     lastError = new Error(JSON.stringify({ status: response.status, errors: data.errors || {} }));
-    if (!isRateLimited(response, data) || attempt >= retries) throw lastError;
+    if (isRateLimited(response, data)) {
+      lastError.rateLimited = true;
+      lastError.retryAfter = Number(response.headers.get("Retry-After") || 60) || 60;
+    }
+    if (!lastError.rateLimited || attempt >= retries) throw lastError;
     await wait(retryDelays[Math.min(attempt, retryDelays.length - 1)]);
   }
 
@@ -96,7 +100,7 @@ export default {
       return jsonResponse({
         service: "YorAkka API",
         status: "online",
-        version: "4.04",
+        version: "4.05",
         endpoints: {
           fixtures: "/fixtures?from=2026-08-01&to=2026-08-01",
           live: "/live",
@@ -163,6 +167,7 @@ export default {
         })).filter((season) => season.year);
         return jsonResponse({ league: Number(league), seasons }, 200, request, { "Cache-Control": "public, max-age=86400" });
       } catch (error) {
+        if (error?.rateLimited) return jsonResponse({ error: "API limit reached.", details: error.message || String(error), retryable: true, retryAfter: error.retryAfter || 60 }, 429, request, { "Retry-After": String(error.retryAfter || 60) });
         return jsonResponse({ error: "Unable to retrieve league history.", details: error.message || String(error) }, 502, request);
       }
     }
@@ -222,6 +227,7 @@ export default {
           response: fixtures,
         }, 200, request, { "Cache-Control": "public, max-age=900" });
       } catch (error) {
+        if (error?.rateLimited) return jsonResponse({ error: "API limit reached.", details: error.message || String(error), retryable: true, retryAfter: error.retryAfter || 60 }, 429, request, { "Retry-After": String(error.retryAfter || 60) });
         return jsonResponse({ error: "Unable to retrieve fixture export.", details: error.message || String(error) }, 502, request);
       }
     }

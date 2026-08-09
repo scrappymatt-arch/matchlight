@@ -197,6 +197,9 @@ const state = {
   fixtureOrder: localStorage.getItem(`${STORAGE_PREFIX}fixture-order`) || "smart",
   favouriteOrder: localStorage.getItem(`${STORAGE_PREFIX}favourite-order`) || "selected",
   trackerOrder: localStorage.getItem(`${STORAGE_PREFIX}tracker-order`) || "live",
+  fixtureOrderReverse: localStorage.getItem(`${STORAGE_PREFIX}fixture-order-reverse`) === "true",
+  favouriteOrderReverse: localStorage.getItem(`${STORAGE_PREFIX}favourite-order-reverse`) === "true",
+  trackerOrderReverse: localStorage.getItem(`${STORAGE_PREFIX}tracker-order-reverse`) === "true",
   trackerCustomOrders: readJson(`${STORAGE_PREFIX}tracker-custom-orders`, {}),
   nextRefreshAt: Date.now() + DEFAULT_LIVE_REFRESH_SECONDS * 1000,
   refreshInProgress: false,
@@ -1543,26 +1546,52 @@ function fixtureGroupStats(matches) {
 function compareFixtureGroups(a, b) {
   const A = fixtureGroupStats(a.matches);
   const B = fixtureGroupStats(b.matches);
+  let result = 0;
   switch (state.fixtureOrder) {
     case "alphabetical":
-      return A.league.localeCompare(B.league) || A.country.localeCompare(B.country);
+      result = A.league.localeCompare(B.league) || A.country.localeCompare(B.country);
+      break;
     case "popularity":
-      return A.priority - B.priority || A.league.localeCompare(B.league) || A.country.localeCompare(B.country);
+      result = A.priority - B.priority || A.league.localeCompare(B.league) || A.country.localeCompare(B.country);
+      break;
     case "country":
-      return A.country.localeCompare(B.country) || A.league.localeCompare(B.league);
+      result = A.country.localeCompare(B.country) || A.league.localeCompare(B.league);
+      break;
     case "kickoff":
-      return A.earliest - B.earliest || A.country.localeCompare(B.country) || A.league.localeCompare(B.league);
+      result = A.earliest - B.earliest || A.country.localeCompare(B.country) || A.league.localeCompare(B.league);
+      break;
     case "live":
-      return Number(B.hasLive) - Number(A.hasLive) || A.earliest - B.earliest || A.priority - B.priority;
+      result = Number(B.hasLive) - Number(A.hasLive) || A.earliest - B.earliest || A.priority - B.priority;
+      break;
     default:
-      return regionRank(A.country) - regionRank(B.country) || Number(B.favourite) - Number(A.favourite) || A.priority - B.priority || A.country.localeCompare(B.country) || A.league.localeCompare(B.league);
+      result = regionRank(A.country) - regionRank(B.country) || Number(B.favourite) - Number(A.favourite) || A.priority - B.priority || A.country.localeCompare(B.country) || A.league.localeCompare(B.league);
   }
+  return state.fixtureOrderReverse ? -result : result;
+}
+
+function orderDirectionLabel(order, reversed) {
+  if (order === "alphabetical") return reversed ? "Z→A" : "A→Z";
+  return reversed ? "↓" : "↑";
 }
 
 function renderOrderingSettings() {
   document.querySelectorAll("#fixtureOrderControl button[data-order]").forEach((button) => button.classList.toggle("active", button.dataset.order === state.fixtureOrder));
   document.querySelectorAll("#favouriteOrderControl button[data-order]").forEach((button) => button.classList.toggle("active", button.dataset.order === state.favouriteOrder));
   document.querySelectorAll("#trackerOrderControl button[data-order]").forEach((button) => button.classList.toggle("active", button.dataset.order === state.trackerOrder));
+
+  const controls = [
+    ["fixtureOrderDirection", state.fixtureOrder, state.fixtureOrderReverse, "fixture"],
+    ["favouriteOrderDirection", state.favouriteOrder, state.favouriteOrderReverse, "favourite league"],
+    ["trackerOrderDirection", state.trackerOrder, state.trackerOrderReverse, "My Matches"],
+  ];
+  controls.forEach(([id, order, reversed, label]) => {
+    const button = document.getElementById(id);
+    if (!button) return;
+    button.textContent = orderDirectionLabel(order, reversed);
+    button.classList.toggle("active", reversed);
+    button.setAttribute("aria-pressed", String(reversed));
+    button.title = `Reverse ${label} order`;
+  });
 }
 
 function favouriteSelectionRank(key) {
@@ -1577,13 +1606,15 @@ function compareFavouriteCountries([countryA, leaguesA], [countryB, leaguesB]) {
   const bestB = Math.min(...leaguesB.map((league) => leaguePriority(league.league)));
   const recentA = Math.min(...leaguesA.map((league) => favouriteSelectionRank(league.key)));
   const recentB = Math.min(...leaguesB.map((league) => favouriteSelectionRank(league.key)));
+  let result = 0;
   switch (state.favouriteOrder) {
-    case "alphabetical": return countryA.localeCompare(countryB);
-    case "popularity": return bestA - bestB || countryA.localeCompare(countryB);
-    case "country": return countryA.localeCompare(countryB);
-    case "recent": return recentA - recentB || countryA.localeCompare(countryB);
-    default: return selectedB - selectedA || bestA - bestB || countryA.localeCompare(countryB);
+    case "alphabetical": result = countryA.localeCompare(countryB); break;
+    case "popularity": result = bestA - bestB || countryA.localeCompare(countryB); break;
+    case "country": result = countryA.localeCompare(countryB); break;
+    case "recent": result = recentA - recentB || countryA.localeCompare(countryB); break;
+    default: result = selectedB - selectedA || bestA - bestB || countryA.localeCompare(countryB);
   }
+  return state.favouriteOrderReverse ? -result : result;
 }
 
 
@@ -1613,13 +1644,15 @@ function compareFavouriteLeagues(a, b) {
   const selectedA = state.favouriteLeagues.includes(a.key);
   const selectedB = state.favouriteLeagues.includes(b.key);
   const hierarchy = leagueHierarchyRank(a) - leagueHierarchyRank(b);
+  let result = 0;
   switch (state.favouriteOrder) {
-    case "alphabetical": return hierarchy || a.league.localeCompare(b.league);
-    case "country": return hierarchy || a.league.localeCompare(b.league);
-    case "popularity": return leaguePriority(a.league) - leaguePriority(b.league) || hierarchy || a.league.localeCompare(b.league);
-    case "recent": return favouriteSelectionRank(a.key) - favouriteSelectionRank(b.key) || hierarchy || a.league.localeCompare(b.league);
-    default: return Number(selectedB) - Number(selectedA) || hierarchy || leaguePriority(a.league) - leaguePriority(b.league) || a.league.localeCompare(b.league);
+    case "alphabetical": result = hierarchy || a.league.localeCompare(b.league); break;
+    case "country": result = hierarchy || a.league.localeCompare(b.league); break;
+    case "popularity": result = leaguePriority(a.league) - leaguePriority(b.league) || hierarchy || a.league.localeCompare(b.league); break;
+    case "recent": result = favouriteSelectionRank(a.key) - favouriteSelectionRank(b.key) || hierarchy || a.league.localeCompare(b.league); break;
+    default: result = Number(selectedB) - Number(selectedA) || hierarchy || leaguePriority(a.league) - leaguePriority(b.league) || a.league.localeCompare(b.league);
   }
+  return state.favouriteOrderReverse ? -result : result;
 }
 
 function renderFixtureStatusFilters() {
@@ -2144,23 +2177,23 @@ function renderTracker() {
   const customIndex = new Map(customOrder.map((id, index) => [String(id), index]));
 
   entries.sort((a, b) => {
-    if (state.trackerOrder === "list") return (a.addedAt || 0) - (b.addedAt || 0);
-    if (state.trackerOrder === "kickoff") return a.fixture.timestamp - b.fixture.timestamp;
-    if (state.trackerOrder === "live") return liveRank(a.fixture) - liveRank(b.fixture) || a.fixture.timestamp - b.fixture.timestamp;
-    if (state.trackerOrder === "status") return statusRank(a) - statusRank(b) || a.fixture.timestamp - b.fixture.timestamp;
-    if (state.trackerOrder === "goals") {
+    let result = 0;
+    if (state.trackerOrder === "list") result = (a.addedAt || 0) - (b.addedAt || 0);
+    else if (state.trackerOrder === "kickoff") result = a.fixture.timestamp - b.fixture.timestamp;
+    else if (state.trackerOrder === "live") result = liveRank(a.fixture) - liveRank(b.fixture) || a.fixture.timestamp - b.fixture.timestamp;
+    else if (state.trackerOrder === "status") result = statusRank(a) - statusRank(b) || a.fixture.timestamp - b.fixture.timestamp;
+    else if (state.trackerOrder === "goals") {
       const aLost = trafficState(a.fixture, a.condition).colour === "lost" ? 1 : 0;
       const bLost = trafficState(b.fixture, b.condition).colour === "lost" ? 1 : 0;
-      return aLost - bLost || goalsNeededForSelection(a.fixture, a.condition) - goalsNeededForSelection(b.fixture, b.condition) || a.fixture.timestamp - b.fixture.timestamp;
-    }
-    if (state.trackerOrder === "popularity") return leaguePriority(a.fixture.league) - leaguePriority(b.fixture.league) || a.fixture.timestamp - b.fixture.timestamp;
-    if (state.trackerOrder === "alphabetical") return String(a.fixture.home).localeCompare(String(b.fixture.home)) || String(a.fixture.away).localeCompare(String(b.fixture.away));
-    if (state.trackerOrder === "custom") {
+      result = aLost - bLost || goalsNeededForSelection(a.fixture, a.condition) - goalsNeededForSelection(b.fixture, b.condition) || a.fixture.timestamp - b.fixture.timestamp;
+    } else if (state.trackerOrder === "popularity") result = leaguePriority(a.fixture.league) - leaguePriority(b.fixture.league) || a.fixture.timestamp - b.fixture.timestamp;
+    else if (state.trackerOrder === "alphabetical") result = String(a.fixture.home).localeCompare(String(b.fixture.home)) || String(a.fixture.away).localeCompare(String(b.fixture.away));
+    else if (state.trackerOrder === "custom") {
       const ai = customIndex.has(String(a.id)) ? customIndex.get(String(a.id)) : Number.MAX_SAFE_INTEGER;
       const bi = customIndex.has(String(b.id)) ? customIndex.get(String(b.id)) : Number.MAX_SAFE_INTEGER;
-      return ai - bi || (a.addedAt || 0) - (b.addedAt || 0);
-    }
-    return a.fixture.timestamp - b.fixture.timestamp;
+      result = ai - bi || (a.addedAt || 0) - (b.addedAt || 0);
+    } else result = a.fixture.timestamp - b.fixture.timestamp;
+    return state.trackerOrderReverse ? -result : result;
   });
 
   if (state.trackerOrder === "custom") {
@@ -3005,13 +3038,33 @@ function bindEvents() {
     renderOrderingSettings();
     renderTracker();
   });
+  const orderDirectionBindings = [
+    ["fixtureOrderDirection", "fixtureOrderReverse", "fixture-order-reverse", renderFixtures],
+    ["favouriteOrderDirection", "favouriteOrderReverse", "favourite-order-reverse", renderFavouriteLeagues],
+    ["trackerOrderDirection", "trackerOrderReverse", "tracker-order-reverse", renderTracker],
+  ];
+  orderDirectionBindings.forEach(([id, stateKey, storageKey, renderFn]) => {
+    document.getElementById(id)?.addEventListener("click", () => {
+      state[stateKey] = !state[stateKey];
+      localStorage.setItem(`${STORAGE_PREFIX}${storageKey}`, String(state[stateKey]));
+      renderOrderingSettings();
+      renderFn();
+    });
+  });
+
   document.getElementById("resetOrdering").addEventListener("click", () => {
     state.fixtureOrder = "smart";
     state.favouriteOrder = "selected";
     state.trackerOrder = "live";
+    state.fixtureOrderReverse = false;
+    state.favouriteOrderReverse = false;
+    state.trackerOrderReverse = false;
     localStorage.setItem(`${STORAGE_PREFIX}fixture-order`, state.fixtureOrder);
     localStorage.setItem(`${STORAGE_PREFIX}favourite-order`, state.favouriteOrder);
     localStorage.setItem(`${STORAGE_PREFIX}tracker-order`, state.trackerOrder);
+    localStorage.setItem(`${STORAGE_PREFIX}fixture-order-reverse`, "false");
+    localStorage.setItem(`${STORAGE_PREFIX}favourite-order-reverse`, "false");
+    localStorage.setItem(`${STORAGE_PREFIX}tracker-order-reverse`, "false");
     renderOrderingSettings();
     renderFixtures();
     renderFavouriteLeagues();
@@ -3155,7 +3208,7 @@ async function start() {
   renderRefreshSettings();
   setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=4.05").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=4.06").catch(() => {});
 }
 
 start();

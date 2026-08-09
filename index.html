@@ -8,13 +8,13 @@
   <title>YorAkka</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=4.05" />
+  <link rel="stylesheet" href="styles.css?v=4.06" />
 </head>
 <body class="scores-active">
   <div class="app-shell">
     <header class="topbar">
       <div class="brand-lockup">
-        <h1>YorAkka <span class="app-version">V4.05</span> <span class="brand-tagline">YOUR FOOTBALL. YOUR PICKS. YOUR WAY.</span></h1>
+        <h1>YorAkka <span class="app-version">V4.06</span> <span class="brand-tagline">YOUR FOOTBALL. YOUR PICKS. YOUR WAY.</span></h1>
       </div>
       <button id="themeToggle" class="icon-button" aria-label="Toggle theme" title="Toggle theme">☼</button>
     </header>
@@ -73,7 +73,8 @@
           </div>
           <div class="tracker-update-group">
             <div id="overallListStatus" class="overall-list-status" aria-live="polite"></div>
-            <div class="update-readout"><span id="updateHealth" class="update-health" aria-live="polite">Waiting for live data</span><button id="refreshCountdown" class="refresh-countdown" type="button" title="Refresh now">Next update in 30s</button></div>
+            <button id="refreshCountdown" class="refresh-countdown" type="button" title="Refresh now">Next update in 30s</button>
+            <div class="update-readout"><span id="updateHealth" class="update-health" aria-live="polite">Waiting for live data</span></div>
           </div>
         </div>
 
@@ -211,6 +212,7 @@
           <div class="ordering-controls">
             <div class="ordering-control">
               <span>Fixtures</span>
+              <div class="order-choice-row">
               <div id="fixtureOrderControl" class="order-button-group" role="group" aria-label="Fixture order">
                 <button type="button" data-order="smart">Smart</button>
                 <button type="button" data-order="alphabetical">Alphabetical</button>
@@ -219,9 +221,12 @@
                 <button type="button" data-order="kickoff">Kick-off</button>
                 <button type="button" data-order="live">Live first</button>
               </div>
+              <button id="fixtureOrderDirection" class="order-direction-toggle" type="button" aria-label="Reverse fixture order" title="Reverse order">↑</button>
+              </div>
             </div>
             <div class="ordering-control">
               <span>Favourite leagues</span>
+              <div class="order-choice-row">
               <div id="favouriteOrderControl" class="order-button-group" role="group" aria-label="Favourite league order">
                 <button type="button" data-order="selected">Selected first</button>
                 <button type="button" data-order="alphabetical">Alphabetical</button>
@@ -229,9 +234,12 @@
                 <button type="button" data-order="country">Country</button>
                 <button type="button" data-order="recent">Recently selected</button>
               </div>
+              <button id="favouriteOrderDirection" class="order-direction-toggle" type="button" aria-label="Reverse favourite league order" title="Reverse order">↑</button>
+              </div>
             </div>
             <div class="ordering-control">
               <span>My Matches</span>
+              <div class="order-choice-row">
               <div id="trackerOrderControl" class="order-button-group" role="group" aria-label="My Matches order">
                 <button type="button" data-order="live">Live first</button>
                 <button type="button" data-order="list">List order</button>
@@ -241,6 +249,8 @@
                 <button type="button" data-order="popularity">Popularity</button>
                 <button type="button" data-order="alphabetical">Alphabetical</button>
                 <button type="button" data-order="custom">Custom</button>
+              </div>
+              <button id="trackerOrderDirection" class="order-direction-toggle" type="button" aria-label="Reverse My Matches order" title="Reverse order">↑</button>
               </div>
               <small class="ordering-hint">Custom order adds move buttons to each tracked match.</small>
             </div>
@@ -354,6 +364,6 @@
     </div>
   </dialog>
 
-  <script src="app.js?v=4.05" defer></script>
+  <script src="app.js?v=4.06" defer></script>
 </body>
 </html>

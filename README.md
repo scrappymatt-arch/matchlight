@@ -1,14 +1,16 @@
-# YorAkka V4.05
+# YorAkka V4.06
 
-## V4.05 resilient Tools exports
+## V4.06 interface and alert polish
 
-- Keeps the dedicated Tools tab and Favourite League date-range CSV exports from V4.04.
-- Paces league/season export requests more conservatively to reduce API-Football burst usage.
-- Detects API rate-limit responses during league-history checks and CSV downloads.
-- Automatically pauses with a visible countdown when the per-minute API limit is reached.
-- Resumes from the same league/season request after the wait instead of restarting the export.
-- Retries a limited number of rate-limit pauses, then reports a clear failure instead of raw JSON.
-- Fixtures CSV: date, time, home team, away team, country, league.
-- Results CSV: date, home team, home goals, away goals, away team, country, league.
-- Worker export routes return HTTP 429 with Retry-After metadata when API-Football remains rate-limited.
-- Updates visible version and service-worker cache to V4.05.
+- Moves the live update-health text onto its own line in My Matches so changing
+  "Scores updated / events updated" text no longer shifts the neighbouring buttons.
+- Adds one compact direction toggle beside each Ordering control in Settings.
+  The same button reverses the currently selected sort.
+- Alphabetical sorts show A→Z / Z→A; other sorts use ↑ / ↓.
+- Sort direction is remembered separately for Fixtures, Favourite Leagues and My Matches.
+- Reset order also resets all three directions to their normal/default direction.
+- Extends the Cheer / Boo crowd alert clips from about 0.9 seconds to about 1.8 seconds.
+- Updates the visible app version and offline cache to V4.06.
+
+Backend behaviour is unchanged from V4.05. The packaged worker.js only updates its
+reported version metadata.

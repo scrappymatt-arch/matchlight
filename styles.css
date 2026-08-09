@@ -1334,3 +1334,74 @@ body.light .results-date-grid input { color-scheme:light; }
   .bottom-nav button { min-width:0; }
   .bottom-nav small { font-size:.64rem; }
 }
+
+
+/* YorAkka V4.06 — stable live-update row and reversible ordering */
+#trackerView .tracker-update-group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "status countdown"
+    "health health";
+  align-items: stretch;
+  gap: 6px 7px;
+}
+#trackerView .tracker-update-group .overall-list-status { grid-area: status; }
+#trackerView .tracker-update-group .refresh-countdown { grid-area: countdown; }
+#trackerView .tracker-update-group .update-readout {
+  grid-area: health;
+  width: 100%;
+  min-height: 18px;
+  justify-content: flex-start;
+  padding: 0 3px;
+}
+#trackerView .tracker-update-group .update-health {
+  max-width: none;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.order-choice-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+.order-choice-row .order-button-group {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.order-direction-toggle {
+  appearance: none;
+  flex: 0 0 auto;
+  min-width: 48px;
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: .78rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+.order-direction-toggle:hover,
+.order-direction-toggle.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+@media (max-width: 640px) {
+  #trackerView .tracker-update-group {
+    grid-template-columns: minmax(0,1fr) auto;
+    grid-template-areas:
+      "status countdown"
+      "health health";
+  }
+  #trackerView .tracker-update-group .update-health { font-size: .6rem; }
+  .order-choice-row { align-items: flex-start; }
+  .order-direction-toggle { min-width: 46px; }
+}

@@ -1,15 +1,12 @@
-# YorAkka V4.11
+# YorAkka V4.12
 
-## V4.11 Compact My Matches redesign
+## V4.12 tighter mobile My Matches layout
 
-- Rebuilds Compact mode as a genuinely different My Matches layout rather than a smaller version of the normal card.
-- Compact matches now use a dense row:
-  clock/time · teams + score · tiny action controls.
-- The tracked condition and current YorAkka status remain visible on a slim second line.
-- League/country text and other secondary detail are hidden in Compact mode.
-- Pin, archive and remove controls remain available with smaller controls.
-- Normal My Matches mode is unchanged.
-- The Compact preference is still remembered on the device.
-- All V4.10 features remain in place, including Attention, pinning, archive/history, remembered fixture filters and always-new shared-list imports.
+- Hides the six My Matches summary/totals boxes on mobile only.
+- Desktop/tablet summary boxes remain unchanged.
+- Moves the Compact toggle onto the same row as All / Attention / Live / Upcoming / Finished.
+- Tightens mobile spacing around the My Matches toolbar and update area.
+- Keeps the redesigned V4.11 compact match rows unchanged.
+- The goal is to reclaim vertical space so more tracked matches fit in the visible mobile frame.
 
 Backend behaviour is unchanged. The packaged worker.js only updates its reported version metadata.

@@ -8,13 +8,13 @@
   <title>YorAkka</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=4.11" />
+  <link rel="stylesheet" href="styles.css?v=4.12" />
 </head>
 <body class="scores-active">
   <div class="app-shell">
     <header class="topbar">
       <div class="brand-lockup">
-        <h1>YorAkka <span class="app-version">V4.11</span> <span class="brand-tagline">YOUR FOOTBALL. YOUR PICKS. YOUR WAY.</span></h1>
+        <h1>YorAkka <span class="app-version">V4.12</span> <span class="brand-tagline">YOUR FOOTBALL. YOUR PICKS. YOUR WAY.</span></h1>
       </div>
       <button id="themeToggle" class="icon-button" aria-label="Toggle theme" title="Toggle theme">☼</button>
     </header>
@@ -68,6 +68,7 @@
 
         <div class="tracker-toolbar">
           <div class="tracker-filter-row">
+            <button id="trackerCompactToggle" class="mini-action tracker-compact-toggle" type="button" aria-pressed="false" title="Toggle compact My Matches">Compact</button>
             <div id="trackerFilters" class="segmented-control" role="group" aria-label="Tracker filter">
               <button data-filter="all" class="active">All</button>
               <button data-filter="attention">Attention</button>
@@ -75,7 +76,6 @@
               <button data-filter="upcoming">Upcoming</button>
               <button data-filter="finished">Finished</button>
             </div>
-            <button id="trackerCompactToggle" class="mini-action tracker-compact-toggle" type="button" aria-pressed="false" title="Toggle compact My Matches">Compact</button>
           </div>
           <div class="tracker-update-group">
             <div id="overallListStatus" class="overall-list-status" aria-live="polite"></div>
@@ -404,6 +404,6 @@
     </div>
   </dialog>
 
-  <script src="app.js?v=4.11" defer></script>
+  <script src="app.js?v=4.12" defer></script>
 </body>
 </html>

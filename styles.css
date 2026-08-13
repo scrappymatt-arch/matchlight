@@ -1761,3 +1761,61 @@ body.light .results-date-grid input { color-scheme:light; }
   .compact-condition,
   .compact-status { font-size: .59rem; }
 }
+
+
+/* YorAkka V4.12 — tighter mobile My Matches header */
+@media (max-width: 640px) {
+  #trackerView .summary-mini-grid {
+    display: none !important;
+  }
+
+  #trackerView .tracker-head-grid {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  #trackerView .tracker-toolbar {
+    margin-top: 5px;
+    gap: 6px;
+  }
+
+  #trackerView .tracker-filter-row {
+    display: grid;
+    grid-template-columns: auto minmax(0,1fr);
+    align-items: center;
+    gap: 6px;
+  }
+
+  #trackerView .tracker-compact-toggle {
+    min-height: 34px;
+    padding: 0 10px;
+    white-space: nowrap;
+  }
+
+  #trackerView #trackerFilters {
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  #trackerView #trackerFilters::-webkit-scrollbar {
+    display: none;
+  }
+
+  #trackerView #trackerFilters button {
+    flex: 0 0 auto;
+  }
+
+  #trackerView .tracker-update-group {
+    gap: 4px 6px;
+  }
+
+  #trackerView .tracker-update-group .update-readout {
+    min-height: 14px;
+    padding-top: 0;
+  }
+
+  #trackerView .day-heading {
+    margin-top: 12px;
+  }
+}

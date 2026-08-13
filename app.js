@@ -2314,7 +2314,26 @@ function renderTracker() {
       const signals = matchSignalParts(fixture);
       const heading = fixture.date !== previousDate ? `<div class="day-heading">${new Date(`${fixture.date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</div>` : "";
       previousDate = fixture.date;
-      return `${heading}
+      const compactHtml = `
+        <article class="tracker-card tracker-card-compact status-${status.colour} ${fixture.status === "live" ? "in-play" : ""}" data-open-fixture="${entry.id}" tabindex="0" role="button" aria-label="Open ${escapeHtml(fixture.home)} versus ${escapeHtml(fixture.away)} details">
+          <div class="compact-main-row">
+            <div class="compact-clock">${escapeHtml(clockText(fixture))}</div>
+            <div class="compact-match">
+              <strong class="compact-teams">${signals.homeCards}<span>${escapeHtml(fixture.home)}</span><span class="compact-score">${scoreText(fixture)}</span><span>${escapeHtml(fixture.away)}</span>${signals.awayCards}</strong>
+              <div class="compact-subrow">
+                <button class="condition-edit compact-condition" data-edit-id="${entry.id}">${escapeHtml(conditionLabel(entry.condition))}</button>
+                <span class="compact-status">${escapeHtml(status.copy)}</span>
+              </div>
+            </div>
+            <div class="compact-actions">
+              <button class="pin-button ${isTrackerPinned(entry.id) ? "active" : ""}" data-pin-id="${entry.id}" aria-pressed="${isTrackerPinned(entry.id)}" aria-label="${isTrackerPinned(entry.id) ? "Unpin" : "Pin"} match" title="${isTrackerPinned(entry.id) ? "Unpin" : "Pin"} match">📌</button>
+              ${["finished", "cancelled"].includes(fixture.status) ? `<button class="archive-button compact-archive-button" data-archive-id="${entry.id}" aria-label="Archive match" title="Archive finished match">A</button>` : ""}
+              <button class="remove-button compact-remove-button" data-remove-id="${entry.id}" aria-label="Remove match">×</button>
+            </div>
+          </div>
+        </article>`;
+
+      const normalHtml = `
         <article class="tracker-card status-${status.colour} ${fixture.status === "live" ? "in-play" : ""}" data-open-fixture="${entry.id}" tabindex="0" role="button" aria-label="Open ${escapeHtml(fixture.home)} versus ${escapeHtml(fixture.away)} details">
           <div class="tracker-topline">
             <div class="tracker-clock">${escapeHtml(clockText(fixture))}<small>${escapeHtml(statusLabel(fixture))}</small></div>
@@ -2337,6 +2356,7 @@ function renderTracker() {
             <span class="status-copy tracker-status">${escapeHtml(status.copy)}</span>
           </div>
         </article>`;
+      return `${heading}${state.trackerCompact ? compactHtml : normalHtml}`;
     }).join("");
   }
 
@@ -3567,7 +3587,7 @@ async function start() {
   renderRefreshSettings();
   setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=4.10").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=4.11").catch(() => {});
 }
 
 start();

@@ -100,7 +100,7 @@ export default {
       return jsonResponse({
         service: "YorAkka API",
         status: "online",
-        version: "4.10",
+        version: "4.11",
         endpoints: {
           fixtures: "/fixtures?from=2026-08-01&to=2026-08-01",
           live: "/live",

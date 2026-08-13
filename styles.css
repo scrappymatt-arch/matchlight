@@ -1430,3 +1430,75 @@ body.light .results-date-grid input { color-scheme:light; }
     font-size: .72rem;
   }
 }
+
+
+/* YorAkka V4.09 — shared-picks import */
+.import-picks-card {
+  width: min(680px, calc(100vw - 24px));
+  max-height: min(82vh, 760px);
+  overflow: auto;
+}
+.import-picks-summary {
+  margin: 0 0 12px;
+  color: var(--muted);
+}
+.import-picks-list {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 14px;
+}
+.import-pick-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+  cursor: pointer;
+}
+.import-pick-row input {
+  width: 19px;
+  height: 19px;
+}
+.import-pick-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.import-pick-copy strong,
+.import-pick-copy small,
+.import-pick-copy b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.import-pick-copy small {
+  color: var(--muted);
+}
+.import-pick-copy b {
+  color: var(--accent);
+  font-size: .82rem;
+}
+.import-target-label,
+.import-new-list-row label {
+  display: block;
+  margin: 9px 0 5px;
+  color: var(--muted);
+  font-size: .8rem;
+  font-weight: 800;
+}
+.import-target-select,
+.import-new-list-row input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 8px 10px;
+  font: inherit;
+}
+.import-actions {
+  margin-top: 14px;
+}

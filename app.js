@@ -201,6 +201,7 @@ const state = {
   favouriteOrderReverse: localStorage.getItem(`${STORAGE_PREFIX}favourite-order-reverse`) === "true",
   trackerOrderReverse: localStorage.getItem(`${STORAGE_PREFIX}tracker-order-reverse`) === "true",
   trackerCustomOrders: readJson(`${STORAGE_PREFIX}tracker-custom-orders`, {}),
+  pendingSharedImport: null,
   nextRefreshAt: Date.now() + DEFAULT_LIVE_REFRESH_SECONDS * 1000,
   refreshInProgress: false,
   lastRefreshSucceededAt: null,
@@ -2150,8 +2151,9 @@ function renderTracker() {
 
   const statusSortKey = (entry) => {
     const stateInfo = trafficState(entry.fixture, entry.condition);
-    const goalsNeeded = goalsNeededForSelection(entry.fixture, entry.condition);
     if (stateInfo.colour === "lost") return { group: 0, goals: 0 };
+    if (entry.fixture.status === "scheduled") return { group: 4, goals: 0 };
+    const goalsNeeded = goalsNeededForSelection(entry.fixture, entry.condition);
     if (goalsNeeded > 0) return { group: 1, goals: goalsNeeded };
     if (stateInfo.colour === "green") return { group: 2, goals: 0 };
     if (stateInfo.colour === "won") return { group: 3, goals: 0 };
@@ -2744,6 +2746,83 @@ function applyDensity() {
 }
 
 
+function sharedFixtureSnapshot(fixture) {
+  return {
+    i: String(fixture.id),
+    a: fixture.apiId ?? fixture.id,
+    d: fixture.date,
+    t: fixture.timestamp,
+    z: fixture.timezone || state.timeZone,
+    h: fixture.home,
+    w: fixture.away,
+    hs: fixture.homeScore ?? null,
+    as: fixture.awayScore ?? null,
+    s: fixture.status,
+    ss: fixture.statusShort || "",
+    e: fixture.elapsed ?? null,
+    x: fixture.extra ?? null,
+    c: fixture.country,
+    l: fixture.league,
+    li: fixture.leagueId ?? null,
+  };
+}
+
+function restoreSharedFixture(raw) {
+  return {
+    id: String(raw.i),
+    apiId: raw.a ?? raw.i,
+    date: raw.d,
+    timestamp: Number(raw.t),
+    timezone: raw.z || state.timeZone,
+    home: String(raw.h || ""),
+    away: String(raw.w || ""),
+    homeScore: raw.hs ?? null,
+    awayScore: raw.as ?? null,
+    status: ["scheduled", "live", "finished", "cancelled"].includes(raw.s) ? raw.s : "scheduled",
+    statusShort: String(raw.ss || ""),
+    elapsed: raw.e ?? null,
+    extra: raw.x ?? null,
+    country: String(raw.c || ""),
+    league: String(raw.l || ""),
+    leagueId: raw.li ?? null,
+  };
+}
+
+function isShareableCondition(condition) {
+  return CONDITIONS.some((item) => item.id === condition) || /^score:\d+:\d+$/.test(String(condition || ""));
+}
+
+function encodeSharedPicks(payload) {
+  const bytes = new TextEncoder().encode(JSON.stringify(payload));
+  let binary = "";
+  bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function decodeSharedPicks(encoded) {
+  const normalized = String(encoded || "").replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized + "=".repeat((4 - normalized.length % 4) % 4);
+  const binary = atob(padded);
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+
+function currentListImportLink() {
+  const list = state.lists[state.currentListId];
+  const picks = Object.values(list?.selected || {})
+    .map((entry) => ({ condition: entry.condition, fixture: getFixtureById(entry.fixture?.id) || entry.fixture }))
+    .filter((entry) => entry.fixture && isShareableCondition(entry.condition))
+    .slice(0, 50)
+    .map((entry) => ({ c: entry.condition, f: sharedFixtureSnapshot(entry.fixture) }));
+  if (!picks.length) return "";
+  const payload = { v: 1, n: String(list?.name || "Shared picks").slice(0, 40), p: picks };
+  const url = new URL(window.location.href);
+  url.search = "";
+  url.hash = "";
+  url.searchParams.set("picks", encodeSharedPicks(payload));
+  return url.toString();
+}
+
 function currentListShareData() {
   const list = state.lists[state.currentListId];
   const entries = Object.values(list?.selected || {}).map((entry) => ({ ...entry, fixture: getFixtureById(entry.fixture?.id) || entry.fixture })).filter((entry) => entry.fixture);
@@ -2762,20 +2841,21 @@ function currentListShareData() {
     }
     return `${matchLine}\n${conditionLabel(entry.condition)} — ${status}`;
   });
-  return { title: `YorAkka · ${list?.name || "My Matches"}`, overall, lines };
+  return { title: `YorAkka · ${list?.name || "My Matches"}`, overall, lines, importLink: currentListImportLink() };
 }
 
 function currentListShareText() {
   const data = currentListShareData();
   const header = [data.title, data.overall].filter(Boolean).join("\n");
-  return [header, ...data.lines].filter(Boolean).join("\n\n");
+  const readable = [header, ...data.lines].filter(Boolean).join("\n\n");
+  return data.importLink ? `${readable}\n\nOpen these picks in YorAkka:\n${data.importLink}` : readable;
 }
 
 async function copyCurrentListText() {
   const text = currentListShareText();
   await navigator.clipboard.writeText(text);
   const feedback = document.getElementById("shareFeedback");
-  if (feedback) feedback.textContent = "List copied.";
+  if (feedback) feedback.textContent = "List copied with YorAkka import link.";
 }
 
 async function shareCurrentList() {
@@ -2783,6 +2863,131 @@ async function shareCurrentList() {
   const text = currentListShareText();
   if (navigator.share) await navigator.share({ title: data.title, text });
   else await copyCurrentListText();
+}
+
+function readSharedPicksFromUrl() {
+  const url = new URL(window.location.href);
+  const encoded = url.searchParams.get("picks");
+  if (!encoded) return null;
+  try {
+    const payload = decodeSharedPicks(encoded);
+    if (payload?.v !== 1 || !Array.isArray(payload.p) || !payload.p.length || payload.p.length > 50) throw new Error("Invalid shared picks");
+    const picks = payload.p.map((item) => {
+      const fixture = restoreSharedFixture(item.f || {});
+      const condition = String(item.c || "");
+      if (!fixture.id || !fixture.home || !fixture.away || !Number.isFinite(fixture.timestamp) || !isShareableCondition(condition)) return null;
+      return { fixture, condition, selected: true };
+    }).filter(Boolean);
+    if (!picks.length) throw new Error("No valid shared picks");
+    return { name: String(payload.n || "Shared picks").slice(0, 40), picks };
+  } catch (error) {
+    console.warn("Could not read shared YorAkka picks", error);
+    return { error: "This YorAkka share link could not be read." };
+  } finally {
+    url.searchParams.delete("picks");
+    history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }
+}
+
+function renderImportTargetLists(sharedName) {
+  const select = document.getElementById("importTargetList");
+  if (!select) return;
+  select.innerHTML = Object.values(state.lists)
+    .map((list) => `<option value="${escapeHtml(list.id)}">${escapeHtml(list.name)}</option>`)
+    .join("") + '<option value="__new__">+ Create new list</option>';
+  select.value = state.currentListId;
+  const input = document.getElementById("importNewListName");
+  if (input) input.value = sharedName || "Shared picks";
+  document.getElementById("importNewListRow").hidden = select.value !== "__new__";
+}
+
+function renderImportPickRows(importData) {
+  const container = document.getElementById("importPicksList");
+  if (!container) return;
+  container.innerHTML = importData.picks.map((pick, index) => {
+    const fixture = pick.fixture;
+    const when = fixture.status === "scheduled" ? formatFixtureTime(fixture) : statusLabel(fixture);
+    return `<label class="import-pick-row">
+      <input class="import-pick-checkbox" type="checkbox" data-import-index="${index}" ${pick.selected ? "checked" : ""}>
+      <span class="import-pick-copy">
+        <strong>${escapeHtml(fixture.home)} v ${escapeHtml(fixture.away)}</strong>
+        <small>${escapeHtml(when)} · ${escapeHtml(fixture.country)} · ${escapeHtml(fixture.league)}</small>
+        <b>${escapeHtml(conditionLabel(pick.condition))}</b>
+      </span>
+    </label>`;
+  }).join("");
+}
+
+function updateImportSelectionFromUi() {
+  if (!state.pendingSharedImport?.picks) return;
+  document.querySelectorAll(".import-pick-checkbox[data-import-index]").forEach((box) => {
+    const pick = state.pendingSharedImport.picks[Number(box.dataset.importIndex)];
+    if (pick) pick.selected = box.checked;
+  });
+  const count = state.pendingSharedImport.picks.filter((pick) => pick.selected).length;
+  const button = document.getElementById("addImportedPicks");
+  if (button) {
+    button.disabled = count === 0;
+    button.textContent = count ? `Add ${count} to My Matches` : "Add to My Matches";
+  }
+  const toggle = document.getElementById("importAllToggle");
+  if (toggle) toggle.textContent = count === state.pendingSharedImport.picks.length ? "Clear all" : "Select all";
+}
+
+function openSharedPicksImport(importData) {
+  state.pendingSharedImport = importData;
+  document.getElementById("importPicksTitle").textContent = importData.name || "Shared YorAkka picks";
+  document.getElementById("importPicksSummary").textContent = `${importData.picks.length} ${importData.picks.length === 1 ? "pick" : "picks"} received. Review them before adding to My Matches.`;
+  document.getElementById("importPicksFeedback").textContent = "";
+  renderImportPickRows(importData);
+  renderImportTargetLists(importData.name);
+  updateImportSelectionFromUi();
+  const dialog = document.getElementById("importPicksDialog");
+  if (dialog && !dialog.open) dialog.showModal();
+}
+
+function addImportedPicks() {
+  const importData = state.pendingSharedImport;
+  if (!importData?.picks) return;
+  updateImportSelectionFromUi();
+  const selectedPicks = importData.picks.filter((pick) => pick.selected);
+  if (!selectedPicks.length) return;
+
+  const targetSelect = document.getElementById("importTargetList");
+  let targetId = targetSelect?.value || state.currentListId;
+  if (targetId === "__new__") {
+    const requestedName = document.getElementById("importNewListName")?.value?.trim() || importData.name || nextListName();
+    const id = `list-${Date.now()}`;
+    state.lists[id] = { id, name: requestedName.slice(0, 40), selected: {}, createdAt: Date.now() };
+    targetId = id;
+  }
+  const target = state.lists[targetId];
+  if (!target) return;
+
+  selectedPicks.forEach((pick) => {
+    const fixture = pick.fixture;
+    target.selected[String(fixture.id)] = {
+      condition: pick.condition,
+      fixture,
+      addedAt: target.selected[String(fixture.id)]?.addedAt || Date.now(),
+    };
+  });
+  state.currentListId = targetId;
+  saveSelected();
+  state.pendingSharedImport = null;
+  document.getElementById("importPicksDialog")?.close();
+  renderAll();
+  setView("trackerView");
+}
+
+function initialiseSharedPicksImport() {
+  const shared = readSharedPicksFromUrl();
+  if (!shared) return;
+  if (shared.error) {
+    setTimeout(() => alert(shared.error), 0);
+    return;
+  }
+  setTimeout(() => openSharedPicksImport(shared), 0);
 }
 
 function saveCurrentListImage() {
@@ -3169,6 +3374,25 @@ function bindEvents() {
   document.getElementById("closeShareDialog").addEventListener("click", () => document.getElementById("shareDialog").close());
   document.getElementById("copyListText").addEventListener("click", () => copyCurrentListText().catch(() => { document.getElementById("shareFeedback").textContent = "Could not copy this list."; }));
   document.getElementById("shareNative").addEventListener("click", () => shareCurrentList().catch(() => {}));
+  document.getElementById("closeImportPicksDialog")?.addEventListener("click", () => {
+    state.pendingSharedImport = null;
+    document.getElementById("importPicksDialog")?.close();
+  });
+  document.getElementById("importTargetList")?.addEventListener("change", (event) => {
+    document.getElementById("importNewListRow").hidden = event.target.value !== "__new__";
+  });
+  document.getElementById("importPicksList")?.addEventListener("change", (event) => {
+    if (event.target.matches(".import-pick-checkbox")) updateImportSelectionFromUi();
+  });
+  document.getElementById("importAllToggle")?.addEventListener("click", () => {
+    if (!state.pendingSharedImport?.picks) return;
+    const selectedCount = state.pendingSharedImport.picks.filter((pick) => pick.selected).length;
+    const selectAll = selectedCount !== state.pendingSharedImport.picks.length;
+    state.pendingSharedImport.picks.forEach((pick) => { pick.selected = selectAll; });
+    renderImportPickRows(state.pendingSharedImport);
+    updateImportSelectionFromUi();
+  });
+  document.getElementById("addImportedPicks")?.addEventListener("click", addImportedPicks);
   document.getElementById("saveListImage").addEventListener("click", saveCurrentListImage);
   document.getElementById("clearTracker").addEventListener("click", () => document.getElementById("confirmDialog").showModal());
   document.getElementById("confirmDialog").addEventListener("close", (event) => {
@@ -3198,7 +3422,9 @@ async function start() {
   renderRefreshSettings();
   setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=4.08").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=4.09").catch(() => {});
 }
 
 start();
+
+initialiseSharedPicksImport();

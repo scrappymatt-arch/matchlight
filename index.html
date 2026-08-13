@@ -8,13 +8,13 @@
   <title>YorAkka</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=4.08" />
+  <link rel="stylesheet" href="styles.css?v=4.09" />
 </head>
 <body class="scores-active">
   <div class="app-shell">
     <header class="topbar">
       <div class="brand-lockup">
-        <h1>YorAkka <span class="app-version">V4.08</span> <span class="brand-tagline">YOUR FOOTBALL. YOUR PICKS. YOUR WAY.</span></h1>
+        <h1>YorAkka <span class="app-version">V4.09</span> <span class="brand-tagline">YOUR FOOTBALL. YOUR PICKS. YOUR WAY.</span></h1>
       </div>
       <button id="themeToggle" class="icon-button" aria-label="Toggle theme" title="Toggle theme">☼</button>
     </header>
@@ -345,6 +345,28 @@
     </div>
   </dialog>
 
+  <dialog id="importPicksDialog">
+    <div class="dialog-card import-picks-card">
+      <div class="dialog-header">
+        <div><p class="section-kicker">IMPORT PICKS</p><h3 id="importPicksTitle">Shared YorAkka picks</h3></div>
+        <button id="closeImportPicksDialog" class="dialog-close" type="button" aria-label="Close">×</button>
+      </div>
+      <p id="importPicksSummary" class="import-picks-summary">Review the shared picks before adding them.</p>
+      <div id="importPicksList" class="import-picks-list"></div>
+      <label class="import-target-label" for="importTargetList">Add selected picks to</label>
+      <select id="importTargetList" class="import-target-select"></select>
+      <div id="importNewListRow" class="import-new-list-row" hidden>
+        <label for="importNewListName">New list name</label>
+        <input id="importNewListName" type="text" maxlength="40" placeholder="Shared picks">
+      </div>
+      <div class="share-actions import-actions">
+        <button id="importAllToggle" class="secondary-button" type="button">Select all</button>
+        <button id="addImportedPicks" class="primary-button" type="button">Add to My Matches</button>
+      </div>
+      <p id="importPicksFeedback" class="share-feedback" aria-live="polite"></p>
+    </div>
+  </dialog>
+
   <dialog id="goalsBreakdownDialog">
     <div class="dialog-card compact goals-breakdown-card">
       <div class="dialog-header"><div><p class="section-kicker">MY MATCHES</p><h3 id="goalsBreakdownTitle">Why this status?</h3></div><button id="closeGoalsBreakdown" class="dialog-close" type="button" aria-label="Close">×</button></div>
@@ -365,6 +387,6 @@
     </div>
   </dialog>
 
-  <script src="app.js?v=4.08" defer></script>
+  <script src="app.js?v=4.09" defer></script>
 </body>
 </html>

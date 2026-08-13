@@ -1502,3 +1502,148 @@ body.light .results-date-grid input { color-scheme:light; }
 .import-actions {
   margin-top: 14px;
 }
+
+
+/* YorAkka V4.10 — attention, pinning, compact My Matches and local archive */
+.tracker-filter-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+.tracker-filter-row .segmented-control {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.tracker-compact-toggle {
+  flex: 0 0 auto;
+  min-height: 34px;
+}
+.tracker-compact-toggle.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.tracker-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 3px;
+}
+.pin-button,
+.archive-button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+}
+.pin-button {
+  width: 28px;
+  min-height: 30px;
+  padding: 0;
+  opacity: .5;
+  filter: grayscale(1);
+}
+.pin-button.active {
+  opacity: 1;
+  filter: none;
+}
+.archive-button {
+  min-height: 28px;
+  padding: 0 5px;
+  font-size: .61rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+.archive-button:hover,
+.pin-button:hover {
+  color: var(--accent);
+}
+.tracker-topline {
+  grid-template-columns: 67px minmax(0,1fr) auto;
+}
+.tracker-list.compact-mode .tracker-card {
+  margin-bottom: 6px;
+  padding: 8px 10px;
+  border-radius: 13px;
+}
+.tracker-list.compact-mode .tracker-topline {
+  grid-template-columns: 52px minmax(0,1fr) auto;
+  gap: 4px;
+}
+.tracker-list.compact-mode .tracker-clock {
+  font-size: 1rem;
+}
+.tracker-list.compact-mode .tracker-clock small {
+  font-size: .5rem;
+}
+.tracker-list.compact-mode .tracker-meta {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  gap: 5px 8px;
+  margin-top: 6px;
+  padding-top: 6px;
+}
+.tracker-list.compact-mode .tracker-league {
+  display: none;
+}
+.tracker-list.compact-mode .tracker-condition,
+.tracker-list.compact-mode .tracker-status {
+  font-size: .68rem;
+}
+.tracker-list.compact-mode .day-heading {
+  margin: 11px 4px 5px;
+}
+.archive-dialog-card {
+  width: min(720px, calc(100vw - 24px));
+  max-height: min(84vh, 780px);
+  overflow: auto;
+}
+.archive-help {
+  color: var(--muted);
+}
+.archive-list {
+  display: grid;
+  gap: 8px;
+}
+.archive-row {
+  padding: 10px 11px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.archive-row-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.archive-row-top span {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: .7rem;
+}
+.archive-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 10px;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: .7rem;
+}
+.archive-actions {
+  margin-top: 12px;
+}
+@media (max-width: 640px) {
+  .tracker-filter-row {
+    display: grid;
+    grid-template-columns: minmax(0,1fr) auto;
+  }
+  #trackerFilters {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  #trackerFilters::-webkit-scrollbar { display: none; }
+  #trackerFilters button { flex: 0 0 auto; }
+  .tracker-card-actions { gap: 1px; }
+  .archive-button { font-size: .56rem; }
+}

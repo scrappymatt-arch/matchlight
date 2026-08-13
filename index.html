@@ -8,13 +8,13 @@
   <title>YorAkka</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=4.09" />
+  <link rel="stylesheet" href="styles.css?v=4.10" />
 </head>
 <body class="scores-active">
   <div class="app-shell">
     <header class="topbar">
       <div class="brand-lockup">
-        <h1>YorAkka <span class="app-version">V4.09</span> <span class="brand-tagline">YOUR FOOTBALL. YOUR PICKS. YOUR WAY.</span></h1>
+        <h1>YorAkka <span class="app-version">V4.10</span> <span class="brand-tagline">YOUR FOOTBALL. YOUR PICKS. YOUR WAY.</span></h1>
       </div>
       <button id="themeToggle" class="icon-button" aria-label="Toggle theme" title="Toggle theme">☼</button>
     </header>
@@ -59,6 +59,7 @@
               <button id="renameList" class="mini-action" type="button" title="Rename list" aria-label="Rename list">✎</button>
               <button id="deleteList" class="mini-action danger" type="button" title="Delete list" aria-label="Delete list">🗑</button>
               <button id="shareList" class="mini-action" type="button" title="Share list" aria-label="Share list">Share</button>
+              <button id="openArchive" class="mini-action" type="button" title="Open archive" aria-label="Open archive">Archive</button>
               <button id="clearTracker" class="mini-action danger" type="button" title="Clear list" aria-label="Clear list">Clear</button>
             </div>
           </div>
@@ -66,11 +67,15 @@
         </div>
 
         <div class="tracker-toolbar">
-          <div id="trackerFilters" class="segmented-control" role="group" aria-label="Tracker filter">
-            <button data-filter="all" class="active">All</button>
-            <button data-filter="live">Live</button>
-            <button data-filter="upcoming">Upcoming</button>
-            <button data-filter="finished">Finished</button>
+          <div class="tracker-filter-row">
+            <div id="trackerFilters" class="segmented-control" role="group" aria-label="Tracker filter">
+              <button data-filter="all" class="active">All</button>
+              <button data-filter="attention">Attention</button>
+              <button data-filter="live">Live</button>
+              <button data-filter="upcoming">Upcoming</button>
+              <button data-filter="finished">Finished</button>
+            </div>
+            <button id="trackerCompactToggle" class="mini-action tracker-compact-toggle" type="button" aria-pressed="false" title="Toggle compact My Matches">Compact</button>
           </div>
           <div class="tracker-update-group">
             <div id="overallListStatus" class="overall-list-status" aria-live="polite"></div>
@@ -353,17 +358,29 @@
       </div>
       <p id="importPicksSummary" class="import-picks-summary">Review the shared picks before adding them.</p>
       <div id="importPicksList" class="import-picks-list"></div>
-      <label class="import-target-label" for="importTargetList">Add selected picks to</label>
-      <select id="importTargetList" class="import-target-select"></select>
-      <div id="importNewListRow" class="import-new-list-row" hidden>
+      <div id="importNewListRow" class="import-new-list-row">
         <label for="importNewListName">New list name</label>
-        <input id="importNewListName" type="text" maxlength="40" placeholder="Shared picks">
+        <input id="importNewListName" type="text" maxlength="40" placeholder="Shared picks" autocomplete="off">
       </div>
       <div class="share-actions import-actions">
         <button id="importAllToggle" class="secondary-button" type="button">Select all</button>
-        <button id="addImportedPicks" class="primary-button" type="button">Add to My Matches</button>
+        <button id="addImportedPicks" class="primary-button" type="button">Create List &amp; Add Picks</button>
       </div>
       <p id="importPicksFeedback" class="share-feedback" aria-live="polite"></p>
+    </div>
+  </dialog>
+
+  <dialog id="archiveDialog">
+    <div class="dialog-card archive-dialog-card">
+      <div class="dialog-header">
+        <div><p class="section-kicker">HISTORY</p><h3>My Matches Archive</h3></div>
+        <button id="closeArchiveDialog" class="dialog-close" type="button" aria-label="Close">×</button>
+      </div>
+      <p class="archive-help">Finished matches archived manually or by completed-match cleanup are kept on this device.</p>
+      <div id="archiveList" class="archive-list"></div>
+      <div class="share-actions archive-actions">
+        <button id="clearArchive" class="secondary-button" type="button">Clear archive</button>
+      </div>
     </div>
   </dialog>
 
@@ -387,6 +404,6 @@
     </div>
   </dialog>
 
-  <script src="app.js?v=4.09" defer></script>
+  <script src="app.js?v=4.10" defer></script>
 </body>
 </html>

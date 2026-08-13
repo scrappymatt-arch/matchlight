@@ -149,8 +149,8 @@ const state = {
   selectedDate: isoDate(today),
   fixturesByDate: {},
   cacheTimes: {},
-  selectedOnly: false,
-  fixtureStatusFilters: new Set(["all"]),
+  selectedOnly: localStorage.getItem(`${STORAGE_PREFIX}fixture-selected-only`) === "true",
+  fixtureStatusFilters: new Set(readJson(`${STORAGE_PREFIX}fixture-status-filters`, ["all"])),
   search: "",
   trackerFilter: "all",
   lists: initialLists,
@@ -158,7 +158,7 @@ const state = {
   theme: localStorage.getItem(`${STORAGE_PREFIX}theme`) || "dark",
   density: localStorage.getItem(`${STORAGE_PREFIX}density`) || "compact",
   favouriteLeagues: readJson(`${STORAGE_PREFIX}favourite-leagues`, []),
-  showAllLeagues: false,
+  showAllLeagues: localStorage.getItem(`${STORAGE_PREFIX}show-all-leagues`) === "true",
   knownLeagues: readJson(`${STORAGE_PREFIX}known-leagues`, []),
   leagueCatalogueLoaded: false,
   leagueCatalogueLoading: false,
@@ -201,6 +201,9 @@ const state = {
   favouriteOrderReverse: localStorage.getItem(`${STORAGE_PREFIX}favourite-order-reverse`) === "true",
   trackerOrderReverse: localStorage.getItem(`${STORAGE_PREFIX}tracker-order-reverse`) === "true",
   trackerCustomOrders: readJson(`${STORAGE_PREFIX}tracker-custom-orders`, {}),
+  trackerPins: readJson(`${STORAGE_PREFIX}tracker-pins`, {}),
+  trackerCompact: localStorage.getItem(`${STORAGE_PREFIX}tracker-compact`) === "true",
+  archive: readJson(`${STORAGE_PREFIX}archive`, []),
   pendingSharedImport: null,
   nextRefreshAt: Date.now() + DEFAULT_LIVE_REFRESH_SECONDS * 1000,
   refreshInProgress: false,
@@ -252,6 +255,89 @@ function createList(name = nextListName()) {
   saveSelected();
   renderAll();
   return id;
+}
+
+function pinIdsForCurrentList() {
+  return state.trackerPins[state.currentListId] || [];
+}
+
+function isTrackerPinned(id) {
+  return pinIdsForCurrentList().includes(String(id));
+}
+
+function toggleTrackerPin(id) {
+  const key = state.currentListId;
+  const pins = new Set((state.trackerPins[key] || []).map(String));
+  const value = String(id);
+  if (pins.has(value)) pins.delete(value); else pins.add(value);
+  state.trackerPins[key] = [...pins];
+  localStorage.setItem(`${STORAGE_PREFIX}tracker-pins`, JSON.stringify(state.trackerPins));
+  renderTracker();
+}
+
+function archiveEntry(list, id, entry, reason = "manual") {
+  if (!entry?.fixture) return;
+  const record = {
+    archiveId: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    listId: list.id,
+    listName: list.name,
+    fixtureId: String(id),
+    fixture: entry.fixture,
+    condition: entry.condition,
+    addedAt: entry.addedAt || null,
+    archivedAt: Date.now(),
+    reason,
+  };
+  state.archive.unshift(record);
+  state.archive = state.archive.slice(0, 1000);
+  localStorage.setItem(`${STORAGE_PREFIX}archive`, JSON.stringify(state.archive));
+}
+
+function archiveSelectedMatch(id) {
+  const entry = state.selected[String(id)];
+  if (!entry || !["finished", "cancelled"].includes(entry.fixture?.status)) return;
+  const list = state.lists[state.currentListId];
+  archiveEntry(list, id, entry, "manual");
+  delete state.selected[String(id)];
+  state.trackerPins[state.currentListId] = pinIdsForCurrentList().filter((pinId) => String(pinId) !== String(id));
+  localStorage.setItem(`${STORAGE_PREFIX}tracker-pins`, JSON.stringify(state.trackerPins));
+  saveSelected();
+  renderAll();
+}
+
+function renderArchive() {
+  const target = document.getElementById("archiveList");
+  if (!target) return;
+  if (!state.archive.length) {
+    target.innerHTML = '<div class="empty-state"><strong>No archived matches yet</strong>Finished matches you archive will appear here.</div>';
+    document.getElementById("clearArchive").disabled = true;
+    return;
+  }
+  document.getElementById("clearArchive").disabled = false;
+  target.innerHTML = state.archive.map((item) => {
+    const fixture = item.fixture || {};
+    const date = fixture.timestamp ? new Date(fixture.timestamp).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: state.timeZone }) : fixture.date || "";
+    const score = fixture.homeScore == null || fixture.awayScore == null ? "–" : `${fixture.homeScore}–${fixture.awayScore}`;
+    return `<article class="archive-row">
+      <div class="archive-row-top"><strong>${escapeHtml(fixture.home || "Home")} ${escapeHtml(score)} ${escapeHtml(fixture.away || "Away")}</strong><span>${escapeHtml(date)}</span></div>
+      <div class="archive-row-meta"><span>${escapeHtml(item.listName || "My Matches")}</span><span>${escapeHtml(conditionLabel(item.condition))}</span><span>${escapeHtml(fixture.country || "")} · ${escapeHtml(fixture.league || "")}</span></div>
+    </article>`;
+  }).join("");
+}
+
+function openArchiveDialog() {
+  renderArchive();
+  const dialog = document.getElementById("archiveDialog");
+  if (dialog && !dialog.open) dialog.showModal();
+}
+
+function nextAvailableListName(name) {
+  const base = String(name || "Shared picks").trim().slice(0, 40) || "Shared picks";
+  const used = new Set(Object.values(state.lists).map((list) => String(list.name || "").trim().toLowerCase()));
+  if (!used.has(base.toLowerCase())) return base;
+  let number = 2;
+  while (used.has(`${base} (${number})`.toLowerCase())) number += 1;
+  return `${base} (${number})`.slice(0, 40);
 }
 
 function normaliseFixture(item) {
@@ -1661,6 +1747,7 @@ function toggleFixtureStatusFilter(value) {
     if (!next.size || specific.every((status) => next.has(status))) state.fixtureStatusFilters = new Set(["all"]);
     else state.fixtureStatusFilters = next;
   }
+  localStorage.setItem(`${STORAGE_PREFIX}fixture-status-filters`, JSON.stringify([...state.fixtureStatusFilters]));
   renderFixtures();
 }
 
@@ -1681,6 +1768,7 @@ function renderFixtures() {
         : `<span>Showing ${state.favouriteLeagues.length} favourite ${state.favouriteLeagues.length === 1 ? "league" : "leagues"} only. · ${gameCountLabel}</span><button id="showAllLeagues" type="button">Show all leagues</button>`;
       document.getElementById(state.showAllLeagues ? "applyFavouriteFilter" : "showAllLeagues")?.addEventListener("click", () => {
         state.showAllLeagues = !state.showAllLeagues;
+        localStorage.setItem(`${STORAGE_PREFIX}show-all-leagues`, String(state.showAllLeagues));
         renderFixtures();
       });
     } else {
@@ -2139,10 +2227,27 @@ runTrafficStateTests();
 function renderTracker() {
   autoClearIfDue();
   renderListControls();
+  const trackerListElement = document.getElementById("trackerList");
+  trackerListElement?.classList.toggle("compact-mode", state.trackerCompact);
+  const compactButton = document.getElementById("trackerCompactToggle");
+  if (compactButton) {
+    compactButton.classList.toggle("active", state.trackerCompact);
+    compactButton.setAttribute("aria-pressed", String(state.trackerCompact));
+  }
+  document.querySelectorAll("#trackerFilters button[data-filter]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.filter === state.trackerFilter);
+  });
   let entries = Object.entries(state.selected).map(([id, entry]) => ({ id, ...entry, fixture: getFixtureById(id) || entry.fixture })).filter((entry) => entry.fixture);
   entries.forEach((entry) => { state.selected[entry.id].fixture = entry.fixture; });
 
   entries = entries.filter((entry) => {
+    if (state.trackerFilter === "attention") {
+      const status = trafficState(entry.fixture, entry.condition);
+      if (status.colour === "lost") return true;
+      if (entry.fixture.status === "scheduled") return false;
+      if (goalsNeededForSelection(entry.fixture, entry.condition) > 0) return true;
+      return status.colour === "green";
+    }
     if (state.trackerFilter === "live") return entry.fixture.status === "live";
     if (state.trackerFilter === "upcoming") return entry.fixture.status === "scheduled" && entry.condition !== "none";
     if (state.trackerFilter === "finished") return entry.fixture.status === "finished" || entry.fixture.status === "cancelled";
@@ -2164,6 +2269,8 @@ function renderTracker() {
   const customIndex = new Map(customOrder.map((id, index) => [String(id), index]));
 
   entries.sort((a, b) => {
+    const pinnedResult = Number(isTrackerPinned(b.id)) - Number(isTrackerPinned(a.id));
+    if (pinnedResult) return pinnedResult;
     let result = 0;
     if (state.trackerOrder === "list") result = (a.addedAt || 0) - (b.addedAt || 0);
     else if (state.trackerOrder === "kickoff") result = a.fixture.timestamp - b.fixture.timestamp;
@@ -2218,7 +2325,11 @@ function renderTracker() {
               ${signals.goal}
             </div>
             ${state.trackerOrder === "custom" ? `<div class="tracker-reorder" aria-label="Move match"><button type="button" data-move-id="${entry.id}" data-direction="up" aria-label="Move match up">↑</button><button type="button" data-move-id="${entry.id}" data-direction="down" aria-label="Move match down">↓</button></div>` : ""}
-            <button class="remove-button" data-remove-id="${entry.id}" aria-label="Remove match">×</button>
+            <div class="tracker-card-actions">
+              <button class="pin-button ${isTrackerPinned(entry.id) ? "active" : ""}" data-pin-id="${entry.id}" aria-pressed="${isTrackerPinned(entry.id)}" aria-label="${isTrackerPinned(entry.id) ? "Unpin" : "Pin"} match" title="${isTrackerPinned(entry.id) ? "Unpin" : "Pin"} match">📌</button>
+              ${["finished", "cancelled"].includes(fixture.status) ? `<button class="archive-button" data-archive-id="${entry.id}" aria-label="Archive match" title="Archive finished match">Archive</button>` : ""}
+              <button class="remove-button" data-remove-id="${entry.id}" aria-label="Remove match">×</button>
+            </div>
           </div>
           <div class="tracker-meta">
             <span class="tracker-league">${escapeHtml(fixture.country)} · ${escapeHtml(fixture.league)}</span>
@@ -2229,8 +2340,19 @@ function renderTracker() {
     }).join("");
   }
 
+  list.querySelectorAll("[data-pin-id]").forEach((button) => button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleTrackerPin(button.dataset.pinId);
+  }));
+  list.querySelectorAll("[data-archive-id]").forEach((button) => button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    archiveSelectedMatch(button.dataset.archiveId);
+  }));
   list.querySelectorAll("[data-remove-id]").forEach((button) => button.addEventListener("click", () => {
-    delete state.selected[button.dataset.removeId];
+    const id = button.dataset.removeId;
+    delete state.selected[id];
+    state.trackerPins[state.currentListId] = pinIdsForCurrentList().filter((pinId) => String(pinId) !== String(id));
+    localStorage.setItem(`${STORAGE_PREFIX}tracker-pins`, JSON.stringify(state.trackerPins));
     saveSelected();
     renderAll();
   }));
@@ -2520,10 +2642,15 @@ function autoClearIfDue() {
   const cleanupDelay = state.completedCleanupHours * 60 * 60 * 1000;
   Object.values(state.lists).forEach((list) => {
     if (list.finishedAt && Date.now() - list.finishedAt >= cleanupDelay) {
+      Object.entries(list.selected || {}).forEach(([id, entry]) => {
+        if (["finished", "cancelled"].includes(entry.fixture?.status)) archiveEntry(list, id, entry, "cleanup");
+      });
       list.selected = {};
       list.finishedAt = null;
+      state.trackerPins[list.id] = [];
     }
   });
+  localStorage.setItem(`${STORAGE_PREFIX}tracker-pins`, JSON.stringify(state.trackerPins));
   saveSelected();
 }
 
@@ -2889,16 +3016,11 @@ function readSharedPicksFromUrl() {
   }
 }
 
-function renderImportTargetLists(sharedName) {
-  const select = document.getElementById("importTargetList");
-  if (!select) return;
-  select.innerHTML = Object.values(state.lists)
-    .map((list) => `<option value="${escapeHtml(list.id)}">${escapeHtml(list.name)}</option>`)
-    .join("") + '<option value="__new__">+ Create new list</option>';
-  select.value = state.currentListId;
+function prepareImportListName(sharedName) {
   const input = document.getElementById("importNewListName");
-  if (input) input.value = sharedName || "Shared picks";
-  document.getElementById("importNewListRow").hidden = select.value !== "__new__";
+  if (!input) return;
+  input.value = nextAvailableListName(sharedName || "Shared picks");
+  input.dataset.suggestedName = input.value;
 }
 
 function renderImportPickRows(importData) {
@@ -2927,8 +3049,9 @@ function updateImportSelectionFromUi() {
   const count = state.pendingSharedImport.picks.filter((pick) => pick.selected).length;
   const button = document.getElementById("addImportedPicks");
   if (button) {
-    button.disabled = count === 0;
-    button.textContent = count ? `Add ${count} to My Matches` : "Add to My Matches";
+    const name = document.getElementById("importNewListName")?.value?.trim() || "";
+    button.disabled = count === 0 || !name;
+    button.textContent = count ? `Create List & Add ${count} ${count === 1 ? "Pick" : "Picks"}` : "Create List & Add Picks";
   }
   const toggle = document.getElementById("importAllToggle");
   if (toggle) toggle.textContent = count === state.pendingSharedImport.picks.length ? "Clear all" : "Select all";
@@ -2940,7 +3063,7 @@ function openSharedPicksImport(importData) {
   document.getElementById("importPicksSummary").textContent = `${importData.picks.length} ${importData.picks.length === 1 ? "pick" : "picks"} received. Review them before adding to My Matches.`;
   document.getElementById("importPicksFeedback").textContent = "";
   renderImportPickRows(importData);
-  renderImportTargetLists(importData.name);
+  prepareImportListName(importData.name);
   updateImportSelectionFromUi();
   const dialog = document.getElementById("importPicksDialog");
   if (dialog && !dialog.open) dialog.showModal();
@@ -2953,26 +3076,19 @@ function addImportedPicks() {
   const selectedPicks = importData.picks.filter((pick) => pick.selected);
   if (!selectedPicks.length) return;
 
-  const targetSelect = document.getElementById("importTargetList");
-  let targetId = targetSelect?.value || state.currentListId;
-  if (targetId === "__new__") {
-    const requestedName = document.getElementById("importNewListName")?.value?.trim() || importData.name || nextListName();
-    const id = `list-${Date.now()}`;
-    state.lists[id] = { id, name: requestedName.slice(0, 40), selected: {}, createdAt: Date.now() };
-    targetId = id;
-  }
-  const target = state.lists[targetId];
-  if (!target) return;
-
+  const requestedName = document.getElementById("importNewListName")?.value?.trim() || importData.name || "Shared picks";
+  const uniqueName = nextAvailableListName(requestedName);
+  const id = `list-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
+  state.lists[id] = { id, name: uniqueName, selected: {}, finishedAt: null };
   selectedPicks.forEach((pick) => {
     const fixture = pick.fixture;
-    target.selected[String(fixture.id)] = {
+    state.lists[id].selected[String(fixture.id)] = {
       condition: pick.condition,
       fixture,
-      addedAt: target.selected[String(fixture.id)]?.addedAt || Date.now(),
+      addedAt: Date.now(),
     };
   });
-  state.currentListId = targetId;
+  state.currentListId = id;
   saveSelected();
   state.pendingSharedImport = null;
   document.getElementById("importPicksDialog")?.close();
@@ -3136,7 +3252,11 @@ function bindEvents() {
     loadDate(state.selectedDate);
   });
   document.getElementById("fixtureSearch").addEventListener("input", (event) => { state.search = event.target.value; renderFixtures(); });
-  document.getElementById("showSelectedOnly").addEventListener("click", () => { state.selectedOnly = !state.selectedOnly; renderAll(); });
+  document.getElementById("showSelectedOnly").addEventListener("click", () => {
+    state.selectedOnly = !state.selectedOnly;
+    localStorage.setItem(`${STORAGE_PREFIX}fixture-selected-only`, String(state.selectedOnly));
+    renderAll();
+  });
   document.querySelectorAll("#fixtureStatusFilters [data-fixture-status]").forEach((button) => button.addEventListener("click", () => toggleFixtureStatusFilter(button.dataset.fixtureStatus)));
   document.getElementById("downloadFixturesCsv")?.addEventListener("click", downloadVisibleFixturesCsv);
   document.getElementById("downloadToolsFixturesCsv").addEventListener("click", () => downloadToolsCsv("fixtures").catch(showToolsExportError));
@@ -3311,6 +3431,7 @@ function bindEvents() {
     state.favouriteLeagues = [];
     state.showAllLeagues = false;
     localStorage.setItem(`${STORAGE_PREFIX}favourite-leagues`, "[]");
+    localStorage.setItem(`${STORAGE_PREFIX}show-all-leagues`, "false");
     renderAll();
   });
   document.getElementById("matchListTabs").addEventListener("click", (event) => {
@@ -3378,9 +3499,6 @@ function bindEvents() {
     state.pendingSharedImport = null;
     document.getElementById("importPicksDialog")?.close();
   });
-  document.getElementById("importTargetList")?.addEventListener("change", (event) => {
-    document.getElementById("importNewListRow").hidden = event.target.value !== "__new__";
-  });
   document.getElementById("importPicksList")?.addEventListener("change", (event) => {
     if (event.target.matches(".import-pick-checkbox")) updateImportSelectionFromUi();
   });
@@ -3393,6 +3511,33 @@ function bindEvents() {
     updateImportSelectionFromUi();
   });
   document.getElementById("addImportedPicks")?.addEventListener("click", addImportedPicks);
+  document.getElementById("importNewListName")?.addEventListener("input", updateImportSelectionFromUi);
+  document.getElementById("importNewListName")?.addEventListener("blur", (event) => {
+    const requested = event.target.value.trim();
+    if (!requested) return;
+    const unique = nextAvailableListName(requested);
+    if (unique !== requested) {
+      event.target.value = unique;
+      document.getElementById("importPicksFeedback").textContent = `That name already exists, so YorAkka changed it to “${unique}”.`;
+    }
+    updateImportSelectionFromUi();
+  });
+  document.getElementById("openArchive")?.addEventListener("click", openArchiveDialog);
+  document.getElementById("closeArchiveDialog")?.addEventListener("click", () => document.getElementById("archiveDialog")?.close());
+  document.getElementById("archiveDialog")?.addEventListener("click", (event) => {
+    if (event.target.id === "archiveDialog") event.currentTarget.close();
+  });
+  document.getElementById("clearArchive")?.addEventListener("click", () => {
+    if (!state.archive.length || !confirm("Clear the local YorAkka archive?")) return;
+    state.archive = [];
+    localStorage.setItem(`${STORAGE_PREFIX}archive`, "[]");
+    renderArchive();
+  });
+  document.getElementById("trackerCompactToggle")?.addEventListener("click", () => {
+    state.trackerCompact = !state.trackerCompact;
+    localStorage.setItem(`${STORAGE_PREFIX}tracker-compact`, String(state.trackerCompact));
+    renderTracker();
+  });
   document.getElementById("saveListImage").addEventListener("click", saveCurrentListImage);
   document.getElementById("clearTracker").addEventListener("click", () => document.getElementById("confirmDialog").showModal());
   document.getElementById("confirmDialog").addEventListener("close", (event) => {
@@ -3422,7 +3567,7 @@ async function start() {
   renderRefreshSettings();
   setInterval(countdownTick, 1000);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=4.09").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js?v=4.10").catch(() => {});
 }
 
 start();
